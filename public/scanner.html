@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Scanner - No Limit Events</title>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--pink:#FF0080;--green:#4ECDC4;--orange:#FF8C00;--red:#FF4444;--bg:#0D1117;--bg2:#141A22;--bg3:#1C2430;--white:#FFFFFF;--gray:#8892A0;--safe-top:env(safe-area-inset-top,44px);--safe-bottom:env(safe-area-inset-bottom,20px)}
+body{background:var(--bg);color:var(--white);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display',sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.05);opacity:.8}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scanLine{0%{top:10%}50%{top:85%}100%{top:10%}}
+@keyframes ripple{0%{transform:scale(1);opacity:.6}100%{transform:scale(2.5);opacity:0}}
+
+/* HEADER */
+#header{
+  background:rgba(13,17,23,.95);
+  backdrop-filter:blur(20px);
+  padding:calc(var(--safe-top) + 12px) 20px 12px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid rgba(255,0,128,.2);
+  flex-shrink:0;
+  z-index:10;
+}
+#logo-wrap{display:flex;align-items:center;gap:10px}
+#logo{width:36px;height:36px;object-fit:contain;animation:pulse 2s ease-in-out infinite;filter:drop-shadow(0 0 8px rgba(255,0,128,.6))}
+#header-info{}
+#header-title{font-size:14px;font-weight:800;color:var(--white);letter-spacing:.5px}
+#header-sub{font-size:11px;color:var(--gray);margin-top:1px}
+#back-btn{
+  background:rgba(255,255,255,.1);
+  border:1px solid rgba(255,255,255,.15);
+  color:var(--white);
+  width:38px;height:38px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:16px;
+  text-decoration:none;
+  flex-shrink:0;
+}
+
+/* COUNTER BAR */
+#counter-bar{
+  background:var(--bg2);
+  padding:10px 20px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid rgba(255,255,255,.06);
+  flex-shrink:0;
+}
+#counter-left{display:flex;align-items:center;gap:8px}
+#counter-icon{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.5s ease-in-out infinite}
+#counter-text{font-size:13px;color:var(--white);font-weight:700}
+#counter-pct{font-size:11px;color:var(--gray)}
+#progress-wrap{flex:1;margin:0 16px;height:4px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden}
+#progress-bar{height:100%;background:linear-gradient(90deg,var(--pink),#FF3399);border-radius:2px;transition:width .5s ease;width:0%}
+
+/* VIDEO */
+#video-screen{flex:1;position:relative;overflow:hidden}
+video{width:100%;height:100%;object-fit:cover;display:block}
+#scan-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+#scan-frame-wrap{position:relative;width:240px;height:240px}
+#scan-frame{
+  width:240px;height:240px;
+  border-radius:20px;
+  box-shadow:0 0 0 9999px rgba(0,0,0,.6);
+  position:relative;
+}
+/* Coins */
+#scan-frame::before,#scan-frame::after,
+#scan-frame-inner::before,#scan-frame-inner::after{
+  content:"";position:absolute;width:28px;height:28px;
+  border-color:var(--pink);border-style:solid;
+}
+#scan-frame::before{top:0;left:0;border-width:3px 0 0 3px;border-radius:6px 0 0 0}
+#scan-frame::after{top:0;right:0;border-width:3px 3px 0 0;border-radius:0 6px 0 0}
+#scan-frame-inner::before{bottom:0;left:0;border-width:0 0 3px 3px;border-radius:0 0 0 6px}
+#scan-frame-inner::after{bottom:0;right:0;border-width:0 3px 3px 0;border-radius:0 0 6px 0}
+#scan-line{
+  position:absolute;left:10px;right:10px;height:2px;
+  background:linear-gradient(90deg,transparent,var(--pink),transparent);
+  border-radius:1px;animation:scanLine 2s ease-in-out infinite;
+  box-shadow:0 0 8px var(--pink);
+}
+#scan-hint{
+  position:absolute;bottom:-40px;left:50%;transform:translateX(-50%);
+  font-size:13px;color:rgba(255,255,255,.8);font-weight:600;
+  white-space:nowrap;
+}
+
+/* ERROR SCREEN */
+#error-screen{display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;padding:30px;text-align:center}
+#error-screen .icon{font-size:50px;margin-bottom:16px}
+#error-screen .title{font-size:18px;font-weight:800;color:var(--red);margin-bottom:8px}
+#error-screen .desc{font-size:13px;color:var(--gray);margin-bottom:24px;line-height:1.5}
+.btn-primary{background:linear-gradient(135deg,var(--pink),#FF3399);color:var(--white);padding:14px 28px;border-radius:14px;font-weight:900;font-size:14px;cursor:pointer;border:none;width:100%;max-width:280px;letter-spacing:.5px}
+
+/* RESULT SCREEN */
+#result-screen{
+  display:none;position:absolute;inset:0;
+  background:var(--bg);
+  flex-direction:column;align-items:center;justify-content:center;
+  padding:30px;text-align:center;
+  animation:fadeIn .3s ease;
+  z-index:20;
+}
+#result-emoji{font-size:90px;margin-bottom:16px}
+#result-status{font-size:26px;font-weight:900;margin-bottom:16px;letter-spacing:.5px}
+#result-card{
+  background:var(--bg2);border-radius:16px;padding:20px;
+  width:100%;max-width:320px;margin-bottom:20px;
+  border:1px solid rgba(255,255,255,.08);
+}
+#result-event{font-size:16px;font-weight:800;color:var(--white);margin-bottom:4px}
+#result-owner{font-size:14px;color:var(--gray);margin-bottom:12px}
+#result-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 14px;border-radius:20px;
+  font-size:12px;font-weight:700;margin-bottom:8px;
+}
+#result-id{font-family:monospace;font-size:12px;color:var(--gray);margin-top:8px}
+#alert-box{
+  width:100%;max-width:320px;border-radius:12px;
+  padding:12px 16px;margin-bottom:16px;
+  font-size:13px;font-weight:700;
+  display:none;
+}
+#next-btn{
+  background:linear-gradient(135deg,var(--pink),#FF3399);
+  color:var(--white);padding:16px 0;border-radius:16px;
+  font-weight:900;font-size:15px;cursor:pointer;border:none;
+  width:100%;max-width:320px;
+  box-shadow:0 8px 30px rgba(255,0,128,.3);
+  letter-spacing:.5px;
+}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div id="logo-wrap">
+    <img id="logo" src="/logo.png" alt="No Limit Events" onerror="this.style.display='none'">
+    <div id="header-info">
+      <div id="header-title">NO LIMIT EVENTS</div>
+      <div id="header-sub">Scanner de billets</div>
+    </div>
+  </div>
+  <a id="back-btn" href="javascript:history.back()">←</a>
+</div>
+
+<div id="counter-bar">
+  <div id="counter-left">
+    <div id="counter-icon"></div>
+    <div id="counter-text">Chargement...</div>
+  </div>
+  <div id="progress-wrap"><div id="progress-bar"></div></div>
+  <div id="counter-pct">0%</div>
+</div>
+
+<div id="video-screen">
+  <video id="video" playsinline muted autoplay></video>
+  <canvas id="canvas" style="display:none"></canvas>
+  <div id="scan-overlay">
+    <div id="scan-frame-wrap">
+      <div id="scan-frame">
+        <div id="scan-frame-inner"></div>
+        <div id="scan-line"></div>
+      </div>
+      <div id="scan-hint">Centrez le QR code</div>
+    </div>
+  </div>
+</div>
+
+<div id="error-screen">
+  <div class="icon">📷</div>
+  <div class="title">Caméra non disponible</div>
+  <div class="desc">Allez dans Réglages → Safari → Caméra → Autoriser</div>
+  <button class="btn-primary" onclick="startCamera()">RÉESSAYER</button>
+</div>
+
+<div id="result-screen">
+  <div id="result-emoji"></div>
+  <div id="result-status"></div>
+  <div id="alert-box"></div>
+  <div id="result-card">
+    <div id="result-event"></div>
+    <div id="result-owner"></div>
+    <div id="result-badge"></div>
+    <div id="result-id"></div>
+  </div>
+  <button id="next-btn" onclick="nextScan()">📷 SCANNER SUIVANT</button>
+</div>
+
+<script>
+const SUPA_URL="https://eypfrylitsaplkqpyxsh.supabase.co";
+const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5cGZyeWxpdHNhcGxrcXB5eHNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4Mzg3MTMsImV4cCI6MjA5MzQxNDcxM30.Mo5cYeMahhmNwwHQId4Jc26BVgCSGAGiWapRWIHOK8s";
+
+const params=new URLSearchParams(window.location.search);
+const eventId=parseInt(params.get("event_id"));
+const eventTitle=decodeURIComponent(params.get("title")||"Soirée");
+
+let scanned=0,total=0;
+let usedIds=new Set();
+let scanning=true;
+let stream=null;
+let animFrame=null;
+
+document.getElementById("header-sub").textContent=eventTitle;
+
+async function supaGet(path){
+  const r=await fetch(SUPA_URL+"/rest/v1/"+path,{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});
+  return r.json();
+}
+async function supaPatch(path,body){
+  await fetch(SUPA_URL+"/rest/v1/"+path,{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify(body)});
+}
+
+function updateCounter(){
+  const pct=total>0?Math.round(scanned/total*100):0;
+  document.getElementById("counter-text").textContent="Scannés: "+scanned+" / "+total;
+  document.getElementById("counter-pct").textContent=pct+"%";
+  document.getElementById("progress-bar").style.width=pct+"%";
+}
+
+async function init(){
+  try{
+    const tickets=await supaGet("tickets?event_id=eq."+eventId+"&select=id,status");
+    total=tickets.length;
+    tickets.filter(t=>t.status==="used").forEach(t=>usedIds.add(t.id));
+    scanned=usedIds.size;
+    updateCounter();
+  }catch(e){}
+  startCamera();
+}
+
+async function startCamera(){
+  document.getElementById("error-screen").style.display="none";
+  document.getElementById("video-screen").style.display="block";
+  try{
+    if(stream) stream.getTracks().forEach(t=>t.stop());
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1920},height:{ideal:1080}}});
+    const v=document.getElementById("video");
+    v.srcObject=stream;
+    await v.play();
+    scanning=true;
+    scanLoop();
+  }catch(e){
+    document.getElementById("video-screen").style.display="none";
+    document.getElementById("error-screen").style.display="flex";
+  }
+}
+
+function scanLoop(){
+  if(!scanning){return;}
+  const v=document.getElementById("video");
+  const c=document.getElementById("canvas");
+  if(v.readyState>=2&&v.videoWidth>0){
+    c.width=v.videoWidth;c.height=v.videoHeight;
+    const ctx=c.getContext("2d");
+    ctx.drawImage(v,0,0);
+    const img=ctx.getImageData(0,0,c.width,c.height);
+    const code=jsQR(img.data,img.width,img.height,{inversionAttempts:"attemptBoth"});
+    if(code&&code.data){
+      scanning=false;
+      if(stream) stream.getTracks().forEach(t=>t.stop());
+      processCode(code.data);
+      return;
+    }
+  }
+  animFrame=requestAnimationFrame(scanLoop);
+}
+
+async function processCode(id){
+  try{
+    const check=await supaGet("tickets?id=eq."+encodeURIComponent(id)+"&select=id,status,event_id,event,owner");
+    const ticket=check&&check[0];
+    const now=new Date();
+    const scanTime=now.toLocaleTimeString("fr-CH");
+    const scanDate=now.toLocaleDateString("fr-CH");
+
+    if(!ticket){
+      showResult("❌","BILLET INVALIDE","var(--red)",id,null,"invalid",null);
+    } else if(ticket.status==="used"||usedIds.has(id)){
+      showResult("🚫","DÉJÀ UTILISÉ","var(--orange)",id,ticket,"used",null);
+    } else if(ticket.event_id!==eventId){
+      showResult("⛔","MAUVAISE SOIRÉE","var(--red)",id,ticket,"wrong",null);
+    } else {
+      await supaPatch("tickets?id=eq."+encodeURIComponent(id),{status:"used",note:"Scanne le "+scanDate+" a "+scanTime});
+      usedIds.add(id);scanned++;updateCounter();
+      showResult("✅","BILLET VALIDE","var(--green)",id,ticket,"valid",scanTime);
+    }
+  }catch(e){
+    showResult("❌","ERREUR RÉSEAU","var(--red)",id,null,"invalid",null);
+  }
+}
+
+function showResult(emoji,status,color,id,ticket,type,scanTime){
+  const rs=document.getElementById("result-screen");
+  rs.style.display="flex";
+
+  document.getElementById("result-emoji").textContent=emoji;
+  document.getElementById("result-status").textContent=status;
+  document.getElementById("result-status").style.color=color;
+  document.getElementById("result-id").textContent=id;
+
+  const card=document.getElementById("result-card");
+  const alert=document.getElementById("alert-box");
+  const badge=document.getElementById("result-badge");
+
+  alert.style.display="none";
+  badge.style.display="none";
+
+  if(ticket&&ticket.event){document.getElementById("result-event").textContent=ticket.event;}
+  else{document.getElementById("result-event").textContent="";}
+  if(ticket&&ticket.owner){document.getElementById("result-owner").textContent=ticket.owner;}
+  else{document.getElementById("result-owner").textContent="";}
+
+  if(type==="valid"){
+    card.style.border="1px solid var(--green)";
+    badge.style.display="inline-flex";
+    badge.style.background="rgba(78,205,196,.15)";
+    badge.style.color="var(--green)";
+    badge.style.border="1px solid var(--green)";
+    badge.textContent="✓ Scanné à "+scanTime;
+  } else if(type==="used"){
+    card.style.border="1px solid var(--orange)";
+    alert.style.display="block";
+    alert.style.background="rgba(255,140,0,.15)";
+    alert.style.border="1px solid var(--orange)";
+    alert.style.color="var(--orange)";
+    alert.textContent="⚠️ Tentative de fraude détectée";
+  } else if(type==="wrong"){
+    card.style.border="1px solid var(--red)";
+    alert.style.display="block";
+    alert.style.background="rgba(255,68,68,.15)";
+    alert.style.border="1px solid var(--red)";
+    alert.style.color="var(--red)";
+    alert.textContent="Billet prévu pour: "+(ticket?ticket.event:"une autre soirée");
+  } else {
+    card.style.border="1px solid rgba(255,255,255,.08)";
+  }
+}
+
+function nextScan(){
+  document.getElementById("result-screen").style.display="none";
+  document.getElementById("result-event").textContent="";
+  document.getElementById("result-owner").textContent="";
+  document.getElementById("result-id").textContent="";
+  document.getElementById("result-badge").style.display="none";
+  document.getElementById("alert-box").style.display="none";
+  document.getElementById("result-card").style.border="1px solid rgba(255,255,255,.08)";
+  startCamera();
+}
+
+init();
+</script>
+</body>
+</html>
