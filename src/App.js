@@ -1287,7 +1287,8 @@ export default function App(){
                   )}
                 </div>
               )}
-              {tab==="agenda"&&(
+              {tab==="agenda"&&React.createElement(GroupsScreen,{authUser:authUser,supabase:supabase})}
+              {tab==="agenda_old"&&(
                 <div className="scroll" style={{padding:"20px"}}>
                   <div style={{fontSize:22,fontWeight:900,color:WHITE,marginBottom:20}}>Agenda</div>
                   <CalendarWidget events={events}/>
