@@ -957,7 +957,7 @@ export default function App(){
   const totalSold=events.reduce((s,e)=>s+e.ticketsSold,0);
   const totalCap=events.reduce((s,e)=>s+e.capacity,0);
   const freeCount=tickets.filter(t=>t.type==="free").length;
-  const myTickets=tickets.filter(t=>t.email==="jean@example.ch");
+  const myTickets=authUser?tickets.filter(t=>t.email&&authUser.email&&t.email.toLowerCase()===authUser.email.toLowerCase()):[];
   const filters=["Tous","Hip-Hop","Electronic","Festival","VIP"];
   const mN2={"JANV":0,"FÉV":1,"MARS":2,"AVRIL":3,"MAI":4,"JUIN":5,"JUIL":6,"AOÛT":7,"SEPT":8,"OCT":9,"NOV":10,"DÉC":11};
   const getD=(ev)=>{const p=ev.date.split(" ");return new Date(parseInt(p[3]),mN2[p[2]]||0,parseInt(p[1]));};
