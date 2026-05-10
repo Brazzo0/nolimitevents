@@ -82,6 +82,8 @@ const dbSaveTicket=async(t)=>{
   try{await supabase.from("tickets").insert({id:t.id,event_id:t.eventId,event:t.event,date:t.date,location:t.location,time:t.time,owner:t.owner,email:t.email,type:t.type,price:t.price,status:t.status,note:t.note||null});}catch{}
 };
 
+const dbDeleteTicket=async(id)=>{try{await supabase.from("tickets").delete().eq("id",id);}catch{}};
+
 const dbSaveSignup=async(f)=>{
   try{await supabase.from("signups").upsert({prenom:f.prenom,nom:f.nom,email:f.email,tel:f.tel||null});}catch{}
 };
@@ -109,6 +111,8 @@ const Icon=({n,s=22,c=GRAY,fill="none",sw=2.2})=>{
     logout:<svg {...p}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
     eye:<svg {...p}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
     back:<svg {...p}><polyline points="15 18 9 12 15 6"/></svg>,
+    trophy:<svg {...p}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>,
+    search:<svg {...p}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   };
   return icons[n]||null;
 };
@@ -357,20 +361,27 @@ function CalendarWidget({events}){
 }
 
 
-function TicketsScreen({tickets,events,user}){
+function TicketsScreen({tickets,events,user,loading}){
   const [tab,setTab]=useState(0);
   const tabs=["À venir","Passés","Tous"];
   const now=new Date();
   const myTickets=user?tickets.filter(t=>t.email&&user.email&&t.email.toLowerCase()===user.email.toLowerCase()):[];
+  const parseFrDate=(s)=>{if(!s)return null;const mn={"JANV":0,"FÉV":1,"MARS":2,"AVRIL":3,"MAI":4,"JUIN":5,"JUIL":6,"AOÛT":7,"SEPT":8,"OCT":9,"NOV":10,"DÉC":11,"janvier":0,"février":1,"mars":2,"avril":3,"mai":4,"juin":5,"juillet":6,"août":7,"septembre":8,"octobre":9,"novembre":10,"décembre":11};const p=s.split(" ");if(p.length>=4){const m=mn[p[2]];if(m!==undefined)return new Date(parseInt(p[3]),m,parseInt(p[1]));}if(p.length===3){const m=mn[p[1]];if(m!==undefined)return new Date(parseInt(p[2]),m,parseInt(p[0]));}return new Date(s);};
   const filtered=myTickets.filter(t=>{
     const ev=events.find(e=>e.id===t.eventId);
-    const d=ev?new Date(ev.date):null;
+    const d=ev?parseFrDate(ev.date):null;
     if(tab===0)return t.status!=="cancelled"&&(!d||d>=now);
     if(tab===1)return t.status!=="cancelled"&&d&&d<now;
     return true;
   });
   const statusColor={valid:"#00E676",used:"#888",cancelled:"#FF4444"};
   const statusLabel={valid:"✓ Valide",used:"Utilisé",cancelled:"Annulé"};
+  if(loading)return(
+    <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14}}>
+      <div style={{width:36,height:36,border:"3px solid rgba(255,0,128,.2)",borderTop:"3px solid #FF0080",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+      <div style={{fontSize:13,color:"#8892A0"}}>Chargement des billets...</div>
+    </div>
+  );
   if(!user)return(
     <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"60px 20px",gap:16}}>
       <div style={{fontSize:52}}>🔐</div>
@@ -425,36 +436,60 @@ function TicketsScreen({tickets,events,user}){
 
 function GroupsScreen({authUser,supabase}){
   const [groups,setGroups]=useState([]);
+  const [loadingGroups,setLoadingGroups]=useState(true);
   const [showCreate,setShowCreate]=useState(false);
   const [newName,setNewName]=useState("");
   const [newEmoji,setNewEmoji]=useState("🔥");
   const [creating,setCreating]=useState(false);
   const [copied,setCopied]=useState(null);
-  const EMOJIS=["🦁","🔥","🌙","🎉","⚡","👑","💎","🚀","🎯","💫"];
+  const [refCopied,setRefCopied]=useState(false);
+  const [pseudoSearch,setPseudoSearch]=useState("");
+  const [pseudoResults,setPseudoResults]=useState([]);
+  const [searchLoading,setSearchLoading]=useState(false);
+  const [inviteModal,setInviteModal]=useState(null);
+  const [inviting,setInviting]=useState(false);
+  const EMOJIS=["🔥","👑","💎","⚡","🚀","🎯","🦁","🌙","🎉","💫","🏆","❤️"];
+  const GROUP_COLORS=["linear-gradient(135deg,#FF0080,#FF3399)","linear-gradient(135deg,#7B2FFF,#9B59B6)","linear-gradient(135deg,#00C853,#4ECDC4)","linear-gradient(135deg,#FF6B35,#F7931E)","linear-gradient(135deg,#0099FF,#00D4FF)","linear-gradient(135deg,#FF0080,#7B2FFF)"];
 
   useEffect(()=>{
     if(!authUser)return;
-    supabase.from("group_members").select("group_id,groups(id,name,emoji)").eq("user_id",authUser.id).then(({data})=>{
-      if(data)setGroups(data.map(d=>d.groups).filter(Boolean));
+    setLoadingGroups(true);
+    supabase.from("group_members").select("group_id,groups(id,name,emoji,owner_id)").eq("user_id",authUser.id).then(async({data})=>{
+      if(data){
+        const gs=data.map(d=>d.groups).filter(Boolean);
+        const withCounts=await Promise.all(gs.map(async g=>{
+          const{count}=await supabase.from("group_members").select("*",{count:"exact",head:true}).eq("group_id",g.id);
+          return{...g,member_count:count||1};
+        }));
+        setGroups(withCounts);
+      }
+      setLoadingGroups(false);
     });
   },[authUser]);
 
-  async function fetchGroups(){
-    setLoading(true);
-    const{data}=await supabase.from("group_members").select("group_id,groups(id,name,emoji,owner_id)").eq("user_id",authUser.id);
-    if(data){
-      const gs=data.map(d=>d.groups).filter(Boolean);
-      const withCounts=await Promise.all(gs.map(async g=>{
-        const{count}=await supabase.from("group_members").select("*",{count:"exact",head:true}).eq("group_id",g.id);
-        return{...g,member_count:count||1};
-      }));
-      setGroups(withCounts);
-    }
-    setLoading(false);
-  }
+  useEffect(()=>{
+    if(!pseudoSearch.trim()||pseudoSearch.length<2){setPseudoResults([]);return;}
+    setSearchLoading(true);
+    const t=setTimeout(async()=>{
+      const{data}=await supabase.from("profiles").select("id,pseudo").ilike("pseudo",`%${pseudoSearch}%`).neq("id",authUser?.id||"").limit(8);
+      setPseudoResults(data||[]);
+      setSearchLoading(false);
+    },350);
+    return()=>clearTimeout(t);
+  },[pseudoSearch]);
 
+  const inviteToGroup=async(profileId,groupId)=>{
+    setInviting(true);
+    const{error}=await supabase.from("group_members").insert({group_id:groupId,user_id:profileId,role:"member"});
+    if(!error){setPseudoSearch("");setPseudoResults([]);setInviteModal(null);}
+    setInviting(false);
+  };
 
-
+  const copyRefLink=()=>{
+    if(!authUser)return;
+    navigator.clipboard.writeText(`https://nolimitevents.vercel.app/?ref=${authUser.id}`);
+    setRefCopied(true);setTimeout(()=>setRefCopied(false),2500);
+  };
 
   const createGroup=async()=>{
     if(!newName.trim()||!authUser)return;
@@ -462,86 +497,220 @@ function GroupsScreen({authUser,supabase}){
     const{data,error}=await supabase.from("groups").insert({name:newName.trim(),emoji:newEmoji,owner_id:authUser.id}).select().single();
     if(!error&&data){
       await supabase.from("group_members").insert({group_id:data.id,user_id:authUser.id,role:"owner"});
-      setGroups(p=>[...p,data]);
-      setNewName("");setShowCreate(false);
+      setGroups(p=>[...p,{...data,member_count:1}]);
+      setNewName("");setNewEmoji("🔥");setShowCreate(false);
     }
     setCreating(false);
   };
 
   const copyInvite=(g)=>{
     navigator.clipboard.writeText("https://nolimitevents.vercel.app/join/"+g.id);
-    setCopied(g.id);setTimeout(()=>setCopied(null),2000);
+    setCopied(g.id);setTimeout(()=>setCopied(null),2500);
   };
 
+  const getColor=(id)=>GROUP_COLORS[(id||0)%GROUP_COLORS.length];
+
   return(
-    <div style={{position:"fixed",inset:0,background:"linear-gradient(160deg,#1a0a2e 0%,#0D0D0D 40%,#1a0010 100%)",zIndex:100,display:"flex",flexDirection:"column"}}>
-      <div style={{margin:"50px 16px 16px",background:"linear-gradient(135deg,#7B2FFF,#FF0080)",borderRadius:24,padding:"20px",display:"flex",alignItems:"center",justifyContent:"space-between",boxShadow:"0 8px 30px rgba(123,47,255,0.4)",flexShrink:0}}>
-        <div>
-          <div style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.7)",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>MES GROUPES</div>
-          <div style={{fontSize:22,fontWeight:800,color:"#fff"}}>{groups.length===0?"Crée ton premier groupe":groups.length+" groupe"+(groups.length>1?"s":"")}</div>
+    <div style={{position:"fixed",inset:0,background:BG,zIndex:100,display:"flex",flexDirection:"column"}}>
+      <style>{`@keyframes floatUp{0%{transform:translateY(0) scale(1);opacity:.5}50%{transform:translateY(-18px) scale(1.08);opacity:.25}100%{transform:translateY(0) scale(1);opacity:.5}}`}</style>
+
+      {/* Header */}
+      <div style={{flexShrink:0,paddingTop:"env(safe-area-inset-top,20px)",background:"linear-gradient(180deg,rgba(123,47,255,.18) 0%,transparent 100%)"}}>
+        <div style={{padding:"14px 16px 10px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div>
+            <div style={{fontSize:11,fontWeight:800,color:"rgba(255,255,255,.4)",letterSpacing:2,textTransform:"uppercase",marginBottom:3}}>Mes Groupes</div>
+            <div style={{fontSize:22,fontWeight:900,color:WHITE}}>{loadingGroups?"...":groups.length===0?"Aucun groupe":groups.length+" groupe"+(groups.length>1?"s":"")}</div>
+          </div>
+          <div onClick={()=>setShowCreate(true)} style={{width:46,height:46,borderRadius:14,background:GRAD,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",boxShadow:"0 4px 18px rgba(255,0,128,.4)"}}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={WHITE} strokeWidth="2.8" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </div>
         </div>
-        <div onClick={()=>setShowCreate(true)} style={{width:48,height:48,borderRadius:14,background:"rgba(255,255,255,0.95)",fontSize:24,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#7B2FFF",fontWeight:700}}>＋</div>
       </div>
-      <div style={{flex:1,overflowY:"auto",padding:"0 16px 100px"}}>
-        {groups.length===0?(
-          <div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"40px 16px",gap:20}}>
-            <div style={{display:"flex",flexWrap:"wrap",gap:12,justifyContent:"center"}}>
-              {["🦁","🔥","🌙","🎉","⚡"].map((e,i)=>(
-                <div key={i} style={{width:64,height:64,borderRadius:"50%",background:"rgba(255,255,255,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30}}>{e}</div>
+
+      {/* Contenu */}
+      <div style={{flex:1,overflowY:"auto",padding:"4px 16px 90px"}}>
+
+        {/* Carte parrainage */}
+        <div style={{background:"linear-gradient(135deg,rgba(123,47,255,.2),rgba(255,0,128,.15))",borderRadius:18,padding:"14px 16px",marginBottom:14,border:"1px solid rgba(123,47,255,.3)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+            <div style={{fontSize:20}}>🎁</div>
+            <div>
+              <div style={{fontSize:13,fontWeight:900,color:WHITE}}>Parraine un ami</div>
+              <div style={{fontSize:11,color:GRAY}}>+50 points pour toi quand il s'inscrit</div>
+            </div>
+          </div>
+          <div onClick={copyRefLink} style={{padding:"10px 14px",borderRadius:12,background:refCopied?"rgba(78,205,196,.15)":"rgba(255,255,255,.07)",border:refCopied?`1px solid ${GREEN}`:`1px solid ${BORDER}`,display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",transition:"all .3s"}}>
+            <div style={{fontSize:11,color:refCopied?GREEN:GRAY,fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>nolimitevents.vercel.app/?ref=...</div>
+            <div style={{fontSize:11,fontWeight:800,color:refCopied?GREEN:PINK,flexShrink:0,marginLeft:8,display:"flex",alignItems:"center",gap:4}}>
+              {refCopied?<><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={GREEN} strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>Copié!</>:<><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={PINK} strokeWidth="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copier</>}
+            </div>
+          </div>
+        </div>
+
+        {/* Recherche par pseudo */}
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:11,fontWeight:800,color:GRAY,letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>Trouver un ami par pseudo</div>
+          <div style={{position:"relative"}}>
+            <div style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",zIndex:1}}><Icon n="search" s={14} c={GRAY}/></div>
+            <input
+              style={{width:"100%",padding:"11px 12px 11px 36px",background:BG2,border:`1.5px solid ${pseudoSearch?PINK:BORDER}`,borderRadius:14,color:WHITE,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit",transition:"border-color .2s"}}
+              placeholder="Tape un pseudo..."
+              value={pseudoSearch}
+              onChange={e=>setPseudoSearch(e.target.value)}
+            />
+            {searchLoading&&<div style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)"}}><div style={{width:14,height:14,border:"2px solid rgba(255,0,128,.2)",borderTop:"2px solid #FF0080",borderRadius:"50%",animation:"spin .7s linear infinite"}}/></div>}
+            {pseudoSearch&&!searchLoading&&<div onClick={()=>{setPseudoSearch("");setPseudoResults([]);}} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",color:GRAY,cursor:"pointer",fontSize:16}}>×</div>}
+          </div>
+          {pseudoResults.length>0&&(
+            <div style={{background:BG2,borderRadius:14,border:`1px solid ${BORDER}`,marginTop:6,overflow:"hidden"}}>
+              {pseudoResults.map((p,i)=>(
+                <div key={p.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",borderBottom:i<pseudoResults.length-1?`1px solid ${BORDER}`:"none"}}>
+                  <div style={{width:36,height:36,borderRadius:10,background:GRAD,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:900,color:WHITE,flexShrink:0}}>
+                    {(p.pseudo||"?")[0].toUpperCase()}
+                  </div>
+                  <div style={{flex:1,fontWeight:700,color:WHITE,fontSize:13}}>@{p.pseudo}</div>
+                  {groups.length>0?(
+                    <div onClick={()=>setInviteModal(p)} style={{padding:"7px 12px",background:"rgba(255,0,128,.15)",border:`1px solid rgba(255,0,128,.3)`,borderRadius:10,fontSize:11,fontWeight:800,color:PINK,cursor:"pointer"}}>Inviter</div>
+                  ):(
+                    <div style={{fontSize:10,color:GRAY}}>Crée un groupe d'abord</div>
+                  )}
+                </div>
               ))}
             </div>
-            <div style={{textAlign:"center"}}>
-              <div style={{fontSize:20,fontWeight:800,color:"#fff",marginBottom:8}}>Crée ton premier groupe</div>
-              <div style={{fontSize:13,color:"rgba(255,255,255,0.6)",lineHeight:1.6}}>Invite tes amis pour synchroniser vos events et cumuler des points ensemble.</div>
+          )}
+          {pseudoSearch.length>=2&&!searchLoading&&pseudoResults.length===0&&(
+            <div style={{textAlign:"center",padding:"12px 0",fontSize:12,color:GRAY}}>Aucun pseudo trouvé</div>
+          )}
+        </div>
+
+        {/* Groupes */}
+        {loadingGroups?(
+          <div style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"40px 0"}}>
+            <div style={{width:32,height:32,border:"3px solid rgba(255,0,128,.2)",borderTop:"3px solid #FF0080",borderRadius:"50%",animation:"spin .8s linear infinite"}}/>
+          </div>
+        ):groups.length===0?(
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"20px 16px",gap:0}}>
+            <div style={{position:"relative",width:160,height:130,marginBottom:20}}>
+              {[["🔥",0,20,8],["👑",110,10,6.5],["💎",50,75,7],["⚡",130,70,5.5],["🚀",-10,60,6]].map(([e,x,y,s],i)=>(
+                <div key={i} style={{position:"absolute",left:x,top:y,fontSize:s*4,animation:`floatUp ${2.2+i*.4}s ${i*.3}s ease-in-out infinite`,filter:"drop-shadow(0 4px 12px rgba(255,0,128,.3))"}}>{e}</div>
+              ))}
             </div>
-            <div onClick={()=>setShowCreate(true)} style={{width:"100%",padding:"16px 0",borderRadius:30,background:"linear-gradient(135deg,#FF0080,#FF3399)",textAlign:"center",fontWeight:700,fontSize:17,color:"#fff",cursor:"pointer"}}>+ Créer un groupe</div>
+            <div style={{fontSize:18,fontWeight:900,color:WHITE,marginBottom:8,textAlign:"center"}}>Crée ton premier groupe</div>
+            <div style={{fontSize:12,color:GRAY,lineHeight:1.7,textAlign:"center",marginBottom:22,maxWidth:260}}>Invite tes amis, synchronisez vos soirées et cumulez des points ensemble.</div>
+            <div onClick={()=>setShowCreate(true)} style={{width:"100%",padding:"15px 0",borderRadius:16,background:GRAD,textAlign:"center",fontWeight:900,fontSize:14,color:WHITE,cursor:"pointer",boxShadow:"0 6px 24px rgba(255,0,128,.35)"}}>CRÉER UN GROUPE</div>
           </div>
         ):(
-          <div>
-            {groups.map(g=>(
-              <div key={g.id} style={{display:"flex",alignItems:"center",gap:14,background:"rgba(255,255,255,0.08)",borderRadius:20,padding:"16px",marginBottom:12,border:"1px solid rgba(255,255,255,0.1)"}}>
-                <div style={{width:52,height:52,borderRadius:"50%",background:"rgba(255,255,255,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,flexShrink:0}}>{g.emoji||"👥"}</div>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:16,fontWeight:700,color:"#fff"}}>{g.name}</div>
-                </div>
-                <div onClick={()=>copyInvite(g)} style={{padding:"8px 14px",background:copied===g.id?"#00C853":"linear-gradient(135deg,#FF0080,#FF3399)",color:"#fff",borderRadius:12,fontSize:12,fontWeight:700,cursor:"pointer"}}>
-                  {copied===g.id?"✓ Copié !":"Inviter"}
+          <div style={{paddingTop:4}}>
+            <div style={{fontSize:11,fontWeight:800,color:GRAY,letterSpacing:1.5,textTransform:"uppercase",marginBottom:10}}>Mes groupes</div>
+            {groups.map((g,i)=>(
+              <div key={g.id} style={{borderRadius:20,marginBottom:12,overflow:"hidden",border:"1px solid rgba(255,255,255,.07)",animation:`slideUp .4s ${i*.08}s both`}}>
+                <div style={{height:4,background:getColor(g.id)}}/>
+                <div style={{background:BG2,padding:"14px 16px",display:"flex",alignItems:"center",gap:14}}>
+                  <div style={{width:52,height:52,borderRadius:16,background:getColor(g.id),display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,flexShrink:0,boxShadow:"0 4px 14px rgba(0,0,0,.3)"}}>{g.emoji||"👥"}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:15,fontWeight:800,color:WHITE,marginBottom:3}}>{g.name}</div>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <div style={{width:6,height:6,borderRadius:"50%",background:GREEN}}/>
+                      <div style={{fontSize:11,color:GRAY}}>{g.member_count||1} membre{(g.member_count||1)>1?"s":""}</div>
+                    </div>
+                  </div>
+                  <div onClick={()=>copyInvite(g)} style={{padding:"9px 12px",background:copied===g.id?"rgba(78,205,196,.15)":GRAD,border:copied===g.id?`1px solid ${GREEN}`:"none",color:copied===g.id?GREEN:WHITE,borderRadius:12,fontSize:11,fontWeight:800,cursor:"pointer",transition:"all .3s",flexShrink:0,display:"flex",alignItems:"center",gap:5}}>
+                    {copied===g.id?<><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={GREEN} strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>Copié</>:<><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={WHITE} strokeWidth="2.5"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>Inviter</>}
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
-      <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#141A22",borderTop:"1px solid #1E2A38",paddingTop:8,paddingBottom:20,display:"flex",zIndex:200}}>
+
+      {/* Modal inviter dans un groupe */}
+      {inviteModal&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.88)",zIndex:350,display:"flex",alignItems:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setInviteModal(null);}}>
+          <div style={{width:"100%",background:BG2,borderRadius:"24px 24px 0 0",padding:"8px 20px 40px",animation:"slideUp .3s both",border:`1px solid ${BORDER}`,borderBottom:"none"}}>
+            <div style={{width:36,height:4,background:BORDER,borderRadius:4,margin:"12px auto 16px"}}/>
+            <div style={{fontSize:16,fontWeight:900,color:WHITE,marginBottom:4}}>Inviter @{inviteModal.pseudo}</div>
+            <div style={{fontSize:12,color:GRAY,marginBottom:16}}>Dans quel groupe ?</div>
+            {groups.map(g=>(
+              <div key={g.id} onClick={()=>!inviting&&inviteToGroup(inviteModal.id,g.id)} style={{display:"flex",alignItems:"center",gap:12,padding:"13px 14px",background:BG3,borderRadius:14,marginBottom:8,cursor:"pointer",border:`1px solid ${BORDER}`}}>
+                <div style={{width:40,height:40,borderRadius:12,background:getColor(g.id),display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{g.emoji||"👥"}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:800,color:WHITE}}>{g.name}</div>
+                  <div style={{fontSize:11,color:GRAY}}>{g.member_count||1} membre{(g.member_count||1)>1?"s":""}</div>
+                </div>
+                {inviting?<div style={{width:16,height:16,border:"2px solid rgba(255,0,128,.3)",borderTop:"2px solid #FF0080",borderRadius:"50%",animation:"spin .7s linear infinite"}}/>:<Icon n="back" s={14} c={GRAY}/>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* NavBar */}
+      <div style={{position:"fixed",bottom:0,left:0,right:0,background:BG2,borderTop:`1px solid ${BORDER}`,paddingTop:8,paddingBottom:"env(safe-area-inset-bottom,8px)",display:"flex",zIndex:200}}>
         {[["home","Accueil","home"],["events","Events","calendar"],["tickets","Billets","ticket"],["agenda","Groupes","users"],["profil","Profil","users"]].map(([s,label,ico])=>(
           <div key={s} onClick={()=>{if(s==="agenda"){}else if(s==="events"){window.dispatchEvent(new CustomEvent("navigate",{detail:"events"}));}else if(s==="tickets"){window.dispatchEvent(new CustomEvent("navigate",{detail:"tickets"}));}else if(s==="profil"){window.dispatchEvent(new CustomEvent("navigate",{detail:"profil"}));}else{window.dispatchEvent(new CustomEvent("navigate",{detail:s}));}}} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",padding:"4px 0"}}>
-            <Icon n={ico} s={20} c={s==="agenda"?"#FF0080":"#8892A0"}/>
-            <span style={{fontSize:9,fontWeight:700,color:s==="agenda"?"#FF0080":"#8892A0"}}>{label}</span>
-            {s==="agenda"&&<div style={{width:16,height:2.5,borderRadius:2,background:"linear-gradient(135deg,#FF0080,#FF3399)"}}/>}
+            <div style={{width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",borderRadius:8,background:s==="agenda"?"rgba(255,0,128,.15)":"transparent"}}>
+              <Icon n={ico} s={20} c={s==="agenda"?PINK:GRAY}/>
+            </div>
+            <span style={{fontSize:9,fontWeight:700,color:s==="agenda"?PINK:GRAY}}>{label}</span>
+            {s==="agenda"&&<div style={{width:16,height:2.5,borderRadius:2,background:GRAD}}/>}
           </div>
         ))}
       </div>
+
+      {/* Modal créer groupe */}
       {showCreate&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-          <div style={{width:"100%",maxWidth:420,background:"#141414",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",display:"flex",flexDirection:"column",gap:16}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <span style={{fontSize:18,fontWeight:800,color:"#fff"}}>Créer un groupe</span>
-              <div onClick={()=>setShowCreate(false)} style={{background:"#222",color:"#888",width:32,height:32,borderRadius:"50%",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>✕</div>
-            </div>
-            <div>
-              <div style={{fontSize:13,color:"#888",marginBottom:10}}>Icône</div>
-              <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-                {EMOJIS.map(e=>(
-                  <div key={e} onClick={()=>setNewEmoji(e)} style={{width:46,height:46,borderRadius:12,fontSize:24,background:newEmoji===e?"rgba(255,0,128,0.2)":"#222",border:"2px solid "+(newEmoji===e?"#FF0080":"transparent"),cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{e}</div>
-                ))}
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.88)",zIndex:300,display:"flex",alignItems:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget){setShowCreate(false);setNewName("");setNewEmoji("🔥");}}}>
+          <div style={{width:"100%",background:BG2,borderRadius:"24px 24px 0 0",padding:"8px 20px 40px",animation:"slideUp .35s both",border:`1px solid ${BORDER}`,borderBottom:"none"}}>
+            <div style={{width:36,height:4,background:BORDER,borderRadius:4,margin:"12px auto 20px"}}/>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <span style={{fontSize:18,fontWeight:900,color:WHITE}}>Nouveau groupe</span>
+              <div onClick={()=>{setShowCreate(false);setNewName("");setNewEmoji("🔥");}} style={{width:32,height:32,borderRadius:"50%",background:BG3,border:`1px solid ${BORDER}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={GRAY} strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </div>
             </div>
-            <div>
-              <div style={{fontSize:13,color:"#888",marginBottom:8}}>Nom du groupe</div>
-              <input style={{width:"100%",padding:"14px",background:"#222",border:"1px solid #333",borderRadius:12,color:"#fff",fontSize:15,outline:"none",boxSizing:"border-box"}} placeholder="Ex: La team Eden 🔥" value={newName} onChange={e=>setNewName(e.target.value)} maxLength={30}/>
+
+            {/* Aperçu */}
+            {newName.trim()&&(
+              <div style={{background:BG3,borderRadius:16,padding:"12px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:12,border:`1px solid ${BORDER}`,animation:"slideUp .2s both"}}>
+                <div style={{width:42,height:42,borderRadius:12,background:GRAD,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>{newEmoji}</div>
+                <div>
+                  <div style={{fontSize:14,fontWeight:800,color:WHITE}}>{newName}</div>
+                  <div style={{fontSize:11,color:GRAY}}>1 membre · Toi</div>
+                </div>
+              </div>
+            )}
+
+            {/* Choix emoji */}
+            <div style={{fontSize:12,fontWeight:700,color:GRAY,marginBottom:10,textTransform:"uppercase",letterSpacing:1}}>Icône du groupe</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:18}}>
+              {EMOJIS.map(e=>(
+                <div key={e} onClick={()=>setNewEmoji(e)} style={{width:46,height:46,borderRadius:12,fontSize:22,background:newEmoji===e?"rgba(255,0,128,.18)":BG3,border:`2px solid ${newEmoji===e?PINK:"transparent"}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all .2s",transform:newEmoji===e?"scale(1.1)":"scale(1)"}}>
+                  {e}
+                </div>
+              ))}
             </div>
-            <div onClick={createGroup} style={{padding:"14px",background:newName.trim()&&!creating?"linear-gradient(135deg,#FF0080,#FF3399)":"#333",color:"#fff",borderRadius:16,fontSize:15,fontWeight:700,cursor:"pointer",textAlign:"center",opacity:newName.trim()&&!creating?1:0.5}}>
-              {creating?"Création...":"Créer "+newEmoji+" "+newName}
+
+            {/* Nom */}
+            <div style={{fontSize:12,fontWeight:700,color:GRAY,marginBottom:8,textTransform:"uppercase",letterSpacing:1}}>Nom du groupe</div>
+            <input
+              style={{width:"100%",padding:"14px 16px",background:BG3,border:`1.5px solid ${newName.trim()?PINK:BORDER}`,borderRadius:14,color:WHITE,fontSize:15,outline:"none",boxSizing:"border-box",transition:"border-color .2s",fontFamily:"inherit"}}
+              placeholder="Ex: La team Eden, Crew Nolimit..."
+              value={newName}
+              onChange={e=>setNewName(e.target.value)}
+              maxLength={30}
+              autoFocus
+            />
+            <div style={{textAlign:"right",fontSize:10,color:newName.length>25?"#FF4444":GRAY,marginTop:4,marginBottom:18}}>{newName.length}/30</div>
+
+            {/* Bouton créer */}
+            <div onClick={createGroup} style={{padding:"16px 0",borderRadius:16,background:newName.trim()&&!creating?GRAD:"rgba(255,255,255,.08)",color:newName.trim()&&!creating?WHITE:"rgba(255,255,255,.3)",textAlign:"center",fontWeight:900,fontSize:15,cursor:newName.trim()&&!creating?"pointer":"default",transition:"all .3s",boxShadow:newName.trim()&&!creating?"0 6px 20px rgba(255,0,128,.35)":"none",letterSpacing:.5}}>
+              {creating?(
+                <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+                  <div style={{width:16,height:16,border:"2px solid rgba(255,255,255,.3)",borderTop:"2px solid #fff",borderRadius:"50%",animation:"spin .7s linear infinite"}}/>
+                  Création...
+                </div>
+              ):`CRÉER ${newEmoji} ${newName||"MON GROUPE"}`}
             </div>
           </div>
         </div>
@@ -826,6 +995,10 @@ export default function App(){
   const [profilErr,setProfilErr]=useState("");
   const [notifOpen,setNotifOpen]=useState(false);
   const [loading,setLoading]=useState(true);
+  const [ticketsLoading,setTicketsLoading]=useState(false);
+  const [setupPseudo,setSetupPseudo]=useState("");
+  const [setupPseudoErr,setSetupPseudoErr]=useState("");
+  const [setupPseudoSaving,setSetupPseudoSaving]=useState(false);
   const tapsRef=useRef(0);
   const tapsTimer=useRef(null);
   const uploadRef=useRef(null);
@@ -837,6 +1010,12 @@ export default function App(){
       if(tix&&tix.length>0) setTickets(tix);
       setLoading(false);
     }).catch(()=>setLoading(false));
+  },[]);
+
+  useEffect(()=>{
+    const p=new URLSearchParams(window.location.search);
+    const ref=p.get("ref");
+    if(ref)localStorage.setItem("nle_ref",ref);
   },[]);
 
   useEffect(()=>{
@@ -853,15 +1032,30 @@ export default function App(){
     }).catch(()=>{});
   },[]);
   useEffect(()=>{
-    if(screen==="splash"){
+    if(authUser){
+      dbLoadTickets().then(tix=>{if(tix&&tix.length>0)setTickets(tix);});
+    }
+  },[authUser]);
+
+  useEffect(()=>{
+    if(screen==="tickets"&&authUser){
+      setTicketsLoading(true);
+      dbLoadTickets().then(tix=>{if(tix&&tix.length>0)setTickets(tix);setTicketsLoading(false);}).catch(()=>setTicketsLoading(false));
+    }
+  },[screen]);
+
+  useEffect(()=>{
+    if(screen==="splash"&&!authLoading){
       const t=setTimeout(()=>{
-        setScreen("onboarding");
+        if(authUser){setScreen("setup-pseudo");}
+        else if(localStorage.getItem("nle_onb")){setScreen("login");}
+        else{setScreen("onboarding");}
       },2500);
       return()=>clearTimeout(t);
     }
-  },[screen,authUser]);
+  },[screen,authUser,authLoading]);
 
-  const goMain=()=>{setSelEv(null);setPayStep(0);setScreen("main");};
+  const goMain=()=>{if(!authUser){setScreen("login");return;}setSelEv(null);setPayStep(0);setScreen("main");};
   useEffect(()=>{
     supabase.auth.getSession().then(({data:{session}})=>{
       setAuthUser(session?.user||null);
@@ -876,7 +1070,7 @@ export default function App(){
     setLoginErr("");
     const{error}=await supabase.auth.signInWithPassword({email:loginEmail,password:loginPass});
     if(error){setLoginErr("Email ou mot de passe incorrect ❌");}
-    else{setLoginEmail("");setLoginPass("");setScreen("main");}
+    else{setLoginEmail("");setLoginPass("");setScreen("setup-pseudo");}
   };
   const doRegister=async()=>{
     setRegErr("");
@@ -884,22 +1078,41 @@ export default function App(){
     if(regPass.length<6){setRegErr("Mot de passe trop court (6 min)");return;}
     const{error}=await supabase.auth.signUp({email:regEmail,password:regPass,options:{data:{prenom:regPrenom,nom:regNom}}});
     if(error){setRegErr(error.message);}
-    else{setRegDone(true);}
+    else{
+      const refId=localStorage.getItem("nle_ref");
+      if(refId){
+        const{data:inv}=await supabase.from("profiles").select("points").eq("id",refId).single();
+        if(inv)await supabase.from("profiles").update({points:(inv.points||0)+50}).eq("id",refId);
+        localStorage.removeItem("nle_ref");
+      }
+      setRegDone(true);
+    }
   };
-  const doLogout=async()=>{await supabase.auth.signOut();setAuthUser(null);setScreen("main");};
+  const doLogout=async()=>{await supabase.auth.signOut();setAuthUser(null);setProfil(null);setScreen("login");};
   const loadProfil=async(uid)=>{
     const{data}=await supabase.from("profiles").select("*").eq("id",uid).single();
     if(data){setProfil(data);setProfilPseudo(data.pseudo||"");setProfilInsta(data.instagram||"");setProfilSnap(data.snapchat||"");}
-    else{await supabase.from("profiles").insert({id:uid,pseudo:"",instagram:"",snapchat:"",points:0});setProfil({pseudo:"",instagram:"",snapchat:"",points:0});}
+    else{await supabase.from("profiles").insert({id:uid,pseudo:null,instagram:"",snapchat:"",points:0});setProfil({pseudo:"",instagram:"",snapchat:"",points:0});}
   };
   const saveProfil=async()=>{
     if(!authUser)return;
     setProfilSaving(true);setProfilErr("");
     if(profilPseudo&&profilPseudo.length<3){setProfilErr("Pseudo trop court (3 min)");setProfilSaving(false);return;}
-    const{error}=await supabase.from("profiles").upsert({id:authUser.id,pseudo:profilPseudo,instagram:profilInsta,snapchat:profilSnap,points:profil?.points||0});
-    if(error){setProfilErr("Pseudo déjà pris !");} else{setProfil(p=>({...p,pseudo:profilPseudo,instagram:profilInsta,snapchat:profilSnap}));setProfilEdit(false);}
+    const{error}=await supabase.from("profiles").update({pseudo:profilPseudo||null,instagram:profilInsta||"",snapchat:profilSnap||""}).eq("id",authUser.id);
+    if(error){setProfilErr(error.code==="23505"?"Ce pseudo est déjà pris !":"Erreur : "+error.message);} else{setProfil(p=>({...p,pseudo:profilPseudo,instagram:profilInsta,snapchat:profilSnap}));setProfilEdit(false);}
     setProfilSaving(false);
   };
+  const doSetupPseudo=async()=>{
+    if(!setupPseudo||setupPseudo.length<3){setSetupPseudoErr("Pseudo trop court (3 min)");return;}
+    setSetupPseudoSaving(true);setSetupPseudoErr("");
+    const{error}=await supabase.from("profiles").update({pseudo:setupPseudo}).eq("id",authUser.id);
+    if(error){
+      if(error.code==="23505"){setSetupPseudoErr("Ce pseudo est déjà pris, essaies-en un autre !");}
+      else{setSetupPseudoErr("Erreur : "+error.message);}
+    } else{setProfil(p=>({...p,pseudo:setupPseudo}));setProfilPseudo(setupPseudo);setScreen("main");}
+    setSetupPseudoSaving(false);
+  };
+  useEffect(()=>{if(screen==="setup-pseudo"&&profil&&profil.pseudo){setScreen("main");}  },[screen,profil]);
   useEffect(()=>{if(authUser)loadProfil(authUser.id);},[authUser]);
   const openEv=(ev)=>{setSelEv(events.find(e=>e.id===ev.id));setQty(1);setScreen("event");};
   const changeQty=(d)=>{setQty(q=>Math.min(10,Math.max(1,q+d)));setQtyAnim(true);setTimeout(()=>setQtyAnim(false),300);};
@@ -1095,7 +1308,7 @@ export default function App(){
                       </div>
                       <div style={{display:"flex",gap:8,justifyContent:"space-between"}}>
                         {[
-                          ["trophy","Fidelite",()=>setScreen("profil")],
+                          ["trophy","Fidelite",()=>setScreen("groups")],
                           ["ticket","Billets",()=>setScreen("tickets")],
                           ["star","VIP",()=>setScreen("vip")],
                           ["users","Profil",()=>setScreen("profil")]
@@ -1109,41 +1322,49 @@ export default function App(){
                         ))}
                       </div>
                     </div>
-                    {authUser&&(
-                      <div style={{margin:"0 16px 16px",background:BG2,borderRadius:16,padding:"14px 16px",border:"1px solid "+BORDER}}>
+                    {authUser&&(()=>{
+                      const pts=profil?profil.points||0:0;
+                      const tier=pts>=1000?{n:"Or",c:"#FFD700",bg:"rgba(255,215,0,.12)",grad:"linear-gradient(90deg,#FFD700,#FFA500)",next:1000,icon:"🏆"}:pts>=500?{n:"Argent",c:"#C0C0C0",bg:"rgba(192,192,192,.1)",grad:"linear-gradient(90deg,#C0C0C0,#A8A8A8)",next:1000,icon:"🥈"}:{n:"Bronze",c:"#CD7F32",bg:"rgba(205,127,50,.12)",grad:"linear-gradient(90deg,#CD7F32,#A0522D)",next:500,icon:"🥉"};
+                      const pct=Math.min(100,Math.round(pts/(tier.next)*100));
+                      return(
+                      <div onClick={()=>setScreen("groups")} style={{margin:"0 16px 16px",background:tier.bg,borderRadius:16,padding:"14px 16px",border:`1px solid ${tier.c}33`,cursor:"pointer"}}>
                         <div style={{display:"flex",alignItems:"center",gap:12}}>
-                          <div style={{width:36,height:36,borderRadius:10,background:"rgba(255,165,0,.15)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFB347" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-</div>
+                          <div style={{width:38,height:38,borderRadius:10,background:`${tier.c}22`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{tier.icon}</div>
                           <div style={{flex:1}}>
                             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-                              <div style={{fontSize:13,fontWeight:800,color:"#FFB347"}}>Bronze</div>
-                              <div style={{fontSize:11,color:GRAY}}>{profil?profil.points||0:0} pts</div>
+                              <div style={{fontSize:13,fontWeight:900,color:tier.c}}>{tier.n}</div>
+                              <div style={{fontSize:11,color:GRAY,fontWeight:700}}>{pts} / {tier.next} pts</div>
                             </div>
-                            <div style={{height:4,borderRadius:4,background:"rgba(255,255,255,.1)",overflow:"hidden"}}>
-                              <div style={{height:"100%",borderRadius:4,background:"linear-gradient(90deg,#FFB347,#FF8C00)",width:((profil?profil.points||0:0)/500*100)+"%",transition:"width 1s ease"}}/>
+                            <div style={{height:5,borderRadius:4,background:"rgba(255,255,255,.08)",overflow:"hidden"}}>
+                              <div style={{height:"100%",borderRadius:4,background:tier.grad,width:pct+"%",transition:"width 1.2s ease"}}/>
                             </div>
-                            <div style={{fontSize:10,color:GRAY,marginTop:3}}>Encore {500-(profil?profil.points||0:0)} pts pour Argent</div>
+                            {pts>=1000?(
+                              <div style={{fontSize:10,color:"#FFD700",marginTop:4,fontWeight:800}}>🎉 30% de réduction sur ta prochaine soirée !</div>
+                            ):(
+                              <div style={{fontSize:10,color:GRAY,marginTop:3}}>Encore {tier.next-pts} pts pour {tier.n==="Bronze"?"Argent":"Or"}</div>
+                            )}
                           </div>
                         </div>
                       </div>
-                    )}
+                      );
+                    })()}
                     {!search&&events.filter(e=>!e.ended).length>0&&(
                       <div style={{margin:"0 16px 16px"}}>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                           <div style={{fontSize:16,fontWeight:900,color:WHITE}}>A la une</div>
                           <div onClick={()=>setScreen("events")} style={{fontSize:12,color:PINK,fontWeight:700,cursor:"pointer"}}>Voir tout</div>
                         </div>
-                        <div style={{borderRadius:20,overflow:"hidden",position:"relative",height:190,background:BG2,cursor:"pointer"}} onClick={()=>{const ev=events.filter(e=>!e.ended)[0];if(ev)openEv(ev);}}>
-                          {events.filter(e=>!e.ended)[0]&&events.filter(e=>!e.ended)[0].poster?<img src={events.filter(e=>!e.ended)[0].poster} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,rgba(255,0,128,.3),rgba(255,51,153,.1))"}}/>}
+                        {(()=>{const featEv=events.find(e=>e.id===newestId)||events.filter(e=>!e.ended)[0];return featEv&&(
+                        <div style={{borderRadius:20,overflow:"hidden",position:"relative",height:190,background:BG2,cursor:"pointer"}} onClick={()=>openEv(featEv)}>
+                          {featEv.poster?<img src={featEv.poster} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,rgba(255,0,128,.3),rgba(255,51,153,.1))"}}/>}
                           <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,transparent 30%,rgba(13,17,23,.95) 100%)"}}/>
                           <div style={{position:"absolute",top:12,left:12,background:GRAD,color:WHITE,fontSize:9,fontWeight:900,padding:"4px 10px",borderRadius:20,animation:"pulse 2s ease-in-out infinite"}}>⭐ A LA UNE</div>
                           <div style={{position:"absolute",bottom:14,left:14,right:14}}>
-                            <div style={{fontSize:16,fontWeight:900,color:WHITE,marginBottom:2}}>{events.filter(e=>!e.ended)[0]&&events.filter(e=>!e.ended)[0].title}</div>
-                            <div style={{fontSize:11,color:"rgba(255,255,255,.7)"}}>{events.filter(e=>!e.ended)[0]&&events.filter(e=>!e.ended)[0].date} • {events.filter(e=>!e.ended)[0]&&events.filter(e=>!e.ended)[0].location}</div>
-                            <div style={{fontSize:13,fontWeight:900,color:PINK,marginTop:4}}>CHF {events.filter(e=>!e.ended)[0]&&events.filter(e=>!e.ended)[0].price}</div>
+                            <div style={{fontSize:16,fontWeight:900,color:WHITE,marginBottom:2}}>{featEv.title}</div>
+                            <div style={{fontSize:11,color:"rgba(255,255,255,.7)"}}>{featEv.date} • {featEv.location}</div>
+                            <div style={{fontSize:13,fontWeight:900,color:PINK,marginTop:4}}>CHF {featEv.price}</div>
                           </div>
-                        </div>
+                        </div>);})()}
                       </div>
                     )}
                     {!search&&events.filter(e=>!e.ended).length>0&&(
@@ -1483,7 +1704,6 @@ export default function App(){
     {loginErr&&<div style={{color:"#FF4444",fontSize:12,fontWeight:700,marginBottom:12,textAlign:"center"}}>{loginErr}</div>}
     <div onClick={doLogin} style={{width:"100%",padding:"15px 0",borderRadius:14,background:"linear-gradient(135deg,#FF0080,#FF3399)",textAlign:"center",fontWeight:900,fontSize:15,color:"#FFFFFF",cursor:"pointer",marginBottom:12,letterSpacing:1}}>SE CONNECTER</div>
     <div style={{fontSize:13,color:"#8892A0",marginBottom:20}}>Pas encore de compte ? <span onClick={()=>setScreen("register")} style={{color:"#FF0080",fontWeight:700,cursor:"pointer"}}>S inscrire</span></div>
-    <div onClick={()=>setScreen("main")} style={{fontSize:12,color:"#8892A0",cursor:"pointer"}}>Continuer sans compte</div>
   </div>
 )}
 {screen==="register"&&(
@@ -1515,83 +1735,240 @@ export default function App(){
     </div>
   </div>
 )}
+{screen==="setup-pseudo"&&authUser&&(
+  <div style={{position:"absolute",inset:0,background:"#0D1117",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"0 28px",zIndex:100,overflow:"hidden"}}>
+    <div style={{position:"absolute",width:340,height:340,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,0,128,.18),transparent 70%)",top:-100,right:-100,animation:"pulse 3s ease-in-out infinite"}}/>
+    <div style={{position:"absolute",width:220,height:220,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,51,153,.12),transparent 70%)",bottom:-40,left:-60,animation:"pulse 4s 1s ease-in-out infinite"}}/>
+    {!profil?(
+      <div style={{display:"flex",alignItems:"center",gap:12}}>
+        <div style={{width:36,height:36,borderRadius:"50%",border:"3px solid #1C2430",borderTop:"3px solid #FF0080",animation:"spin 1s linear infinite"}}/>
+        <div style={{fontSize:14,color:"#8892A0"}}>Chargement...</div>
+      </div>
+    ):(
+      <div style={{width:"100%",maxWidth:380,animation:"slideUp .5s cubic-bezier(.34,1.56,.64,1) both",position:"relative",zIndex:1}}>
+        <div style={{textAlign:"center",marginBottom:36}}>
+          <div style={{width:82,height:82,borderRadius:"50%",background:"linear-gradient(135deg,#FF0080,#FF3399)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 20px",boxShadow:"0 0 60px rgba(255,0,128,.55)",animation:"pulse 2s ease-in-out infinite"}}>
+            <img src={LOGO} alt="" style={{width:54,height:54,objectFit:"contain"}}/>
+          </div>
+          <div style={{fontSize:26,fontWeight:900,color:"#FFFFFF",marginBottom:8,letterSpacing:.3}}>Choisis ton pseudo</div>
+          <div style={{fontSize:13,color:"#8892A0",lineHeight:1.6}}>Il sera visible par toute la communauté.<br/>Choisis-le bien !</div>
+        </div>
+        <div style={{position:"relative",marginBottom:6}}>
+          <div style={{position:"absolute",left:16,top:"50%",transform:"translateY(-50%)",fontSize:17,fontWeight:900,color:setupPseudo.length>=3?"#FF0080":"#8892A0",transition:"color .25s"}}>@</div>
+          <input autoFocus type="text" placeholder="tonpseudo" value={setupPseudo} onChange={e=>setSetupPseudo(e.target.value)} style={{width:"100%",padding:"16px 44px 16px 38px",background:"#141A22",border:`2px solid ${setupPseudo.length>=3?"#FF0080":"#1E2A38"}`,borderRadius:14,color:"#FFFFFF",fontSize:17,fontWeight:700,outline:"none",fontFamily:"inherit",boxSizing:"border-box",letterSpacing:.5,transition:"border-color .25s",boxShadow:setupPseudo.length>=3?"0 0 20px rgba(255,0,128,.2)":"none"}}/>
+          {setupPseudo.length>=3&&<div style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",fontSize:18,color:"#00E676",animation:"dotPop .2s both"}}>✓</div>}
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
+          <div style={{fontSize:11,color:"#8892A0"}}>3 caractères minimum</div>
+          <div style={{fontSize:11,fontWeight:800,color:setupPseudo.length>=3?"#00E676":setupPseudo.length>0?"#FFB347":"#8892A0",transition:"color .25s"}}>{setupPseudo.length} car.</div>
+        </div>
+        {setupPseudoErr&&(
+          <div style={{display:"flex",alignItems:"center",gap:8,background:"rgba(255,68,68,.1)",border:"1px solid rgba(255,68,68,.3)",borderRadius:10,padding:"10px 14px",marginBottom:14}}>
+            <div style={{fontSize:14}}>⚠️</div>
+            <div style={{fontSize:12,fontWeight:700,color:"#FF4444"}}>{setupPseudoErr}</div>
+          </div>
+        )}
+        <div onClick={setupPseudo.length>=3&&!setupPseudoSaving?doSetupPseudo:undefined} style={{width:"100%",padding:"16px 0",borderRadius:14,background:setupPseudo.length<3?"#1C2430":setupPseudoSaving?"rgba(255,0,128,.4)":"linear-gradient(135deg,#FF0080,#FF3399)",textAlign:"center",fontWeight:900,fontSize:15,color:setupPseudo.length<3?"#8892A0":"#FFFFFF",cursor:setupPseudo.length<3||setupPseudoSaving?"not-allowed":"pointer",letterSpacing:1,transition:"all .3s",boxShadow:setupPseudo.length>=3&&!setupPseudoSaving?"0 8px 30px rgba(255,0,128,.45)":"none",transform:setupPseudo.length>=3&&!setupPseudoSaving?"scale(1)":"scale(.98)"}}>
+          {setupPseudoSaving?(
+            <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+              <div style={{width:16,height:16,borderRadius:"50%",border:"2px solid rgba(255,255,255,.3)",borderTop:"2px solid #fff",animation:"spin 1s linear infinite"}}/>
+              SAUVEGARDE...
+            </div>
+          ):"VALIDER MON PSEUDO →"}
+        </div>
+      </div>
+    )}
+  </div>
+)}
 {screen==="profil"&&(
-  <div style={{position:"absolute",inset:0,background:"#0D1117",overflowY:"auto",zIndex:100}}>
-    <div style={{background:"linear-gradient(135deg,rgba(255,0,128,.25),rgba(255,51,153,.05))",padding:"60px 24px 30px",textAlign:"center",position:"relative"}}>
-      <div style={{width:86,height:86,borderRadius:"50%",background:"linear-gradient(135deg,#FF0080,#FF3399)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32,fontWeight:900,color:"#FFFFFF",margin:"0 auto 14px",boxShadow:"0 0 40px rgba(255,0,128,.5)"}}>
-        {authUser?(authUser.user_metadata&&authUser.user_metadata.prenom?authUser.user_metadata.prenom[0].toUpperCase():"U"):"?"}
+  <div style={{position:"absolute",inset:0,background:BG,overflowY:"auto",zIndex:100}}>
+    <style>{`
+      @keyframes ringRotate{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+      @keyframes neonPulse{0%,100%{box-shadow:0 0 10px rgba(255,0,128,.3),0 0 30px rgba(255,0,128,.1)}50%{box-shadow:0 0 20px rgba(255,0,128,.6),0 0 60px rgba(255,0,128,.25)}}
+      @keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
+    `}</style>
+
+    {/* Header futuriste */}
+    <div style={{position:"relative",padding:"50px 20px 28px",textAlign:"center",overflow:"hidden"}}>
+      {/* Blobs de fond */}
+      <div style={{position:"absolute",top:-40,left:"50%",transform:"translateX(-50%)",width:300,height:300,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,0,128,.18) 0%,transparent 70%)",pointerEvents:"none"}}/>
+      <div style={{position:"absolute",top:20,left:-60,width:180,height:180,borderRadius:"50%",background:"radial-gradient(circle,rgba(123,47,255,.15) 0%,transparent 70%)",pointerEvents:"none"}}/>
+      <div style={{position:"absolute",top:20,right:-60,width:180,height:180,borderRadius:"50%",background:"radial-gradient(circle,rgba(0,180,255,.1) 0%,transparent 70%)",pointerEvents:"none"}}/>
+
+      {/* Bouton retour */}
+      <div onClick={()=>setScreen("main")} style={{position:"absolute",top:"calc(env(safe-area-inset-top,20px) + 10px)",left:16,width:36,height:36,borderRadius:10,background:"rgba(255,255,255,.06)",border:`1px solid ${BORDER}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",zIndex:2}}>
+        <Icon n="back" s={16} c={GRAY}/>
       </div>
-      <div style={{fontSize:21,fontWeight:900,color:"#FFFFFF",marginBottom:2}}>
-        {authUser?((authUser.user_metadata&&authUser.user_metadata.prenom?authUser.user_metadata.prenom+" ":"")+(authUser.user_metadata&&authUser.user_metadata.nom?authUser.user_metadata.nom:""))||"Utilisateur":"Non connecte"}
+
+      {/* Avatar avec anneau tournant */}
+      <div style={{position:"relative",width:96,height:96,margin:"0 auto 14px"}}>
+        <div style={{position:"absolute",inset:-4,borderRadius:"50%",border:"2px dashed rgba(255,0,128,.5)",animation:"ringRotate 6s linear infinite"}}/>
+        <div style={{position:"absolute",inset:-8,borderRadius:"50%",border:"1px dashed rgba(123,47,255,.3)",animation:"ringRotate 10s linear infinite reverse"}}/>
+        <div style={{width:96,height:96,borderRadius:"50%",background:"linear-gradient(135deg,#FF0080,#7B2FFF)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:36,fontWeight:900,color:WHITE,animation:"neonPulse 3s ease-in-out infinite",position:"relative",zIndex:1}}>
+          {authUser?(authUser.user_metadata?.prenom?authUser.user_metadata.prenom[0].toUpperCase():"U"):"?"}
+        </div>
       </div>
-      {profil&&profil.pseudo&&<div style={{fontSize:13,color:"#FF0080",fontWeight:700,marginBottom:4}}>{"@"+profil.pseudo}</div>}
-      <div style={{fontSize:12,color:"rgba(255,255,255,.5)",marginBottom:16}}>{authUser?authUser.email:""}</div>
-      <div style={{display:"flex",justifyContent:"center",gap:20}}>
-        {[["🎟️",tickets.filter(t=>authUser&&t.email===authUser.email).length,"Billets"],["⭐",profil?profil.points||0:0,"Points"],["📅",events.filter(e=>!e.ended).length,"Events"]].map(([emoji,val,label])=>(
-          <div key={label} style={{textAlign:"center"}}>
-            <div style={{fontSize:20,fontWeight:900,color:"#FFFFFF"}}>{val}</div>
-            <div style={{fontSize:10,color:"rgba(255,255,255,.5)",fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>{label}</div>
+
+      {/* Nom */}
+      <div style={{fontSize:22,fontWeight:900,color:WHITE,marginBottom:2}}>
+        {authUser?((authUser.user_metadata?.prenom||"")+" "+(authUser.user_metadata?.nom||"")).trim()||"Utilisateur":"Non connecté"}
+      </div>
+      {profil?.pseudo&&<div style={{fontSize:13,color:PINK,fontWeight:800,marginBottom:4,letterSpacing:.5}}>@{profil.pseudo}</div>}
+      <div style={{fontSize:11,color:"rgba(255,255,255,.35)",marginBottom:20}}>{authUser?.email}</div>
+
+      {/* Stats en ligne */}
+      <div style={{display:"flex",justifyContent:"center",gap:6}}>
+        {[
+          [tickets.filter(t=>authUser&&t.email===authUser.email).length,"Billets","#FF0080"],
+          [profil?.points||0,"Points","#FFD700"],
+          [events.filter(e=>!e.ended).length,"Événements","#4ECDC4"],
+        ].map(([val,label,color])=>(
+          <div key={label} style={{flex:1,maxWidth:90,background:"rgba(255,255,255,.04)",borderRadius:14,padding:"10px 6px",border:`1px solid rgba(255,255,255,.07)`}}>
+            <div style={{fontSize:20,fontWeight:900,color,marginBottom:1}}>{val}</div>
+            <div style={{fontSize:9,color:GRAY,fontWeight:700,textTransform:"uppercase",letterSpacing:.8}}>{label}</div>
           </div>
         ))}
       </div>
     </div>
-    <div style={{padding:"20px 24px 40px"}}>
+
+    <div style={{padding:"0 16px 50px"}}>
       {authUser?(
-        <div>
-          <div style={{background:"#141A22",borderRadius:16,padding:16,marginBottom:12,border:"1px solid #1E2A38"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-              <div style={{fontSize:11,fontWeight:900,color:"#FF0080",letterSpacing:2,textTransform:"uppercase"}}>Mon Pseudo Social</div>
-              <div onClick={()=>setProfilEdit(!profilEdit)} style={{fontSize:11,fontWeight:700,color:"#FF0080",cursor:"pointer"}}>{profilEdit?"ANNULER":"MODIFIER"}</div>
+        <div style={{animation:"slideUp .4s both"}}>
+
+          {/* Carte niveau */}
+          {(()=>{
+            const pts=profil?.points||0;
+            const tier=pts>=1000?{n:"Or",c:"#FFD700",grad:"linear-gradient(90deg,#FFD700,#FFA500)",icon:"🏆",next:1000}:pts>=500?{n:"Argent",c:"#C0C0C0",grad:"linear-gradient(90deg,#C0C0C0,#888)",icon:"🥈",next:1000}:{n:"Bronze",c:"#CD7F32",grad:"linear-gradient(90deg,#CD7F32,#A0522D)",icon:"🥉",next:500};
+            const pct=Math.min(100,Math.round(pts/tier.next*100));
+            return(
+            <div style={{background:`linear-gradient(135deg,rgba(255,215,0,.04),rgba(255,0,128,.06))`,borderRadius:20,padding:"16px",marginBottom:14,border:`1px solid ${tier.c}22`}}>
+              <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+                <div style={{fontSize:28}}>{tier.icon}</div>
+                <div style={{flex:1}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div style={{fontSize:15,fontWeight:900,color:tier.c}}>{tier.n}</div>
+                    <div style={{fontSize:12,color:GRAY,fontWeight:700}}>{pts} / {tier.next} pts</div>
+                  </div>
+                  <div style={{height:6,borderRadius:6,background:"rgba(255,255,255,.07)",overflow:"hidden",marginTop:6}}>
+                    <div style={{height:"100%",borderRadius:6,background:tier.grad,width:pct+"%",transition:"width 1.5s ease",boxShadow:`0 0 10px ${tier.c}66`}}/>
+                  </div>
+                  {pts>=1000?(
+                    <div style={{fontSize:10,color:"#FFD700",marginTop:5,fontWeight:800,letterSpacing:.3}}>🎉 30% de réduction sur ta prochaine soirée !</div>
+                  ):(
+                    <div style={{fontSize:10,color:GRAY,marginTop:5}}>Encore {tier.next-pts} pts pour {tier.n==="Bronze"?"l'Argent":"l'Or"}</div>
+                  )}
+                </div>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                {[["🥉","Bronze","0 pts"],["🥈","Argent","500 pts"],["🏆","Or","1000 pts"]].map(([ico,name,req],i)=>(
+                  <div key={name} style={{flex:1,textAlign:"center",padding:"8px 4px",borderRadius:10,background:tier.n===name?"rgba(255,255,255,.08)":"transparent",border:`1px solid ${tier.n===name?"rgba(255,255,255,.12)":"transparent"}`}}>
+                    <div style={{fontSize:16,marginBottom:2}}>{ico}</div>
+                    <div style={{fontSize:8,fontWeight:800,color:tier.n===name?WHITE:GRAY,letterSpacing:.5}}>{name}</div>
+                    <div style={{fontSize:8,color:GRAY}}>{req}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            );
+          })()}
+
+          {/* Profil social */}
+          <div style={{background:BG2,borderRadius:20,padding:"16px",marginBottom:14,border:`1px solid ${BORDER}`}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <div style={{fontSize:11,fontWeight:900,color:PINK,letterSpacing:2,textTransform:"uppercase"}}>Profil Social</div>
+              <div onClick={()=>{setProfilEdit(!profilEdit);setProfilErr("");}} style={{padding:"5px 12px",borderRadius:20,background:profilEdit?"rgba(255,68,68,.1)":"rgba(255,0,128,.1)",border:`1px solid ${profilEdit?"rgba(255,68,68,.3)":"rgba(255,0,128,.3)"}`,fontSize:11,fontWeight:800,color:profilEdit?"#FF4444":PINK,cursor:"pointer"}}>
+                {profilEdit?"ANNULER":"MODIFIER"}
+              </div>
             </div>
             {profilEdit?(
               <div>
-                <div style={{marginBottom:10}}>
-                  <div style={{fontSize:10,color:"#8892A0",fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>Pseudo @</div>
-                  <input type="text" placeholder="tonpseudo" value={profilPseudo} onChange={e=>setProfilPseudo(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g,""))} style={{width:"100%",padding:"11px 14px",background:"#1C2430",border:"1.5px solid #1E2A38",borderRadius:12,color:"#FFFFFF",fontSize:13,outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}/>
-                </div>
-                <div style={{marginBottom:10}}>
-                  <div style={{fontSize:10,color:"#8892A0",fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>Instagram</div>
-                  <input type="text" placeholder="@toninstagram" value={profilInsta} onChange={e=>setProfilInsta(e.target.value)} style={{width:"100%",padding:"11px 14px",background:"#1C2430",border:"1.5px solid #1E2A38",borderRadius:12,color:"#FFFFFF",fontSize:13,outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}/>
-                </div>
+                {/* Pseudo */}
                 <div style={{marginBottom:12}}>
-                  <div style={{fontSize:10,color:"#8892A0",fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>Snapchat</div>
-                  <input type="text" placeholder="tonsnapchat" value={profilSnap} onChange={e=>setProfilSnap(e.target.value)} style={{width:"100%",padding:"11px 14px",background:"#1C2430",border:"1.5px solid #1E2A38",borderRadius:12,color:"#FFFFFF",fontSize:13,outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}/>
+                  <div style={{fontSize:10,color:GRAY,fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>Pseudo</div>
+                  <input value={profilPseudo} onChange={e=>setProfilPseudo(e.target.value)} placeholder="Ton pseudo..." style={{width:"100%",padding:"12px 14px",background:BG3,border:`1.5px solid ${profilPseudo?PINK:BORDER}`,borderRadius:12,color:WHITE,fontSize:13,outline:"none",fontFamily:"inherit",boxSizing:"border-box",transition:"border-color .2s"}}/>
                 </div>
-                {profilErr&&<div style={{color:"#FF4444",fontSize:12,fontWeight:700,marginBottom:8,textAlign:"center"}}>{profilErr}</div>}
-                <div onClick={saveProfil} style={{padding:"13px 0",borderRadius:12,background:"linear-gradient(135deg,#FF0080,#FF3399)",textAlign:"center",fontWeight:900,fontSize:13,color:"#FFFFFF",cursor:"pointer",letterSpacing:1}}>{profilSaving?"SAUVEGARDE...":"SAUVEGARDER"}</div>
+                {/* Instagram — optionnel */}
+                <div style={{marginBottom:12}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+                    <div style={{fontSize:10,color:GRAY,fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>Instagram</div>
+                    <div style={{fontSize:9,color:"rgba(255,255,255,.3)",background:"rgba(255,255,255,.05)",borderRadius:6,padding:"1px 6px"}}>optionnel</div>
+                  </div>
+                  <div style={{position:"relative"}}>
+                    <div style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)"}}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E1306C" strokeWidth="2" strokeLinecap="round"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                    </div>
+                    <input value={profilInsta} onChange={e=>setProfilInsta(e.target.value)} placeholder="@toninstagram" style={{width:"100%",padding:"12px 14px 12px 36px",background:BG3,border:`1.5px solid ${profilInsta?"#E1306C":BORDER}`,borderRadius:12,color:WHITE,fontSize:13,outline:"none",fontFamily:"inherit",boxSizing:"border-box",transition:"border-color .2s"}}/>
+                  </div>
+                </div>
+                {/* Snapchat — optionnel */}
+                <div style={{marginBottom:14}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+                    <div style={{fontSize:10,color:GRAY,fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>Snapchat</div>
+                    <div style={{fontSize:9,color:"rgba(255,255,255,.3)",background:"rgba(255,255,255,.05)",borderRadius:6,padding:"1px 6px"}}>optionnel</div>
+                  </div>
+                  <div style={{position:"relative"}}>
+                    <div style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)"}}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="#FFFC00" stroke="#FFFC00" strokeWidth="0"><path d="M12 2C6.48 2 2 6.03 2 11c0 3.08 1.56 5.8 4 7.54V21l2.5-1.5c1.1.34 2.27.5 3.5.5 5.52 0 10-4.03 10-9S17.52 2 12 2z"/></svg>
+                    </div>
+                    <input value={profilSnap} onChange={e=>setProfilSnap(e.target.value)} placeholder="tonsnapchat" style={{width:"100%",padding:"12px 14px 12px 36px",background:BG3,border:`1.5px solid ${profilSnap?"#FFFC00":BORDER}`,borderRadius:12,color:WHITE,fontSize:13,outline:"none",fontFamily:"inherit",boxSizing:"border-box",transition:"border-color .2s"}}/>
+                  </div>
+                </div>
+                {profilErr&&<div style={{color:"#FF4444",fontSize:12,fontWeight:700,marginBottom:10,textAlign:"center"}}>{profilErr}</div>}
+                <div onClick={saveProfil} style={{padding:"14px 0",borderRadius:14,background:profilSaving?"rgba(255,255,255,.08)":GRAD,textAlign:"center",fontWeight:900,fontSize:13,color:WHITE,cursor:"pointer",letterSpacing:.5,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                  {profilSaving?<><div style={{width:14,height:14,border:"2px solid rgba(255,255,255,.3)",borderTop:"2px solid #fff",borderRadius:"50%",animation:"spin .7s linear infinite"}}/>Sauvegarde...</>:"SAUVEGARDER"}
+                </div>
               </div>
             ):(
               <div>
-                {[["@",profil&&profil.pseudo?"@"+profil.pseudo:"Non defini","Pseudo"],["📸",profil&&profil.instagram?profil.instagram:"Non renseigne","Instagram"],["👻",profil&&profil.snapchat?profil.snapchat:"Non renseigne","Snapchat"]].map(([icon,val,label])=>(
-                  <div key={label} style={{display:"flex",alignItems:"center",gap:12,paddingBottom:10,marginBottom:10,borderBottom:"1px solid #1E2A38"}}>
-                    <div style={{width:32,height:32,borderRadius:10,background:"rgba(255,0,128,.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>{icon}</div>
-                    <div><div style={{fontSize:10,color:"#8892A0",fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>{label}</div><div style={{fontSize:13,color:"#FFFFFF",fontWeight:600,marginTop:1}}>{val}</div></div>
+                {[
+                  [<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={PINK} strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>, profil?.pseudo?"@"+profil.pseudo:"Non défini", PINK, true],
+                  [<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E1306C" strokeWidth="2" strokeLinecap="round"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>, profil?.instagram||"Non renseigné", "#E1306C", false],
+                  [<svg width="18" height="18" viewBox="0 0 24 24" fill="#FFFC00" stroke="none"><path d="M12 2C6.48 2 2 6.03 2 11c0 3.08 1.56 5.8 4 7.54V21l2.5-1.5c1.1.34 2.27.5 3.5.5 5.52 0 10-4.03 10-9S17.52 2 12 2z"/></svg>, profil?.snapchat||"Non renseigné", "#FFFC00", false],
+                ].map(([icon,val,color,required],i)=>(
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:i<2?`1px solid ${BORDER}`:"none"}}>
+                    <div style={{width:34,height:34,borderRadius:10,background:`${color}15`,border:`1px solid ${color}30`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{icon}</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,color:val.startsWith("Non")?GRAY:WHITE,fontWeight:val.startsWith("Non")?400:600}}>{val}</div>
+                      {!required&&val.startsWith("Non")&&<div style={{fontSize:10,color:"rgba(255,255,255,.25)"}}>Appuie sur Modifier pour ajouter</div>}
+                    </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
-          <div style={{background:"#141A22",borderRadius:16,padding:16,marginBottom:12,border:"1px solid #1E2A38"}}>
-            <div style={{fontSize:11,fontWeight:900,color:"#FF0080",letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>Mon Compte</div>
-            {[["📧","Email",authUser.email],["👤","Prenom",(authUser.user_metadata&&authUser.user_metadata.prenom)||"-"],["👤","Nom",(authUser.user_metadata&&authUser.user_metadata.nom)||"-"]].map(([icon,label,val])=>(
-              <div key={label} style={{display:"flex",alignItems:"center",gap:12,paddingBottom:10,marginBottom:10,borderBottom:"1px solid #1E2A38"}}>
-                <div style={{width:32,height:32,borderRadius:10,background:"rgba(255,0,128,.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>{icon}</div>
-                <div><div style={{fontSize:10,color:"#8892A0",fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>{label}</div><div style={{fontSize:13,color:"#FFFFFF",fontWeight:600,marginTop:1}}>{val}</div></div>
+
+          {/* Mon Compte */}
+          <div style={{background:BG2,borderRadius:20,padding:"16px",marginBottom:14,border:`1px solid ${BORDER}`}}>
+            <div style={{fontSize:11,fontWeight:900,color:PINK,letterSpacing:2,textTransform:"uppercase",marginBottom:14}}>Mon Compte</div>
+            {[
+              [<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GRAY} strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>,"Email",authUser.email],
+              [<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GRAY} strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>,"Prénom",(authUser.user_metadata?.prenom)||"—"],
+              [<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GRAY} strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>,"Nom",(authUser.user_metadata?.nom)||"—"],
+            ].map(([icon,label,val],i)=>(
+              <div key={label} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:i<2?`1px solid ${BORDER}`:"none"}}>
+                <div style={{width:34,height:34,borderRadius:10,background:"rgba(255,255,255,.04)",border:`1px solid ${BORDER}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{icon}</div>
+                <div>
+                  <div style={{fontSize:10,color:GRAY,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:1}}>{label}</div>
+                  <div style={{fontSize:13,color:WHITE,fontWeight:600}}>{val}</div>
+                </div>
               </div>
             ))}
           </div>
-          <div onClick={doLogout} style={{width:"100%",padding:"15px 0",borderRadius:14,background:"rgba(204,0,0,.15)",border:"1px solid rgba(204,0,0,.3)",textAlign:"center",fontWeight:900,fontSize:14,color:"#FF4444",cursor:"pointer",marginBottom:12,letterSpacing:1}}>SE DECONNECTER</div>
+
+          {/* Déconnexion */}
+          <div onClick={doLogout} style={{padding:"15px 0",borderRadius:14,background:"rgba(204,0,0,.08)",border:"1px solid rgba(204,0,0,.25)",textAlign:"center",fontWeight:900,fontSize:14,color:"#FF4444",cursor:"pointer",letterSpacing:.5}}>
+            SE DÉCONNECTER
+          </div>
         </div>
       ):(
-        <div style={{textAlign:"center",padding:"20px 0"}}>
-          <div style={{fontSize:48,marginBottom:16}}>👤</div>
-          <div style={{fontSize:18,fontWeight:900,color:"#FFFFFF",marginBottom:8}}>Pas encore connecte</div>
-          <div style={{fontSize:13,color:"#8892A0",marginBottom:24}}>Connecte-toi pour acceder a tes billets et ton profil.</div>
-          <div onClick={()=>setScreen("login")} style={{padding:"15px 0",borderRadius:14,background:"linear-gradient(135deg,#FF0080,#FF3399)",textAlign:"center",fontWeight:900,fontSize:15,color:"#FFFFFF",cursor:"pointer",marginBottom:12,letterSpacing:1}}>SE CONNECTER</div>
-          <div onClick={()=>setScreen("register")} style={{padding:"15px 0",borderRadius:14,background:"transparent",border:"1.5px solid #FF0080",textAlign:"center",fontWeight:900,fontSize:15,color:"#FF0080",cursor:"pointer",letterSpacing:1}}>CREER UN COMPTE</div>
+        <div style={{textAlign:"center",padding:"40px 0",animation:"slideUp .4s both"}}>
+          <div style={{fontSize:56,marginBottom:16}}>👤</div>
+          <div style={{fontSize:18,fontWeight:900,color:WHITE,marginBottom:8}}>Non connecté</div>
+          <div style={{fontSize:13,color:GRAY,marginBottom:28}}>Connecte-toi pour accéder à ton profil et tes billets.</div>
+          <div onClick={()=>setScreen("login")} style={{padding:"15px 0",borderRadius:14,background:GRAD,textAlign:"center",fontWeight:900,fontSize:15,color:WHITE,cursor:"pointer",marginBottom:10}}>SE CONNECTER</div>
+          <div onClick={()=>setScreen("register")} style={{padding:"15px 0",borderRadius:14,border:`1.5px solid ${PINK}`,textAlign:"center",fontWeight:900,fontSize:15,color:PINK,cursor:"pointer"}}>CRÉER UN COMPTE</div>
         </div>
       )}
-      <div onClick={()=>setScreen("main")} style={{padding:"15px 0",borderRadius:14,textAlign:"center",fontWeight:900,fontSize:13,color:"#8892A0",cursor:"pointer",letterSpacing:1}}>RETOUR</div>
     </div>
   </div>
 )}
@@ -1735,7 +2112,7 @@ export default function App(){
 )}
 {screen==="tickets"&&(
   <div style={{position:"fixed",inset:0,background:"#0D1117",zIndex:100,display:"flex",flexDirection:"column"}}>
-    <TicketsScreen tickets={tickets} events={events} user={authUser}/>
+    <TicketsScreen tickets={tickets} events={events} user={authUser} loading={ticketsLoading}/>
     <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#141A22",borderTop:"1px solid #1E2A38",paddingTop:8,paddingBottom:20,display:"flex",zIndex:200}}>
       {[["home","Accueil","home"],["events","Events","calendar"],["tickets","Billets","ticket"],["agenda","Groupes","users"],["profil","Profil","users"]].map(([s,label,ico])=>(
         <div key={s} onClick={()=>{if(s==="tickets"){}else if(s==="events"){setScreen("events");}else if(s==="agenda"){setScreen("groups");}else if(s==="profil"){setScreen("profil");}else{setTab(s);setScreen("main");}}} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",padding:"4px 0"}}>
@@ -1766,168 +2143,198 @@ export default function App(){
           <div className="sc">
             <LightBeams/>
             <div style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",height:"100%",overflow:"hidden"}}>
+
+              {/* Header */}
               <div style={{background:BG2,borderBottom:`1px solid ${BORDER}`,flexShrink:0,paddingTop:SAFE_TOP}}>
-                <div style={{padding:"10px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div style={{padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <div style={{display:"flex",alignItems:"center",gap:10}}>
-                    <img src={LOGO} alt="" style={{width:26,height:26,objectFit:"contain"}}/>
-                    <span style={{fontSize:15,fontWeight:900,color:WHITE}}>Panel Admin</span>
+                    <div style={{width:34,height:34,borderRadius:10,background:GRAD,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={WHITE} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    </div>
+                    <span style={{fontSize:16,fontWeight:900,color:WHITE}}>Panel Admin</span>
                   </div>
                   <div style={{display:"flex",gap:8}}>
-                    <div onClick={goMain} style={{padding:"6px 10px",borderRadius:10,background:BG3,color:GRAY,fontSize:11,fontWeight:700,cursor:"pointer",border:`1px solid ${BORDER}`,display:"flex",alignItems:"center",gap:4}}><Icon n="home" s={12} c={GRAY}/> App</div>
-                    <div onClick={()=>{setAdminAuth(false);setAdminPass("");goMain();}} style={{padding:"6px 10px",borderRadius:10,background:BG3,color:GRAY,fontSize:11,fontWeight:700,cursor:"pointer",border:`1px solid ${BORDER}`,display:"flex",alignItems:"center",gap:4}}><Icon n="logout" s={12} c={GRAY}/> Déco</div>
+                    <div onClick={()=>setShowScanner(true)} style={{width:36,height:36,borderRadius:10,background:BG3,border:`1px solid ${BORDER}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
+                      <Icon n="eye" s={16} c={GREEN}/>
+                    </div>
+                    <div onClick={goMain} style={{width:36,height:36,borderRadius:10,background:BG3,border:`1px solid ${BORDER}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
+                      <Icon n="home" s={16} c={GRAY}/>
+                    </div>
                   </div>
                 </div>
-                <div style={{display:"flex",padding:"0 20px"}}>
-                  {[["bar","Stats","dashboard"],["calendar","Soirées","events"],["ticket","Billets","tickets"],["gift","Gratuits","free"],["eye","Scanner","scanner"],["upload","Ajouter","add"]].map(([ico,label,t])=>(
-                    <div key={t} onClick={()=>{setAdminTab(t);if(t==="add"){setEditEv({});setShowEvForm(true);}if(t==="free"){setShowFreeForm(true);}if(t==="scanner"){setShowScanner(true);}}} style={{flex:1,padding:"10px 0",textAlign:"center",borderBottom:adminTab===t?`3px solid ${t==="free"?GREEN:PINK}`:"3px solid transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
-                      <Icon n={ico} s={15} c={adminTab===t?(t==="free"?GREEN:PINK):GRAY}/>
-                      <span style={{fontSize:8,fontWeight:800,color:adminTab===t?(t==="free"?GREEN:PINK):GRAY,letterSpacing:.5,textTransform:"uppercase"}}>{label}</span>
+                {/* 4 onglets */}
+                <div style={{display:"flex",padding:"0 8px"}}>
+                  {[["bar","Stats","dashboard"],["calendar","Soirées","events"],["ticket","Billets","tickets"],["gift","Gratuits","free"]].map(([ico,label,t])=>(
+                    <div key={t} onClick={()=>setAdminTab(t)} style={{flex:1,padding:"10px 4px",textAlign:"center",borderBottom:adminTab===t?`2.5px solid ${t==="free"?GREEN:PINK}`:"2.5px solid transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4,transition:"all .2s"}}>
+                      <Icon n={ico} s={17} c={adminTab===t?(t==="free"?GREEN:PINK):GRAY}/>
+                      <span style={{fontSize:9,fontWeight:800,color:adminTab===t?(t==="free"?GREEN:PINK):GRAY,letterSpacing:.5,textTransform:"uppercase"}}>{label}</span>
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="scroll" style={{padding:"16px 20px 20px"}}>
+
+              {/* Contenu scrollable */}
+              <div className="scroll" style={{padding:"16px 14px 30px",flex:1}}>
+
+                {/* Dashboard */}
                 {adminTab==="dashboard"&&(
                   <div>
-                    <div style={{fontSize:11,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase",marginBottom:14}}>VUE D'ENSEMBLE</div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                      {[[<Icon n="dollar" s={20} c={PINK}/>,"Revenus",`CHF ${totalRev}`,"Total",PINK],
-                        [<Icon n="ticket" s={20} c={PINK}/>,"Billets",totalSold,`/ ${totalCap}`,PINK],
-                        [<Icon n="gift" s={20} c={GREEN}/>,"Gratuits",freeCount,"Staff",GREEN],
-                        [<Icon n="bar" s={20} c={GREEN}/>,"Remplissage",`${Math.round(totalSold/Math.max(totalCap,1)*100)}%`,"Moy.",GREEN],
-                      ].map(([icon,label,val,sub,color])=>(
-                        <div key={label} style={{background:BG2,borderRadius:16,padding:"14px",border:`1px solid ${BORDER}`}}>
-                          <div style={{marginBottom:6}}>{icon}</div>
-                          <div style={{fontSize:19,fontWeight:900,color}}>{val}</div>
+                    <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>VUE D'ENSEMBLE</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
+                      {[
+                        [<Icon n="dollar" s={20} c={PINK}/>,"Revenus",`CHF ${totalRev}`,"Total encaissé",PINK,"rgba(255,0,128,.08)"],
+                        [<Icon n="ticket" s={20} c={"#7B6CF6"}/>,"Billets",totalSold,`sur ${totalCap} places`,"#7B6CF6","rgba(123,108,246,.08)"],
+                        [<Icon n="gift" s={20} c={GREEN}/>,"Gratuits",freeCount,"Invités / Staff",GREEN,"rgba(78,205,196,.08)"],
+                        [<Icon n="bar" s={20} c={"#FFB347"}/>,"Remplissage",`${Math.round(totalSold/Math.max(totalCap,1)*100)}%`,"Moyenne","#FFB347","rgba(255,179,71,.08)"],
+                      ].map(([icon,label,val,sub,color,bg],i)=>(
+                        <div key={label} style={{background:bg,borderRadius:16,padding:"14px 12px",border:`1px solid ${color}33`,animation:`slideUp .4s ${i*.07}s both`}}>
+                          <div style={{marginBottom:8}}>{icon}</div>
+                          <div style={{fontSize:20,fontWeight:900,color}}>{val}</div>
                           <div style={{fontSize:11,fontWeight:700,color:WHITE,marginTop:2}}>{label}</div>
-                          <div style={{fontSize:10,color:GRAY,marginTop:2}}>{sub}</div>
+                          <div style={{fontSize:10,color:GRAY,marginTop:1}}>{sub}</div>
                         </div>
                       ))}
                     </div>
+                    <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>SOIRÉES ACTIVES</div>
+                    {events.filter(e=>!e.ended).length===0?(
+                      <div style={{textAlign:"center",padding:"24px 0",color:GRAY,fontSize:13}}>Aucune soirée active</div>
+                    ):(
+                      events.filter(e=>!e.ended).map((ev,i)=>(
+                        <div key={ev.id} style={{display:"flex",gap:12,background:BG2,borderRadius:14,padding:"12px",border:`1px solid ${BORDER}`,marginBottom:8,animation:`rowSlide .3s ${i*.06}s both`}}>
+                          {ev.poster?<img src={ev.poster} alt="" style={{width:46,height:46,borderRadius:10,objectFit:"cover",flexShrink:0}}/>:<div style={{width:46,height:46,borderRadius:10,background:GRAD,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Icon n="calendar" s={18} c={WHITE}/></div>}
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:13,fontWeight:800,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</div>
+                            <div style={{fontSize:11,color:GRAY,marginTop:2}}>{ev.date}</div>
+                            <div style={{height:3,borderRadius:3,background:"rgba(255,255,255,.08)",marginTop:6,overflow:"hidden"}}>
+                              <div style={{height:"100%",borderRadius:3,background:GRAD,width:`${Math.min(100,Math.round(ev.ticketsSold/Math.max(ev.capacity,1)*100))}%`,transition:"width 1s ease"}}/>
+                            </div>
+                            <div style={{fontSize:10,color:GRAY,marginTop:2}}>{ev.ticketsSold}/{ev.capacity} billets · CHF {ev.price}</div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                    <div style={{marginTop:24}}>
+                      <div onClick={()=>{setAdminAuth(false);setAdminPass("");goMain();}} style={{padding:"14px 0",borderRadius:14,background:"rgba(255,68,68,.08)",border:"1px solid rgba(255,68,68,.25)",textAlign:"center",fontWeight:900,color:"#FF4444",cursor:"pointer",fontSize:13,letterSpacing:.5}}>SE DÉCONNECTER</div>
+                    </div>
                   </div>
                 )}
+
+                {/* Soirées */}
                 {adminTab==="events"&&(
                   <div>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-                      <div style={{fontSize:11,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase"}}>SOIRÉES ({events.length})</div>
-                      <div onClick={()=>{setEditEv({});setShowEvForm(true);}} style={{background:GRAD,color:WHITE,padding:"8px 14px",borderRadius:20,fontSize:11,fontWeight:900,cursor:"pointer"}}>+ NOUVEAU</div>
+                      <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase"}}>SOIRÉES ({events.length})</div>
+                      <div onClick={()=>{setEditEv({});setShowEvForm(true);}} style={{background:GRAD,color:WHITE,padding:"9px 16px",borderRadius:20,fontSize:11,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={WHITE} strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        NOUVEAU
+                      </div>
                     </div>
-                    {events.map((ev,i)=><AdminEventRow key={ev.id} ev={ev} index={i} onEdit={(ev)=>{setEditEv(ev);setShowEvForm(true);}} onToggle={toggleSoldOut} onEnd={toggleEnd} onDelete={(id)=>setDelConfirm(id)} onUpload={handleUpload}/>)}
+                    {events.length===0?(
+                      <div style={{textAlign:"center",padding:"40px 0"}}><div style={{fontSize:40,marginBottom:12}}>🎉</div><div style={{color:GRAY,fontSize:13}}>Aucune soirée</div></div>
+                    ):(
+                      events.map((ev,i)=><AdminEventRow key={ev.id} ev={ev} index={i} onEdit={(ev)=>{setEditEv(ev);setShowEvForm(true);}} onToggle={toggleSoldOut} onEnd={toggleEnd} onDelete={(id)=>setDelConfirm(id)} onUpload={handleUpload}/>)
+                    )}
                   </div>
                 )}
+
+                {/* Billets */}
                 {adminTab==="tickets"&&(
-                  <div style={{padding:"0 16px 20px"}}>
-                    <div style={{fontSize:11,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase",marginBottom:14}}>TOUS LES BILLETS ({tickets.length})</div>
+                  <div>
+                    <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase",marginBottom:14}}>TOUS LES BILLETS ({tickets.length})</div>
                     {tickets.length===0?(
-                      <div style={{textAlign:"center",padding:"40px 0",color:GRAY,fontSize:13}}>Aucun billet</div>
+                      <div style={{textAlign:"center",padding:"40px 0"}}><div style={{fontSize:40,marginBottom:12}}>🎟️</div><div style={{color:GRAY,fontSize:13}}>Aucun billet vendu</div></div>
                     ):(
-                      tickets.map(t=>(
-                        <div key={t.id} style={{background:BG2,borderRadius:16,padding:"14px 16px",marginBottom:10,border:"1px solid "+BORDER,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                          <div style={{flex:1,minWidth:0}}>
-                            <div style={{fontSize:13,fontWeight:800,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.event}</div>
-                            <div style={{fontSize:10,color:GRAY,marginTop:2}}>{t.owner} - {t.date}</div>
-                            <div style={{display:"flex",gap:6,marginTop:6,alignItems:"center"}}>
-                              <div style={{fontSize:9,fontWeight:900,fontFamily:"monospace",color:PINK}}>{t.id}</div>
-                              <div style={{background:t.status==="valid"?"rgba(255,0,128,.15)":"rgba(136,146,160,.1)",borderRadius:20,padding:"2px 8px",fontSize:9,fontWeight:700,color:t.status==="valid"?PINK:GRAY}}>{t.status==="valid"?"VALIDE":"A VENIR"}</div>
-                              <div style={{background:"rgba(255,255,255,.05)",borderRadius:20,padding:"2px 8px",fontSize:9,fontWeight:700,color:WHITE}}>CHF {t.price}</div>
+                      tickets.map((t,i)=>(
+                        <div key={t.id} style={{background:BG2,borderRadius:14,padding:"12px 14px",marginBottom:10,border:`1px solid ${BORDER}`,animation:`rowSlide .3s ${i*.04}s both`}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{fontSize:13,fontWeight:800,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.event}</div>
+                              <div style={{fontSize:11,color:GRAY,marginTop:2}}>{t.owner}</div>
+                            </div>
+                            <div onClick={()=>setDelTicketConfirm(t.id)} style={{width:32,height:32,borderRadius:8,background:"rgba(255,68,68,.1)",border:"1px solid rgba(255,68,68,.2)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,marginLeft:10}}>
+                              <Icon n="trash" s={13} c="#FF4444"/>
                             </div>
                           </div>
-                          <div onClick={()=>setDelTicketConfirm(t.id)} style={{marginLeft:12,width:36,height:36,borderRadius:10,background:"rgba(204,0,0,.15)",border:"1px solid rgba(204,0,0,.3)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
-                            <Icon n="trash" s={15} c="#FF4444"/>
+                          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                            <div style={{background:"rgba(255,255,255,.05)",borderRadius:8,padding:"3px 8px",fontSize:9,fontWeight:700,color:GRAY}}>{t.date}</div>
+                            <div style={{background:t.status==="valid"?"rgba(255,0,128,.15)":"rgba(136,146,160,.1)",borderRadius:8,padding:"3px 8px",fontSize:9,fontWeight:700,color:t.status==="valid"?PINK:GRAY}}>{t.status==="valid"?"VALIDE":"UTILISÉ"}</div>
+                            <div style={{background:"rgba(255,255,255,.05)",borderRadius:8,padding:"3px 8px",fontSize:9,fontWeight:700,color:WHITE}}>CHF {t.price}</div>
                           </div>
                         </div>
                       ))
                     )}
                   </div>
                 )}
-                {delTicketConfirm&&(
-                  <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.85)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:30}}>
-                    <div style={{background:BG2,borderRadius:20,padding:24,width:"100%",border:"1px solid "+BORDER}}>
-                      <div style={{fontSize:16,fontWeight:900,color:WHITE,marginBottom:8,textAlign:"center"}}>Supprimer ce billet ?</div>
-                      <div style={{fontSize:12,color:GRAY,marginBottom:20,textAlign:"center"}}>Cette action est irreversible.</div>
-                      <div style={{display:"flex",gap:10}}>
-                        <div onClick={()=>setDelTicketConfirm(null)} style={{flex:1,padding:"14px 0",borderRadius:50,background:BG3,textAlign:"center",fontWeight:900,color:GRAY,cursor:"pointer",border:"1px solid "+BORDER}}>ANNULER</div>
-                        <div onClick={()=>deleteTicketFn(delTicketConfirm)} style={{flex:1,padding:"14px 0",borderRadius:50,background:"#CC0000",textAlign:"center",fontWeight:900,color:WHITE,cursor:"pointer"}}>SUPPRIMER</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {adminTab==="tickets"&&(
-                  <div style={{padding:"0 16px 20px"}}>
-                    <div style={{fontSize:11,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase",marginBottom:14}}>TOUS LES BILLETS ({tickets.length})</div>
-                    {tickets.length===0?(
-                      <div style={{textAlign:"center",padding:"40px 0",color:GRAY,fontSize:13}}>Aucun billet</div>
-                    ):(
-                      tickets.map(t=>(
-                        <div key={t.id} style={{background:BG2,borderRadius:16,padding:"14px 16px",marginBottom:10,border:"1px solid "+BORDER,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                          <div style={{flex:1,minWidth:0}}>
-                            <div style={{fontSize:13,fontWeight:800,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.event}</div>
-                            <div style={{fontSize:10,color:GRAY,marginTop:2}}>{t.owner} - {t.date}</div>
-                            <div style={{display:"flex",gap:6,marginTop:6,alignItems:"center"}}>
-                              <div style={{fontSize:9,fontWeight:900,fontFamily:"monospace",color:PINK}}>{t.id}</div>
-                              <div style={{background:t.status==="valid"?"rgba(255,0,128,.15)":"rgba(136,146,160,.1)",borderRadius:20,padding:"2px 8px",fontSize:9,fontWeight:700,color:t.status==="valid"?PINK:GRAY}}>{t.status==="valid"?"VALIDE":"A VENIR"}</div>
-                              <div style={{background:"rgba(255,255,255,.05)",borderRadius:20,padding:"2px 8px",fontSize:9,fontWeight:700,color:WHITE}}>CHF {t.price}</div>
-                            </div>
-                          </div>
-                          <div onClick={()=>setDelTicketConfirm(t.id)} style={{marginLeft:12,width:36,height:36,borderRadius:10,background:"rgba(204,0,0,.15)",border:"1px solid rgba(204,0,0,.3)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
-                            <Icon n="trash" s={15} c="#FF4444"/>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-                {delTicketConfirm&&(
-                  <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.85)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:30}}>
-                    <div style={{background:BG2,borderRadius:20,padding:24,width:"100%",border:"1px solid "+BORDER}}>
-                      <div style={{fontSize:16,fontWeight:900,color:WHITE,marginBottom:8,textAlign:"center"}}>Supprimer ce billet ?</div>
-                      <div style={{fontSize:12,color:GRAY,marginBottom:20,textAlign:"center"}}>Cette action est irreversible.</div>
-                      <div style={{display:"flex",gap:10}}>
-                        <div onClick={()=>setDelTicketConfirm(null)} style={{flex:1,padding:"14px 0",borderRadius:50,background:BG3,textAlign:"center",fontWeight:900,color:GRAY,cursor:"pointer",border:"1px solid "+BORDER}}>ANNULER</div>
-                        <div onClick={()=>deleteTicketFn(delTicketConfirm)} style={{flex:1,padding:"14px 0",borderRadius:50,background:"#CC0000",textAlign:"center",fontWeight:900,color:WHITE,cursor:"pointer"}}>SUPPRIMER</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {adminTab==="free"&&!showFreeForm&&(
+
+                {/* Gratuits */}
+                {adminTab==="free"&&(
                   <div>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-                      <div style={{fontSize:11,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase"}}>BILLETS GRATUITS</div>
-                      <div onClick={()=>setShowFreeForm(true)} style={{background:`linear-gradient(135deg,${GREEN},#38B2AC)`,color:BG,padding:"8px 14px",borderRadius:20,fontSize:11,fontWeight:900,cursor:"pointer"}}>+ CRÉER</div>
+                      <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase"}}>GRATUITS ({tickets.filter(t=>t.type==="free").length})</div>
+                      <div onClick={()=>setShowFreeForm(true)} style={{background:`linear-gradient(135deg,${GREEN},#38B2AC)`,color:BG,padding:"9px 16px",borderRadius:20,fontSize:11,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={BG} strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        CRÉER
+                      </div>
                     </div>
-                    {tickets.filter(t=>t.type==="free").map((t)=>(
-                      <div key={t.id} style={{background:BG2,borderRadius:16,overflow:"hidden",marginBottom:12,border:`1px solid ${GREEN}33`}}>
-                        <div style={{padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                          <div>
-                            <div style={{fontSize:13,fontWeight:800,color:WHITE}}>{t.owner}</div>
-                            <div style={{fontSize:11,color:GRAY}}>{t.event}</div>
-                            {t.note&&<div style={{fontSize:10,color:GREEN}}>{t.note}</div>}
-                          </div>
-                          <div style={{display:"flex",gap:8}}>
-                            <div onClick={()=>setQrTicket(t)} style={{background:`${GREEN}22`,color:GREEN,padding:"7px 12px",borderRadius:10,fontSize:11,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon n="eye" s={13} c={GREEN}/> QR</div>
-                            <div onClick={()=>setDelTicketConfirm(t.id)} style={{background:"rgba(255,68,68,.1)",color:"#FF4444",padding:"7px 10px",borderRadius:10,cursor:"pointer"}}><Icon n="trash" s={13} c="#FF4444"/></div>
+                    {tickets.filter(t=>t.type==="free").length===0?(
+                      <div style={{textAlign:"center",padding:"40px 0"}}><div style={{fontSize:40,marginBottom:12}}>🎁</div><div style={{color:GRAY,fontSize:13}}>Aucun billet gratuit</div></div>
+                    ):(
+                      tickets.filter(t=>t.type==="free").map((t,i)=>(
+                        <div key={t.id} style={{background:"rgba(78,205,196,.05)",borderRadius:14,overflow:"hidden",marginBottom:10,border:`1px solid ${GREEN}33`,animation:`rowSlide .3s ${i*.06}s both`}}>
+                          <div style={{padding:"12px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{fontSize:13,fontWeight:800,color:WHITE}}>{t.owner}</div>
+                              <div style={{fontSize:11,color:GRAY,marginTop:2}}>{t.event}</div>
+                              {t.note&&<div style={{fontSize:10,color:GREEN,marginTop:4}}>📝 {t.note}</div>}
+                            </div>
+                            <div style={{display:"flex",gap:8,flexShrink:0,marginLeft:10}}>
+                              <div onClick={()=>setQrTicket(t)} style={{background:`${GREEN}22`,color:GREEN,padding:"8px 12px",borderRadius:10,fontSize:11,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon n="eye" s={13} c={GREEN}/> QR</div>
+                              <div onClick={()=>setDelTicketConfirm(t.id)} style={{width:34,height:34,background:"rgba(255,68,68,.1)",border:"1px solid rgba(255,68,68,.2)",borderRadius:10,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon n="trash" s={13} c="#FF4444"/></div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 )}
+
               </div>
-              {showScanner&&<QRScanner tickets={tickets} events={events} onClose={()=>{setShowScanner(false);setAdminTab("dashboard");}}/> }
+
+              {/* Scanner, EventForm, FreeTicketForm */}
+              {showScanner&&<QRScanner tickets={tickets} events={events} onClose={()=>{setShowScanner(false);setAdminTab("dashboard");}}/>}
               {showEvForm&&editEv!==null&&<EventForm ev={editEv} onSave={saveEventFn} onCancel={()=>{setShowEvForm(false);setEditEv(null);setAdminTab("events");}}/>}
               {showFreeForm&&<FreeTicketForm events={events} onSave={saveFreeTicketFn} onCancel={()=>{setShowFreeForm(false);setAdminTab("free");}}/>}
+
+              {/* Confirmer suppression soirée */}
               {delConfirm&&(
-                <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.85)",display:"flex",alignItems:"flex-end",zIndex:300}}>
-                  <div style={{background:BG2,borderRadius:"24px 24px 0 0",padding:"24px 24px 40px",width:"100%",border:`1px solid ${BORDER}`}}>
-                    <div style={{fontSize:16,fontWeight:900,color:WHITE,textAlign:"center",marginBottom:8}}>Supprimer la soirée ?</div>
-                    <div style={{fontSize:13,color:GRAY,textAlign:"center",marginBottom:20}}>Cette action est irréversible.</div>
+                <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.85)",display:"flex",alignItems:"flex-end",zIndex:400}}>
+                  <div style={{background:BG2,borderRadius:"22px 22px 0 0",padding:"20px 20px 36px",width:"100%",border:`1px solid ${BORDER}`,animation:"slideUp .3s both"}}>
+                    <div style={{width:36,height:4,background:BORDER,borderRadius:4,margin:"0 auto 18px"}}/>
+                    <div style={{fontSize:17,fontWeight:900,color:WHITE,textAlign:"center",marginBottom:6}}>Supprimer la soirée ?</div>
+                    <div style={{fontSize:13,color:GRAY,textAlign:"center",marginBottom:22}}>Cette action est irréversible.</div>
                     <div style={{display:"flex",gap:10}}>
-                      <div onClick={()=>setDelConfirm(null)} style={{flex:1,padding:"14px 0",borderRadius:50,border:`1px solid ${BORDER}`,textAlign:"center",fontWeight:900,color:GRAY,cursor:"pointer",background:BG3}}>ANNULER</div>
-                      <div onClick={()=>deleteEventFn(delConfirm)} style={{flex:1,padding:"14px 0",borderRadius:50,background:"#CC0000",textAlign:"center",fontWeight:900,color:WHITE,cursor:"pointer"}}>SUPPRIMER</div>
+                      <div onClick={()=>setDelConfirm(null)} style={{flex:1,padding:"14px 0",borderRadius:14,border:`1px solid ${BORDER}`,textAlign:"center",fontWeight:900,color:GRAY,cursor:"pointer",background:BG3}}>ANNULER</div>
+                      <div onClick={()=>deleteEventFn(delConfirm)} style={{flex:1,padding:"14px 0",borderRadius:14,background:"#CC0000",textAlign:"center",fontWeight:900,color:WHITE,cursor:"pointer"}}>SUPPRIMER</div>
                     </div>
                   </div>
                 </div>
               )}
+
+              {/* Confirmer suppression billet */}
+              {delTicketConfirm&&(
+                <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.85)",display:"flex",alignItems:"flex-end",zIndex:400}}>
+                  <div style={{background:BG2,borderRadius:"22px 22px 0 0",padding:"20px 20px 36px",width:"100%",border:`1px solid ${BORDER}`,animation:"slideUp .3s both"}}>
+                    <div style={{width:36,height:4,background:BORDER,borderRadius:4,margin:"0 auto 18px"}}/>
+                    <div style={{fontSize:17,fontWeight:900,color:WHITE,textAlign:"center",marginBottom:6}}>Supprimer ce billet ?</div>
+                    <div style={{fontSize:13,color:GRAY,textAlign:"center",marginBottom:22}}>Cette action est irréversible.</div>
+                    <div style={{display:"flex",gap:10}}>
+                      <div onClick={()=>setDelTicketConfirm(null)} style={{flex:1,padding:"14px 0",borderRadius:14,border:`1px solid ${BORDER}`,textAlign:"center",fontWeight:900,color:GRAY,cursor:"pointer",background:BG3}}>ANNULER</div>
+                      <div onClick={()=>deleteTicketFn(delTicketConfirm)} style={{flex:1,padding:"14px 0",borderRadius:14,background:"#CC0000",textAlign:"center",fontWeight:900,color:WHITE,cursor:"pointer"}}>SUPPRIMER</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
         )}
