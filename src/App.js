@@ -1096,7 +1096,7 @@ export default function App(){
                       <div style={{display:"flex",gap:8,justifyContent:"space-between"}}>
                         {[
                           ["trophy","Fidelite",()=>setScreen("profil")],
-                          ["ticket","Billets",()=>setTab("tickets")],
+                          ["ticket","Billets",()=>setScreen("tickets")],
                           ["star","VIP",()=>setScreen("vip")],
                           ["users","Profil",()=>setScreen("profil")]
                         ].map(([ico,label,action])=>(
