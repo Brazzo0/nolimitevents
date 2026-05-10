@@ -2112,83 +2112,200 @@ export default function App(){
   </div>
 )}
 {screen==="events"&&(
-  <div style={{position:"fixed",inset:0,background:"#0D1117",zIndex:100,display:"flex",flexDirection:"column",WebkitOverflowScrolling:"touch"}}>
-    <div style={{padding:"50px 16px 12px",background:"linear-gradient(135deg,rgba(255,0,128,.15),rgba(255,51,153,.05))",flexShrink:0}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-        <div style={{fontSize:22,fontWeight:900,color:"#FFFFFF"}}>Evenements</div>
-        <div style={{fontSize:11,color:"#FF0080",fontWeight:700}}>La Chaux-de-Fonds</div>
+  <div style={{position:"fixed",inset:0,background:BG,zIndex:100,display:"flex",flexDirection:"column"}}>
+    <style>{`
+      @keyframes evCardIn{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+      @keyframes heroIn{from{opacity:0;transform:scale(1.04)}to{opacity:1;transform:scale(1)}}
+      @keyframes glowPulse{0%,100%{box-shadow:0 0 0 rgba(255,0,128,0)}50%{box-shadow:0 0 30px rgba(255,0,128,.25)}}
+    `}</style>
+
+    {/* Header fixe */}
+    <div style={{flexShrink:0,background:BG,paddingTop:"env(safe-area-inset-top,20px)"}}>
+      <div style={{padding:"14px 18px 12px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div>
+          <div style={{fontSize:11,fontWeight:700,color:PINK,letterSpacing:2,textTransform:"uppercase",marginBottom:3}}>NolimitEvents</div>
+          <div style={{fontSize:22,fontWeight:900,color:WHITE}}>Événements</div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:6,background:"rgba(255,0,128,.08)",border:"1px solid rgba(255,0,128,.2)",borderRadius:20,padding:"6px 12px"}}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={PINK} strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span style={{fontSize:11,fontWeight:700,color:PINK}}>La Chaux-de-Fonds</span>
+        </div>
       </div>
-      <div style={{position:"relative",marginBottom:12}}>
-        <div style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",zIndex:1}}><Icon n="search" s={14} c="#8892A0"/></div>
-        <input type="text" placeholder="Rechercher un evenement..." value={search} onChange={e=>setSearch(e.target.value)} style={{width:"100%",padding:"10px 12px 10px 36px",background:"rgba(255,255,255,.08)",border:"1px solid rgba(255,255,255,.1)",borderRadius:12,color:"#FFFFFF",fontSize:13,outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}/>
-        {search&&<div onClick={()=>setSearch("")} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",color:"#8892A0",cursor:"pointer",fontSize:16}}>x</div>}
+
+      {/* Barre de recherche */}
+      <div style={{position:"relative",padding:"0 16px 10px"}}>
+        <div style={{position:"absolute",left:28,top:"50%",transform:"translateY(-60%)"}}><Icon n="search" s={15} c={GRAY}/></div>
+        <input type="text" placeholder="Rechercher un événement..." value={search} onChange={e=>setSearch(e.target.value)}
+          style={{width:"100%",padding:"11px 14px 11px 40px",background:BG2,border:`1px solid ${search?PINK:BORDER}`,borderRadius:14,color:WHITE,fontSize:13,outline:"none",fontFamily:"inherit",boxSizing:"border-box",transition:"border-color .2s"}}/>
+        {search&&<div onClick={()=>setSearch("")} style={{position:"absolute",right:28,top:"50%",transform:"translateY(-60%)",width:20,height:20,borderRadius:"50%",background:"rgba(255,255,255,.1)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:12,color:WHITE}}>×</div>}
       </div>
-      <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:4,scrollbarWidth:"none"}}>
-        {["Tous","Hip-Hop","Festival","Electronic","Afro","Latin"].map(f=>(
-          <div key={f} onClick={()=>setFilter(f)} style={{padding:"6px 16px",borderRadius:20,background:filter===f?"linear-gradient(135deg,#FF0080,#FF3399)":"rgba(255,255,255,.08)",color:filter===f?"#FFFFFF":"#8892A0",fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>{f}</div>
+
+      {/* Filtres catégorie */}
+      <div style={{display:"flex",gap:8,padding:"0 16px 12px",overflowX:"auto",scrollbarWidth:"none"}}>
+        {["Tous","Hip-Hop","Festival","Electronic","Afro","Latin","House","VIP"].map(f=>(
+          <div key={f} onClick={()=>setFilter(f)} style={{padding:"7px 16px",borderRadius:20,background:filter===f?GRAD:"rgba(255,255,255,.05)",border:filter===f?"none":`1px solid ${BORDER}`,color:filter===f?WHITE:GRAY,fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,transition:"all .2s",boxShadow:filter===f?"0 4px 16px rgba(255,0,128,.3)":"none"}}>{f}</div>
         ))}
       </div>
+      <div style={{height:1,background:BORDER,margin:"0 16px"}}/>
     </div>
-    <div style={{overflowY:"auto",flex:1,padding:"16px 16px 80px",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain"}}>
-      <div style={{marginBottom:16}}>
-        <CalendarWidget events={events}/>
-      </div>
-      {events.filter(e=>!e.ended&&(filter==="Tous"||e.category===filter)&&(search===""||e.title.toLowerCase().includes(search.toLowerCase()))).length>0&&(
-        <div style={{marginBottom:8}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
-            <div style={{width:3,height:16,background:"linear-gradient(135deg,#FF0080,#FF3399)",borderRadius:4}}/>
-            <div style={{fontSize:11,fontWeight:900,color:"#FF0080",letterSpacing:2,textTransform:"uppercase"}}>A venir</div>
-          </div>
-          {events.filter(e=>!e.ended&&(filter==="Tous"||e.category===filter)&&(search===""||e.title.toLowerCase().includes(search.toLowerCase()))).map((ev,i)=>(
-            <div key={ev.id} onClick={()=>openEv(ev)} style={{display:"flex",gap:12,alignItems:"center",background:"#141A22",borderRadius:16,padding:"12px 14px",marginBottom:10,border:"1px solid #1E2A38",cursor:"pointer"}}>
-              <div style={{width:64,height:64,borderRadius:14,overflow:"hidden",flexShrink:0,background:"linear-gradient(135deg,#FF0080,#FF3399)"}}>
-                {ev.poster?<img src={ev.poster} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:
-                <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
-                  <div style={{fontSize:16,fontWeight:900,color:"#FFFFFF"}}>{ev.date.split(" ")[1]||"?"}</div>
-                  <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,.8)"}}>{ev.date.split(" ")[2]||""}</div>
-                </div>}
-              </div>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:14,fontWeight:800,color:"#FFFFFF",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</div>
-                <div style={{fontSize:11,color:"#8892A0",marginTop:2}}>{ev.location} • {ev.time}</div>
-                <div style={{display:"flex",gap:6,marginTop:4,alignItems:"center"}}>
-                  <div style={{background:"rgba(255,0,128,.15)",padding:"2px 8px",borderRadius:10,fontSize:9,fontWeight:700,color:"#FF0080"}}>{ev.category||"Soiree"}</div>
+
+    {/* Contenu scrollable */}
+    <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain"}}>
+      {(()=>{
+        const upcoming=events.filter(e=>!e.ended&&(filter==="Tous"||e.category===filter)&&(search===""||e.title.toLowerCase().includes(search.toLowerCase())));
+        const ended=events.filter(e=>e.ended&&(search===""||e.title.toLowerCase().includes(search.toLowerCase())));
+        const featured=upcoming[0]||null;
+        const rest=upcoming.slice(1);
+        return(
+          <div style={{padding:"16px 16px 100px"}}>
+
+            {/* Event en vedette */}
+            {featured&&!search&&filter==="Tous"&&(
+              <div style={{marginBottom:22}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+                  <div style={{width:3,height:16,background:GRAD,borderRadius:4}}/>
+                  <div style={{fontSize:10,fontWeight:900,color:PINK,letterSpacing:2,textTransform:"uppercase"}}>Prochain événement</div>
+                </div>
+                <div onClick={()=>openEv(featured)} style={{borderRadius:24,overflow:"hidden",cursor:"pointer",animation:"heroIn .5s both",boxShadow:"0 12px 40px rgba(0,0,0,.5)",position:"relative"}}>
+                  <div style={{height:220,position:"relative"}}>
+                    {featured.poster?<img src={featured.poster} alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,#FF0080,#7B2FFF)"}}/>}
+                    <div style={{position:"absolute",inset:0,background:"linear-gradient(0deg,rgba(13,17,23,1) 0%,rgba(13,17,23,.2) 60%,transparent 100%)"}}/>
+                    {featured.soldOut&&<div style={{position:"absolute",top:14,right:14,background:"rgba(0,0,0,.7)",border:"1px solid rgba(255,255,255,.2)",borderRadius:20,padding:"5px 12px",fontSize:9,fontWeight:900,color:WHITE,letterSpacing:1}}>COMPLET</div>}
+                    {!featured.soldOut&&<div style={{position:"absolute",top:14,right:14,background:"rgba(255,0,128,.15)",border:"1px solid rgba(255,0,128,.4)",borderRadius:20,padding:"5px 12px",fontSize:9,fontWeight:900,color:PINK,letterSpacing:1,backdropFilter:"blur(6px)"}}>BILLETS DISPO</div>}
+                    <div style={{position:"absolute",top:14,left:14,background:"rgba(0,0,0,.5)",borderRadius:12,padding:"6px 10px",backdropFilter:"blur(6px)"}}>
+                      <div style={{fontSize:18,fontWeight:900,color:WHITE,lineHeight:1}}>{featured.date.split(" ")[1]||"—"}</div>
+                      <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,.7)",textTransform:"uppercase"}}>{featured.date.split(" ")[2]||""}</div>
+                    </div>
+                    <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"16px 18px"}}>
+                      {featured.category&&<div style={{display:"inline-block",background:"rgba(255,0,128,.2)",border:"1px solid rgba(255,0,128,.4)",color:PINK,fontSize:9,fontWeight:900,padding:"3px 10px",borderRadius:20,marginBottom:8,letterSpacing:.8}}>{featured.category}</div>}
+                      <div style={{fontSize:20,fontWeight:900,color:WHITE,marginBottom:6,textShadow:"0 2px 8px rgba(0,0,0,.8)"}}>{featured.title}</div>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:10}}>
+                          <div style={{display:"flex",alignItems:"center",gap:5}}>
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.6)" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                            <span style={{fontSize:11,color:"rgba(255,255,255,.7)"}}>{featured.location}</span>
+                          </div>
+                          <div style={{display:"flex",alignItems:"center",gap:5}}>
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.6)" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            <span style={{fontSize:11,color:"rgba(255,255,255,.7)"}}>{featured.time}</span>
+                          </div>
+                        </div>
+                        <div style={{fontSize:20,fontWeight:900,color:PINK,textShadow:"0 0 20px rgba(255,0,128,.5)"}}>CHF {featured.price}</div>
+                      </div>
+                      {featured.capacity>0&&(
+                        <div style={{marginTop:10}}>
+                          <div style={{height:3,borderRadius:3,background:"rgba(255,255,255,.1)",overflow:"hidden"}}>
+                            <div style={{height:"100%",borderRadius:3,background:GRAD,width:`${Math.min(100,Math.round((featured.ticketsSold||0)/featured.capacity*100))}%`,transition:"width 1.2s ease"}}/>
+                          </div>
+                          <div style={{fontSize:10,color:"rgba(255,255,255,.45)",marginTop:4}}>{featured.ticketsSold||0}/{featured.capacity} billets vendus</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div style={{textAlign:"right",flexShrink:0}}>
-                <div style={{fontSize:14,fontWeight:900,color:"#FF0080"}}>CHF {ev.price}</div>
+            )}
+
+            {/* Liste des autres events à venir */}
+            {upcoming.length>0&&(
+              <div style={{marginBottom:20}}>
+                {(featured&&!search&&filter==="Tous"?rest:upcoming).length>0&&(
+                  <>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+                      <div style={{width:3,height:16,background:GRAD,borderRadius:4}}/>
+                      <div style={{fontSize:10,fontWeight:900,color:PINK,letterSpacing:2,textTransform:"uppercase"}}>À venir</div>
+                      <div style={{marginLeft:"auto",fontSize:10,fontWeight:700,color:GRAY}}>{upcoming.length} event{upcoming.length>1?"s":""}</div>
+                    </div>
+                    {(featured&&!search&&filter==="Tous"?rest:upcoming).map((ev,i)=>{
+                      const pct=ev.capacity>0?Math.min(100,Math.round((ev.ticketsSold||0)/ev.capacity*100)):0;
+                      return(
+                        <div key={ev.id} onClick={()=>openEv(ev)} style={{display:"flex",gap:14,background:BG2,borderRadius:18,padding:"12px 14px",marginBottom:10,border:`1px solid ${BORDER}`,cursor:"pointer",animation:`evCardIn .45s ${i*.07}s both`,position:"relative",overflow:"hidden"}}>
+                          <div style={{position:"absolute",inset:0,background:"linear-gradient(90deg,rgba(255,0,128,.04),transparent)",pointerEvents:"none"}}/>
+                          <div style={{width:72,height:82,borderRadius:14,overflow:"hidden",flexShrink:0,background:"linear-gradient(135deg,#FF0080,#7B2FFF)",position:"relative"}}>
+                            {ev.poster?<img src={ev.poster} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:
+                            <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2}}>
+                              <div style={{fontSize:20,fontWeight:900,color:WHITE}}>{ev.date.split(" ")[1]||"?"}</div>
+                              <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,.8)",textTransform:"uppercase"}}>{ev.date.split(" ")[2]||""}</div>
+                            </div>}
+                            {ev.soldOut&&<div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.65)",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{fontSize:8,fontWeight:900,color:WHITE,letterSpacing:.5}}>COMPLET</div></div>}
+                          </div>
+                          <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",justifyContent:"center",gap:4}}>
+                            <div style={{fontSize:15,fontWeight:900,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</div>
+                            <div style={{display:"flex",alignItems:"center",gap:5}}>
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={GRAY} strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                              <span style={{fontSize:11,color:GRAY}}>{ev.date}</span>
+                            </div>
+                            <div style={{display:"flex",alignItems:"center",gap:5}}>
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={GRAY} strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                              <span style={{fontSize:11,color:GRAY,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.location}</span>
+                            </div>
+                            {ev.category&&<div style={{display:"inline-block",background:"rgba(255,0,128,.1)",border:"1px solid rgba(255,0,128,.2)",color:PINK,fontSize:9,fontWeight:700,padding:"2px 8px",borderRadius:10,width:"fit-content"}}>{ev.category}</div>}
+                            {ev.capacity>0&&(
+                              <div style={{marginTop:2}}>
+                                <div style={{height:2.5,borderRadius:2,background:"rgba(255,255,255,.06)",overflow:"hidden"}}>
+                                  <div style={{height:"100%",borderRadius:2,background:pct>80?"linear-gradient(90deg,#FF4444,#FF6B6B)":GRAD,width:`${pct}%`,transition:"width 1s ease"}}/>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <div style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:"flex-end",justifyContent:"center",gap:6}}>
+                            <div style={{fontSize:16,fontWeight:900,color:PINK}}>CHF {ev.price}</div>
+                            <div style={{width:32,height:32,borderRadius:10,background:"rgba(255,0,128,.1)",border:"1px solid rgba(255,0,128,.25)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={PINK} strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-      {events.filter(e=>e.ended).length>0&&(
-        <div>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
-            <div style={{width:3,height:16,background:"#1E2A38",borderRadius:4}}/>
-            <div style={{fontSize:11,fontWeight:900,color:"#8892A0",letterSpacing:2,textTransform:"uppercase"}}>Terminees</div>
+            )}
+
+            {/* Events terminés */}
+            {ended.length>0&&(
+              <div>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+                  <div style={{width:3,height:16,background:`rgba(255,255,255,.12)`,borderRadius:4}}/>
+                  <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase"}}>Terminés</div>
+                </div>
+                {ended.map((ev,i)=>(
+                  <div key={ev.id} style={{display:"flex",gap:12,background:BG2,borderRadius:16,padding:"10px 12px",marginBottom:8,border:`1px solid ${BORDER}`,opacity:.45,animation:`evCardIn .4s ${i*.06}s both`}}>
+                    <div style={{width:52,height:52,borderRadius:12,overflow:"hidden",flexShrink:0,background:BG3}}>
+                      {ev.poster&&<img src={ev.poster} alt="" style={{width:"100%",height:"100%",objectFit:"cover",filter:"grayscale(100%)"}}/>}
+                    </div>
+                    <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",justifyContent:"center"}}>
+                      <div style={{fontSize:13,fontWeight:800,color:GRAY,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</div>
+                      <div style={{fontSize:11,color:"rgba(255,255,255,.3)",marginTop:2}}>{ev.date}</div>
+                    </div>
+                    <div style={{background:"rgba(255,255,255,.06)",border:`1px solid rgba(255,255,255,.08)`,borderRadius:20,padding:"4px 10px",fontSize:9,fontWeight:900,color:GRAY,alignSelf:"center",letterSpacing:.5}}>TERMINÉ</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Aucun résultat */}
+            {upcoming.length===0&&ended.length===0&&(
+              <div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"70px 20px",gap:14}}>
+                <div style={{width:80,height:80,borderRadius:24,background:"rgba(255,255,255,.04)",border:`1px solid ${BORDER}`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke={GRAY} strokeWidth="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                </div>
+                <div style={{fontSize:18,fontWeight:900,color:WHITE}}>Aucun événement</div>
+                <div style={{fontSize:13,color:GRAY,textAlign:"center"}}>Aucun événement ne correspond à ta recherche.</div>
+              </div>
+            )}
           </div>
-          {events.filter(e=>e.ended).map((ev,i)=>(
-            <div key={ev.id} style={{display:"flex",gap:12,alignItems:"center",background:"#141A22",borderRadius:16,padding:"12px 14px",marginBottom:10,border:"1px solid #1E2A38",opacity:.5}}>
-              <div style={{width:64,height:64,borderRadius:14,overflow:"hidden",flexShrink:0,background:"#1C2430"}}>
-                {ev.poster&&<img src={ev.poster} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>}
-              </div>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:14,fontWeight:800,color:"#8892A0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</div>
-                <div style={{fontSize:11,color:"#8892A0",marginTop:2}}>{ev.date}</div>
-              </div>
-              <div style={{background:"rgba(255,255,255,.1)",padding:"3px 10px",borderRadius:20,fontSize:9,fontWeight:900,color:"#8892A0"}}>TERMINEE</div>
-            </div>
-          ))}
-        </div>
-      )}
+        );
+      })()}
     </div>
-    <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#141A22",borderTop:"1px solid #1E2A38",paddingTop:8,paddingBottom:20,display:"flex",zIndex:200}}>
+
+    {/* Navbar */}
+    <div style={{position:"fixed",bottom:0,left:0,right:0,background:BG2,borderTop:`1px solid ${BORDER}`,paddingTop:8,paddingBottom:"env(safe-area-inset-bottom,8px)",display:"flex",zIndex:200}}>
       {[["home","Accueil","home"],["events","Events","calendar"],["tickets","Billets","ticket"],["agenda","Groupes","users"],["profil","Profil","users"]].map(([s,label,ico])=>(
         <div key={s} onClick={()=>{if(s==="events"){}else if(s==="profil"){setScreen("profil");}else{setTab(s);setScreen("main");}}} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",padding:"4px 0"}}>
-          <Icon n={ico} s={20} c={s==="events"?"#FF0080":"#8892A0"}/>
-          <span style={{fontSize:9,fontWeight:700,color:s==="events"?"#FF0080":"#8892A0"}}>{label}</span>
-          {s==="events"&&<div style={{width:16,height:2.5,borderRadius:2,background:"linear-gradient(135deg,#FF0080,#FF3399)"}}/>}
+          <Icon n={ico} s={20} c={s==="events"?PINK:GRAY}/>
+          <span style={{fontSize:9,fontWeight:700,color:s==="events"?PINK:GRAY}}>{label}</span>
+          {s==="events"&&<div style={{width:16,height:2.5,borderRadius:2,background:GRAD}}/>}
         </div>
       ))}
     </div>
@@ -2425,48 +2542,96 @@ export default function App(){
 
         {screen==="event"&&selEv&&(
           <div className="sc">
-            <div className="scroll">
-              <div style={{height:selEv.poster?280:160,position:"relative",overflow:"hidden",paddingTop:SAFE_TOP}}>
-                {selEv.poster&&<img src={selEv.poster} alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>}
-                <div style={{position:"absolute",inset:0,background:selEv.poster?"linear-gradient(180deg,rgba(13,17,23,.4),rgba(13,17,23,.95) 100%)":`linear-gradient(135deg,${BG3},rgba(255,0,128,.06))`}}/>
-                <button onClick={goMain} style={{position:"absolute",top:`calc(${SAFE_TOP} + 10px)`,left:18,background:"rgba(13,17,23,.6)",border:"1px solid rgba(255,255,255,.15)",width:36,height:36,borderRadius:"50%",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2}}>
+            <div className="scroll" style={{background:BG}}>
+              {/* Hero poster */}
+              <div style={{height:selEv.poster?300:180,position:"relative",overflow:"hidden"}}>
+                {selEv.poster?<img src={selEv.poster} alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",animation:"heroIn .5s both"}}/>:<div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,#FF0080,#7B2FFF)"}}/>}
+                <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(13,17,23,.3) 0%,rgba(13,17,23,.98) 100%)"}}/>
+                {/* Bouton retour */}
+                <div onClick={goMain} style={{position:"absolute",top:`calc(env(safe-area-inset-top,20px) + 10px)`,left:16,width:38,height:38,borderRadius:12,background:"rgba(13,17,23,.65)",border:"1px solid rgba(255,255,255,.12)",backdropFilter:"blur(10px)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",zIndex:2}}>
                   <Icon n="back" s={16} c={WHITE}/>
-                </button>
-                <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"16px 20px",zIndex:2}}>
-                  <div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap"}}>{selEv.tags.map(t=><Tag key={t}>{t}</Tag>)}</div>
-                  <div style={{fontSize:24,fontWeight:900,color:WHITE}}>{selEv.title}</div>
+                </div>
+                {/* Tags + titre */}
+                <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"18px 20px",zIndex:2}}>
+                  <div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap"}}>
+                    {selEv.tags&&selEv.tags.map(t=><div key={t} style={{background:"rgba(255,255,255,.12)",backdropFilter:"blur(6px)",border:"1px solid rgba(255,255,255,.15)",borderRadius:20,padding:"3px 10px",fontSize:10,fontWeight:700,color:WHITE}}>{t}</div>)}
+                    {selEv.category&&<div style={{background:"rgba(255,0,128,.25)",border:"1px solid rgba(255,0,128,.5)",borderRadius:20,padding:"3px 10px",fontSize:10,fontWeight:700,color:PINK}}>{selEv.category}</div>}
+                  </div>
+                  <div style={{fontSize:26,fontWeight:900,color:WHITE,lineHeight:1.1,textShadow:"0 2px 12px rgba(0,0,0,.8)"}}>{selEv.title}</div>
                 </div>
               </div>
-              <div style={{padding:"16px 20px 20px"}}>
-                {[[<Icon n="calendar" s={18} c={PINK}/>,selEv.date,`${selEv.time} — Ouverture`],[<Icon n="pin" s={18} c={PINK}/>,selEv.location,selEv.city],[<Icon n="users" s={18} c={PINK}/>,"Âge : 16+","Pièce d'identité"]].map(([icon,l1,l2],i)=>(
-                  <div key={i} style={{display:"flex",gap:14,background:BG2,padding:"13px 16px",borderRadius:14,marginBottom:10,border:`1px solid ${BORDER}`,alignItems:"center"}}>
-                    {icon}<div><div style={{fontSize:14,color:WHITE,fontWeight:700}}>{l1}</div><div style={{fontSize:12,color:GRAY}}>{l2}</div></div>
-                  </div>
-                ))}
-                <div style={{background:BG2,borderRadius:14,padding:"14px 16px",marginBottom:14,border:`1px solid ${BORDER}`}}>
-                  <div style={{fontSize:10,color:PINK,fontWeight:900,letterSpacing:2,marginBottom:10,textTransform:"uppercase"}}>Line-up</div>
-                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                    {selEv.lineup.map(dj=><span key={dj} style={{padding:"7px 14px",background:BG3,borderRadius:20,fontSize:12,fontWeight:800,color:WHITE,border:`1px solid ${BORDER}`}}>{dj}</span>)}
-                  </div>
+
+              <div style={{padding:"18px 18px 30px"}}>
+                {/* Infos principales */}
+                <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:18}}>
+                  {[
+                    [<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={PINK} strokeWidth="2.2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>, selEv.date, `${selEv.time} — Ouverture des portes`, PINK],
+                    [<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7B6CF6" strokeWidth="2.2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>, selEv.location, selEv.city||"La Chaux-de-Fonds", "#7B6CF6"],
+                    [<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ECDC4" strokeWidth="2.2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Âge : 16+", "Pièce d'identité requise", "#4ECDC4"],
+                  ].map(([icon,l1,l2,color],i)=>(
+                    <div key={i} style={{display:"flex",gap:14,background:BG2,padding:"14px 16px",borderRadius:16,border:`1px solid ${BORDER}`,alignItems:"center",animation:`evCardIn .4s ${i*.07}s both`}}>
+                      <div style={{width:38,height:38,borderRadius:12,background:`${color}18`,border:`1px solid ${color}30`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{icon}</div>
+                      <div><div style={{fontSize:14,color:WHITE,fontWeight:700}}>{l1}</div><div style={{fontSize:11,color:GRAY,marginTop:1}}>{l2}</div></div>
+                    </div>
+                  ))}
                 </div>
-                {!selEv.ended&&(
-                  <div style={{background:BG2,borderRadius:16,padding:16,marginBottom:16,border:`1px solid ${BORDER}`}}>
-                    <div style={{fontSize:10,color:PINK,fontWeight:900,letterSpacing:2,marginBottom:12,textTransform:"uppercase"}}>Nombre de billets</div>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <div style={{display:"flex",gap:16,alignItems:"center"}}>
-                        <button onClick={()=>changeQty(-1)} style={{width:38,height:38,borderRadius:"50%",border:`1px solid ${BORDER}`,background:BG3,color:WHITE,cursor:"pointer",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
-                        <span style={{fontSize:32,fontWeight:900,color:WHITE,animation:qtyAnim?"qtyBounce .3s both":"none",minWidth:40,textAlign:"center"}}>{qty}</span>
-                        <button onClick={()=>changeQty(1)} style={{width:38,height:38,borderRadius:"50%",border:"none",background:GRAD,color:WHITE,cursor:"pointer",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
-                      </div>
-                      <div style={{textAlign:"right"}}><div style={{fontSize:11,color:GRAY}}>TOTAL</div><div style={{fontSize:28,fontWeight:900,color:PINK}}>CHF {selEv.price*qty}</div></div>
+
+                {/* Line-up */}
+                {selEv.lineup&&selEv.lineup.length>0&&(
+                  <div style={{background:BG2,borderRadius:16,padding:"15px 16px",marginBottom:16,border:`1px solid ${BORDER}`,animation:"evCardIn .4s .2s both"}}>
+                    <div style={{fontSize:10,color:PINK,fontWeight:900,letterSpacing:2,marginBottom:12,textTransform:"uppercase"}}>Line-up</div>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                      {selEv.lineup.map((dj,i)=>(
+                        <div key={dj} style={{padding:"8px 16px",background:BG3,borderRadius:20,fontSize:13,fontWeight:800,color:WHITE,border:`1px solid ${BORDER}`,animation:`evCardIn .3s ${i*.05}s both`}}>{dj}</div>
+                      ))}
                     </div>
                   </div>
                 )}
-                {!selEv.ended?<Btn onClick={()=>setScreen("payment")}>ACHETER DES BILLETS</Btn>
-                  :<div style={{background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.1)",borderRadius:14,padding:"14px 0",textAlign:"center",color:GRAY,fontWeight:800,fontSize:13}}>🔒 CETTE SOIRÉE EST TERMINÉE</div>}
-                <div style={{height:10}}/>
-                <Btn outline onClick={()=>setScreen("vip")}>RÉSERVER VIP 👑</Btn>
-                <div style={{height:20}}/>
+
+                {/* Dispo billets */}
+                {selEv.capacity>0&&!selEv.ended&&(
+                  <div style={{background:BG2,borderRadius:16,padding:"14px 16px",marginBottom:16,border:`1px solid ${BORDER}`,animation:"evCardIn .4s .25s both"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+                      <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:1.5,textTransform:"uppercase"}}>Disponibilité</div>
+                      <div style={{fontSize:11,fontWeight:700,color:selEv.ticketsSold/selEv.capacity>0.8?"#FF6B6B":WHITE}}>{selEv.capacity-(selEv.ticketsSold||0)} places restantes</div>
+                    </div>
+                    <div style={{height:5,borderRadius:5,background:"rgba(255,255,255,.06)",overflow:"hidden"}}>
+                      <div style={{height:"100%",borderRadius:5,background:selEv.ticketsSold/selEv.capacity>0.8?"linear-gradient(90deg,#FF4444,#FF6B6B)":GRAD,width:`${Math.min(100,Math.round((selEv.ticketsSold||0)/selEv.capacity*100))}%`,transition:"width 1.2s ease",boxShadow:`0 0 8px rgba(255,0,128,.4)`}}/>
+                    </div>
+                    <div style={{fontSize:10,color:GRAY,marginTop:6}}>{selEv.ticketsSold||0} / {selEv.capacity} billets vendus</div>
+                  </div>
+                )}
+
+                {/* Quantité */}
+                {!selEv.ended&&!selEv.soldOut&&(
+                  <div style={{background:BG2,borderRadius:16,padding:"16px",marginBottom:16,border:`1px solid ${BORDER}`,animation:"evCardIn .4s .3s both"}}>
+                    <div style={{fontSize:10,color:PINK,fontWeight:900,letterSpacing:2,marginBottom:14,textTransform:"uppercase"}}>Nombre de billets</div>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div style={{display:"flex",gap:18,alignItems:"center"}}>
+                        <button onClick={()=>changeQty(-1)} style={{width:42,height:42,borderRadius:13,border:`1px solid ${BORDER}`,background:BG3,color:WHITE,cursor:"pointer",fontSize:24,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:300}}>−</button>
+                        <span style={{fontSize:34,fontWeight:900,color:WHITE,animation:qtyAnim?"qtyBounce .3s both":"none",minWidth:44,textAlign:"center"}}>{qty}</span>
+                        <button onClick={()=>changeQty(1)} style={{width:42,height:42,borderRadius:13,border:"none",background:GRAD,color:WHITE,cursor:"pointer",fontSize:24,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 16px rgba(255,0,128,.4)"}}>+</button>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontSize:10,color:GRAY,fontWeight:700,letterSpacing:1,marginBottom:3}}>TOTAL</div>
+                        <div style={{fontSize:30,fontWeight:900,color:PINK,lineHeight:1}}>{selEv.price*qty} <span style={{fontSize:14,fontWeight:700}}>CHF</span></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Boutons */}
+                <div style={{animation:"evCardIn .4s .35s both"}}>
+                  {selEv.ended?(
+                    <div style={{background:"rgba(255,255,255,.04)",border:`1px solid ${BORDER}`,borderRadius:16,padding:"16px 0",textAlign:"center",color:GRAY,fontWeight:800,fontSize:13,letterSpacing:.5}}>SOIRÉE TERMINÉE</div>
+                  ):selEv.soldOut?(
+                    <div style={{background:"rgba(255,68,68,.06)",border:"1px solid rgba(255,68,68,.25)",borderRadius:16,padding:"16px 0",textAlign:"center",color:"#FF4444",fontWeight:900,fontSize:14,letterSpacing:.5}}>COMPLET</div>
+                  ):(
+                    <div onClick={()=>setScreen("payment")} style={{padding:"16px 0",borderRadius:16,background:GRAD,textAlign:"center",fontWeight:900,fontSize:15,color:WHITE,cursor:"pointer",letterSpacing:.5,boxShadow:"0 6px 24px rgba(255,0,128,.4)",marginBottom:10}}>ACHETER DES BILLETS — CHF {selEv.price*qty}</div>
+                  )}
+                  {!selEv.ended&&<div onClick={()=>setScreen("vip")} style={{padding:"14px 0",borderRadius:16,background:"rgba(255,215,0,.06)",border:"1px solid rgba(255,215,0,.25)",textAlign:"center",fontWeight:900,fontSize:14,color:"#FFD700",cursor:"pointer",letterSpacing:.5,marginTop:10}}>RÉSERVER VIP 👑</div>}
+                </div>
+                <div style={{height:24}}/>
               </div>
             </div>
           </div>
