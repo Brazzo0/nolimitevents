@@ -18,9 +18,7 @@ const SAFE_BOT="env(safe-area-inset-bottom, 20px)";
 
 const initialEvents=[];
 
-const initialTickets=[
-  {id:"NLE-001",eventId:1,event:"NO LIMIT PARTY #1",date:"VEN 24 AVRIL",location:"Eden Night Club",time:"22:00",owner:"Jean Dupont",email:"jean@example.ch",type:"paid",price:20,status:"valid",createdAt:"01/04/2026"},
-];
+const initialTickets=[];
 const dbLoad=async()=>{
   try{const{data}=await supabase.from("events").select("*").order("created_at",{ascending:false});
   if(!data||!data.length) return null;
@@ -358,16 +356,27 @@ function CalendarWidget({events}){
   );
 }
 
-function NavBar({current,onNav}){
-  const tabs=[["home","Accueil"],["tickets","Billets"],["agenda","Agenda"]];
-  const icons={home:"home",tickets:"ticket",agenda:"calendar"};
+function NavBar({current,onNav,onProfil,onEvents}){
+  const tabs=[
+    ["home","Accueil","home"],
+    ["events","Events","calendar"],
+    ["tickets","Billets","ticket"],
+    ["agenda","Groupes","users"],
+    ["profil","Profil","users"]
+  ];
   return(
-    <div style={{display:"flex",background:BG2,borderTop:`1px solid ${BORDER}`,paddingTop:10,paddingBottom:SAFE_BOT,flexShrink:0,position:"sticky",bottom:0,zIndex:50}}>
-      {tabs.map(([s,label])=>(
-        <div key={s} onClick={()=>onNav(s)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",padding:"4px 0"}}>
-          <div style={{transform:current===s?"scale(1.2) translateY(-2px)":"scale(1)",transition:"transform .25s cubic-bezier(.34,1.56,.64,1)"}}><Icon n={icons[s]} s={22} c={current===s?PINK:GRAY}/></div>
-          <span style={{fontSize:"clamp(8px,2.5vw,10px)",fontWeight:700,letterSpacing:.3,textTransform:"uppercase",color:current===s?PINK:GRAY}}>{label}</span>
-          {current===s&&<div style={{width:16,height:2.5,borderRadius:2,background:GRAD,animation:"dotPop .3s both"}}/>}
+    <div style={{display:"flex",background:BG2,borderTop:"1px solid "+BORDER,paddingTop:8,paddingBottom:SAFE_BOT,flexShrink:0,position:"fixed",bottom:0,left:0,right:0,zIndex:200}}>
+      {tabs.map(([s,label,ico])=>(
+        <div key={s} onClick={()=>{
+          if(s==="profil"&&onProfil){onProfil();}
+          else if(s==="events"&&onEvents){onEvents();}
+          else{onNav(s==="events"?"agenda":s);}
+        }} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",padding:"4px 0"}}>
+          <div style={{width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",borderRadius:8,background:current===s?"rgba(255,0,128,.15)":"transparent",transition:"all .2s"}}>
+            <Icon n={ico} s={20} c={current===s?PINK:GRAY}/>
+          </div>
+          <span style={{fontSize:9,fontWeight:700,letterSpacing:.3,color:current===s?PINK:GRAY}}>{label}</span>
+          {current===s&&<div style={{width:16,height:2.5,borderRadius:2,background:GRAD}}/>}
         </div>
       ))}
     </div>
@@ -574,13 +583,27 @@ function QRScanner({tickets,events,onClose}){
 
 export default function App(){
   const [screen,setScreen]=useState("splash");
+  const [onbStep,setOnbStep]=useState(0);
+  const [onbDone,setOnbDone]=useState(false);
+  const [authUser,setAuthUser]=useState(null);
+  const [authLoading,setAuthLoading]=useState(true);
+  const [loginEmail,setLoginEmail]=useState("");
+  const [loginPass,setLoginPass]=useState("");
+  const [loginErr,setLoginErr]=useState("");
+  const [regPrenom,setRegPrenom]=useState("");
+  const [regNom,setRegNom]=useState("");
+  const [regEmail,setRegEmail]=useState("");
+  const [regPass,setRegPass]=useState("");
+  const [regErr,setRegErr]=useState("");
+  const [regDone,setRegDone]=useState(false);
   const [tab,setTab]=useState("home");
   const [events,setEvents]=useState(initialEvents);
-  const [tickets,setTickets]=useState(initialTickets);
+  const [tickets,setTickets]=useState([]);
   const [selEv,setSelEv]=useState(null);
   const [qty,setQty]=useState(1);
   const [qrTicket,setQrTicket]=useState(null);
   const [filter,setFilter]=useState("Tous");
+  const [search,setSearch]=useState("");
   const [payStep,setPayStep]=useState(0);
   const [payMethod,setPayMethod]=useState("card");
   const [buyerInfo,setBuyerInfo]=useState({prenom:"",nom:"",email:"",tel:""});
@@ -595,8 +618,17 @@ export default function App(){
   const [showScanner,setShowScanner]=useState(false);
   const [showGallery,setShowGallery]=useState(false);
   const [delConfirm,setDelConfirm]=useState(null);
+  const [delTicketConfirm,setDelTicketConfirm]=useState(null);
   const [toast,setToast]=useState(null);
   const [menuOpen,setMenuOpen]=useState(false);
+  const [aboutMedia,setAboutMedia]=useState([]);
+  const [profil,setProfil]=useState(null);
+  const [profilEdit,setProfilEdit]=useState(false);
+  const [profilPseudo,setProfilPseudo]=useState("");
+  const [profilInsta,setProfilInsta]=useState("");
+  const [profilSnap,setProfilSnap]=useState("");
+  const [profilSaving,setProfilSaving]=useState(false);
+  const [profilErr,setProfilErr]=useState("");
   const [notifOpen,setNotifOpen]=useState(false);
   const [loading,setLoading]=useState(true);
   const tapsRef=useRef(0);
@@ -625,9 +657,55 @@ export default function App(){
       if(tix&&tix.length>0) setTickets(tix);
     }).catch(()=>{});
   },[]);
-  useEffect(()=>{if(screen==="splash"){const t=setTimeout(()=>setScreen("main"),2500);return()=>clearTimeout(t);}},[screen]);
+  useEffect(()=>{
+    if(screen==="splash"){
+      const t=setTimeout(()=>{
+        setScreen("onboarding");
+      },2500);
+      return()=>clearTimeout(t);
+    }
+  },[screen,authUser]);
 
   const goMain=()=>{setSelEv(null);setPayStep(0);setScreen("main");};
+  useEffect(()=>{
+    supabase.auth.getSession().then(({data:{session}})=>{
+      setAuthUser(session?.user||null);
+      setAuthLoading(false);
+    });
+    const{data:{subscription}}=supabase.auth.onAuthStateChange((_,session)=>{
+      setAuthUser(session?.user||null);
+    });
+    return()=>subscription.unsubscribe();
+  },[]);
+  const doLogin=async()=>{
+    setLoginErr("");
+    const{error}=await supabase.auth.signInWithPassword({email:loginEmail,password:loginPass});
+    if(error){setLoginErr("Email ou mot de passe incorrect ❌");}
+    else{setLoginEmail("");setLoginPass("");setScreen("main");}
+  };
+  const doRegister=async()=>{
+    setRegErr("");
+    if(!regPrenom||!regNom||!regEmail||!regPass){setRegErr("Remplis tous les champs !");return;}
+    if(regPass.length<6){setRegErr("Mot de passe trop court (6 min)");return;}
+    const{error}=await supabase.auth.signUp({email:regEmail,password:regPass,options:{data:{prenom:regPrenom,nom:regNom}}});
+    if(error){setRegErr(error.message);}
+    else{setRegDone(true);}
+  };
+  const doLogout=async()=>{await supabase.auth.signOut();setAuthUser(null);setScreen("main");};
+  const loadProfil=async(uid)=>{
+    const{data}=await supabase.from("profiles").select("*").eq("id",uid).single();
+    if(data){setProfil(data);setProfilPseudo(data.pseudo||"");setProfilInsta(data.instagram||"");setProfilSnap(data.snapchat||"");}
+    else{await supabase.from("profiles").insert({id:uid,pseudo:"",instagram:"",snapchat:"",points:0});setProfil({pseudo:"",instagram:"",snapchat:"",points:0});}
+  };
+  const saveProfil=async()=>{
+    if(!authUser)return;
+    setProfilSaving(true);setProfilErr("");
+    if(profilPseudo&&profilPseudo.length<3){setProfilErr("Pseudo trop court (3 min)");setProfilSaving(false);return;}
+    const{error}=await supabase.from("profiles").upsert({id:authUser.id,pseudo:profilPseudo,instagram:profilInsta,snapchat:profilSnap,points:profil?.points||0});
+    if(error){setProfilErr("Pseudo déjà pris !");} else{setProfil(p=>({...p,pseudo:profilPseudo,instagram:profilInsta,snapchat:profilSnap}));setProfilEdit(false);}
+    setProfilSaving(false);
+  };
+  useEffect(()=>{if(authUser)loadProfil(authUser.id);},[authUser]);
   const openEv=(ev)=>{setSelEv(events.find(e=>e.id===ev.id));setQty(1);setScreen("event");};
   const changeQty=(d)=>{setQty(q=>Math.min(10,Math.max(1,q+d)));setQtyAnim(true);setTimeout(()=>setQtyAnim(false),300);};
   const showToast=(msg)=>{setToast(msg);setTimeout(()=>setToast(null),2500);};
@@ -682,6 +760,7 @@ export default function App(){
 
   const saveFreeTicketFn=async(t)=>{await dbSaveTicket(t);setTickets(p=>[...p,t]);setShowFreeForm(false);showToast("🎁 Billet créé !");};
   const deleteEventFn=async(id)=>{await dbDeleteEvent(id);setEvents(p=>p.filter(e=>e.id!==id));setDelConfirm(null);showToast("🗑️ Supprimé");};
+  const deleteTicketFn=async(id)=>{await dbDeleteTicket(id);setTickets(p=>p.filter(t=>t.id!==id));setDelTicketConfirm(null);showToast("🗑️ Billet supprimé");};
   const toggleSoldOut=async(id)=>{const ev=events.find(e=>e.id===id);if(!ev)return;const v=!ev.soldOut;await supabase.from("events").update({sold_out:v}).eq("id",id);setEvents(p=>p.map(e=>e.id===id?{...e,soldOut:v}:e));showToast("✅ Mis à jour");};
   const toggleEnd=async(id)=>{const ev=events.find(e=>e.id===id);if(!ev)return;const ending=!ev.ended;await supabase.from("events").update({ended:ending,sold_out:ending?true:ev.soldOut}).eq("id",id);setEvents(p=>p.map(e=>e.id===id?{...e,ended:ending,soldOut:ending?true:e.soldOut}:e));showToast(ending?"✅ Terminée !":"✅ Réactivée !");};
 
@@ -709,7 +788,7 @@ export default function App(){
   const filters=["Tous","Hip-Hop","Electronic","Festival","VIP"];
   const mN2={"JANV":0,"FÉV":1,"MARS":2,"AVRIL":3,"MAI":4,"JUIN":5,"JUIL":6,"AOÛT":7,"SEPT":8,"OCT":9,"NOV":10,"DÉC":11};
   const getD=(ev)=>{const p=ev.date.split(" ");return new Date(parseInt(p[3]),mN2[p[2]]||0,parseInt(p[1]));};
-  const filtered=events.filter(ev=>filter==="Tous"||ev.category===filter).sort((a,b)=>getD(b)-getD(a));
+  const filtered=events.filter(ev=>(filter==="Tous"||ev.category===filter)&&(search===""||ev.title.toLowerCase().includes(search.toLowerCase())||ev.location.toLowerCase().includes(search.toLowerCase()))).sort((a,b)=>getD(b)-getD(a));
   const today2=new Date();
   const newestId=filtered.filter(e=>!e.ended).sort((a,b)=>{
     const parseD=(d)=>{const p=d.split(" ");if(p.length>=4)return new Date(p[3],["JANV","FÉV","MARS","AVRIL","MAI","JUIN","JUIL","AOÛT","SEPT","OCT","NOV","DÉC"].indexOf(p[2].toUpperCase()),parseInt(p[1]));if(p.length===3)return new Date(parseInt(p[2]),["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"].indexOf(p[1].toLowerCase()),parseInt(p[0]));return new Date(0);};
@@ -779,37 +858,106 @@ export default function App(){
         {screen==="main"&&(
           <div className="sc">
             <LightBeams/>
-            <div style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",height:"100%",overflow:"hidden"}}>
-              <div style={{background:BG,borderBottom:`1px solid ${BORDER}`,flexShrink:0,paddingTop:SAFE_TOP}}>
-                <div style={{padding:"10px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"relative"}}>
-                  <div onClick={()=>setMenuOpen(true)} style={{width:34,height:34,borderRadius:10,background:BG3,display:"flex",alignItems:"center",justifyContent:"center",border:`1px solid ${BORDER}`,cursor:"pointer"}}><Icon n="menu" s={17} c={GRAY}/></div>
-                  <div onClick={tapLogo} style={{position:"absolute",left:"50%",transform:"translateX(-50%)",cursor:"pointer"}}>
-                    <div style={{position:"relative"}}>
-                      <div style={{position:"absolute",inset:-8,borderRadius:"50%",background:`radial-gradient(circle,${PINK}20,transparent 70%)`,animation:"glow 3s ease-in-out infinite"}}/>
-                      <img src={LOGO} alt="" style={{height:"clamp(34px,8vw,46px)",objectFit:"contain",display:"block",position:"relative",zIndex:1,filter:`drop-shadow(0 0 10px ${PINK}70)`,animation:"pulse 2s ease-in-out infinite"}}/>
-                    </div>
-                  </div>
-                  <div onClick={()=>setNotifOpen(true)} style={{width:34,height:34,borderRadius:10,background:BG3,display:"flex",alignItems:"center",justifyContent:"center",border:`1px solid ${BORDER}`,cursor:"pointer",position:"relative"}}>
-                    <Icon n="bell" s={15} c={GRAY}/>
-                    <div style={{position:"absolute",top:6,right:6,width:8,height:8,borderRadius:"50%",background:PINK,border:`2px solid ${BG3}`}}/>
-                  </div>
-                </div>
-                <div style={{display:"flex",padding:"0 20px"}}>
-                  {["Événements","VIP"].map((t,i)=>(
-                    <div key={t} onClick={()=>i===1&&setScreen("vip")} style={{flex:1,padding:"10px 0",textAlign:"center",fontWeight:800,fontSize:14,color:i===0?WHITE:GRAY,borderBottom:i===0?`3px solid ${PINK}`:"3px solid transparent",cursor:"pointer"}}>{t}</div>
-                  ))}
-                  <div onClick={()=>setScreen("vip")} style={{width:38,height:38,marginLeft:10,marginTop:2,background:GRAD,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}><Icon n="star" s={17} c={WHITE} fill={WHITE}/></div>
-                </div>
-              </div>
+            <div style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",height:"100%",overflow:"hidden",paddingBottom:"60px"}}>
+
 
               {tab==="home"&&(
                 <div style={{display:"flex",flexDirection:"column",flex:1,overflow:"hidden"}}>
-                  <div style={{padding:"12px 20px 0",flexShrink:0}}>
-                    <div style={{display:"flex",gap:8,marginBottom:12,overflowX:"auto",paddingBottom:4}}>
-                      {filters.map(f=><div key={f} onClick={()=>setFilter(f)} style={{padding:"8px 16px",borderRadius:20,background:filter===f?GRAD:BG3,color:filter===f?WHITE:GRAY,border:filter===f?"none":`1px solid ${BORDER}`,fontSize:11,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>{f}</div>)}
+                  <div className="scroll" style={{padding:"0 0 20px"}}>
+                    <div style={{background:"linear-gradient(135deg,rgba(255,0,128,.2),rgba(255,51,153,.05))",borderRadius:"0 0 24px 24px",padding:"10px 16px 16px",marginBottom:16}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                        <div style={{display:"flex",alignItems:"center",gap:10}}>
+                          <div>
+                            <div style={{fontSize:10,color:"rgba(255,255,255,.5)"}}>{new Date().getHours()<12?"Bonjour":new Date().getHours()<18?"Bon apres-midi":"Bonsoir"}</div>
+                            <div style={{fontSize:15,fontWeight:900,color:WHITE}}>{authUser&&authUser.user_metadata&&authUser.user_metadata.prenom?authUser.user_metadata.prenom:"No Limiter"} !</div>
+                          </div>
+                        </div>
+                        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                          <div onClick={()=>setScreen(adminAuth?"admin":"adminLogin")} style={{width:34,height:34,borderRadius:10,background:"rgba(255,0,128,.15)",border:"1px solid rgba(255,0,128,.3)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
+                            <Icon n="settings" s={16} c={PINK}/>
+                          </div>
+                          <div onClick={()=>setNotifOpen(true)} style={{width:34,height:34,borderRadius:10,background:"rgba(255,255,255,.1)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",position:"relative"}}>
+                            <Icon n="bell" s={16} c={WHITE}/>
+                            <div style={{position:"absolute",top:6,right:6,width:7,height:7,borderRadius:"50%",background:PINK}}/>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{position:"relative",marginBottom:12}}>
+                        <div style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",zIndex:1}}><Icon n="search" s={14} c={GRAY}/></div>
+                        <input type="text" placeholder="Rechercher une soiree..." value={search} onChange={e=>setSearch(e.target.value)} style={{width:"100%",padding:"10px 12px 10px 36px",background:"rgba(255,255,255,.08)",border:"1px solid rgba(255,255,255,.1)",borderRadius:12,color:WHITE,fontSize:12,outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}/>
+                        {search&&<div onClick={()=>setSearch("")} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",color:GRAY,cursor:"pointer",fontSize:16}}>x</div>}
+                      </div>
+                      <div style={{display:"flex",gap:8,justifyContent:"space-between"}}>
+                        {[
+                          ["trophy","Fidelite",()=>setScreen("profil")],
+                          ["ticket","Billets",()=>setTab("tickets")],
+                          ["star","VIP",()=>setScreen("vip")],
+                          ["users","Profil",()=>setScreen("profil")]
+                        ].map(([ico,label,action])=>(
+                          <div key={label} onClick={action} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:5,cursor:"pointer"}}>
+                            <div style={{width:50,height:50,borderRadius:"50%",background:"transparent",border:"2px solid "+PINK,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                              <Icon n={ico} s={20} c={PINK} fill={ico==="star"?PINK:"none"}/>
+                            </div>
+                            <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,.7)",textAlign:"center",letterSpacing:.5}}>{label}</div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div style={{marginBottom:10}}><div style={{fontSize:16,fontWeight:900,color:WHITE}}>Soirées</div><div style={{fontSize:13,fontWeight:700,color:PINK}}>La Chaux-de-Fonds</div></div>
-                  </div>
+                    {authUser&&(
+                      <div style={{margin:"0 16px 16px",background:BG2,borderRadius:16,padding:"14px 16px",border:"1px solid "+BORDER}}>
+                        <div style={{display:"flex",alignItems:"center",gap:12}}>
+                          <div style={{width:36,height:36,borderRadius:10,background:"rgba(255,165,0,.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🥉</div>
+                          <div style={{flex:1}}>
+                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                              <div style={{fontSize:13,fontWeight:800,color:"#FFB347"}}>Bronze</div>
+                              <div style={{fontSize:11,color:GRAY}}>{profil?profil.points||0:0} pts</div>
+                            </div>
+                            <div style={{height:4,borderRadius:4,background:"rgba(255,255,255,.1)",overflow:"hidden"}}>
+                              <div style={{height:"100%",borderRadius:4,background:"linear-gradient(90deg,#FFB347,#FF8C00)",width:((profil?profil.points||0:0)/500*100)+"%",transition:"width 1s ease"}}/>
+                            </div>
+                            <div style={{fontSize:10,color:GRAY,marginTop:3}}>Encore {500-(profil?profil.points||0:0)} pts pour Argent</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {!search&&events.filter(e=>!e.ended).length>0&&(
+                      <div style={{margin:"0 16px 16px"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                          <div style={{fontSize:16,fontWeight:900,color:WHITE}}>A la une</div>
+                          <div style={{fontSize:12,color:PINK,fontWeight:700,cursor:"pointer"}}>Voir tout</div>
+                        </div>
+                        <div style={{borderRadius:20,overflow:"hidden",position:"relative",height:190,background:BG2,cursor:"pointer"}} onClick={()=>{const ev=events.filter(e=>!e.ended)[0];if(ev)openEv(ev);}}>
+                          {events.filter(e=>!e.ended)[0]&&events.filter(e=>!e.ended)[0].poster?<img src={events.filter(e=>!e.ended)[0].poster} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,rgba(255,0,128,.3),rgba(255,51,153,.1))"}}/>}
+                          <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,transparent 30%,rgba(13,17,23,.95) 100%)"}}/>
+                          <div style={{position:"absolute",top:12,left:12,background:GRAD,color:WHITE,fontSize:9,fontWeight:900,padding:"4px 10px",borderRadius:20,animation:"pulse 2s ease-in-out infinite"}}>⭐ A LA UNE</div>
+                          <div style={{position:"absolute",bottom:14,left:14,right:14}}>
+                            <div style={{fontSize:16,fontWeight:900,color:WHITE,marginBottom:2}}>{events.filter(e=>!e.ended)[0]&&events.filter(e=>!e.ended)[0].title}</div>
+                            <div style={{fontSize:11,color:"rgba(255,255,255,.7)"}}>{events.filter(e=>!e.ended)[0]&&events.filter(e=>!e.ended)[0].date} • {events.filter(e=>!e.ended)[0]&&events.filter(e=>!e.ended)[0].location}</div>
+                            <div style={{fontSize:13,fontWeight:900,color:PINK,marginTop:4}}>CHF {events.filter(e=>!e.ended)[0]&&events.filter(e=>!e.ended)[0].price}</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {!search&&events.filter(e=>!e.ended).length>0&&(
+                      <div style={{margin:"0 16px 16px"}}>
+                        <div style={{fontSize:16,fontWeight:900,color:WHITE,marginBottom:10}}>A venir</div>
+                        {events.filter(e=>!e.ended).map((ev,i)=>(
+                          <div key={ev.id} onClick={()=>openEv(ev)} style={{display:"flex",gap:12,alignItems:"center",background:BG2,borderRadius:16,padding:"12px 14px",marginBottom:10,border:"1px solid "+BORDER,cursor:"pointer",animation:"rowSlide .4s "+i*.08+"s both"}}>
+                            <div style={{width:52,height:52,borderRadius:12,background:GRAD,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0,overflow:"hidden"}}>
+                              {ev.poster?<img src={ev.poster} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{textAlign:"center"}}><div style={{fontSize:16,fontWeight:900,color:WHITE}}>{ev.date.split(" ")[1]||"?"}</div><div style={{fontSize:8,fontWeight:700,color:"rgba(255,255,255,.8)"}}>{ev.date.split(" ")[2]||""}</div></div>}
+                            </div>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{fontSize:14,fontWeight:800,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</div>
+                              <div style={{fontSize:11,color:GRAY,marginTop:2}}>{ev.location} • {ev.time}</div>
+                            </div>
+                            <div style={{textAlign:"right",flexShrink:0}}>
+                              <div style={{fontSize:13,fontWeight:900,color:PINK}}>CHF {ev.price}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                   <div style={{flex:1,overflow:"hidden"}}>
                     {loading?(
                       <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100%",gap:12}}>
@@ -862,7 +1010,30 @@ export default function App(){
                       <div style={{fontSize:13,color:GRAY,marginBottom:28}}>Achète ton premier billet pour voir ton QR code ici.</div>
                       <Btn onClick={()=>setTab("home")}>VOIR LES ÉVÉNEMENTS</Btn>
                     </div>
-                  ):(myTickets.map((t,i)=><TicketCard key={t.id} ticket={t} events={events} onShowQR={setQrTicket} index={i}/>))}
+                  ):(
+                    <div>
+                      {(()=>{const upcoming=myTickets.filter(t=>t.status==="valid"||t.status==="upcoming");return upcoming.length>0&&(
+                        <div style={{marginBottom:24}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+                            <div style={{width:3,height:18,background:GRAD,borderRadius:4}}/>
+                            <div style={{fontSize:11,fontWeight:900,color:PINK,letterSpacing:2,textTransform:"uppercase"}}>A Venir</div>
+                            <div style={{background:"rgba(255,0,128,.15)",borderRadius:20,padding:"2px 10px",fontSize:10,fontWeight:700,color:PINK}}>{myTickets.filter(t=>t.status==="valid"||t.status==="upcoming").length}</div>
+                          </div>
+                          {myTickets.filter(t=>t.status==="valid"||t.status==="upcoming").map((t,i)=><TicketCard key={t.id} ticket={t} events={events} onShowQR={setQrTicket} index={i}/>)}
+                        </div>
+                      );})()}
+                      {(()=>{const past=myTickets.filter(t=>t.status!=="valid"&&t.status!=="upcoming");return past.length>0&&(
+                        <div style={{marginBottom:24}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+                            <div style={{width:3,height:18,background:BG3,borderRadius:4,border:"1px solid "+BORDER}}/>
+                            <div style={{fontSize:11,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase"}}>Passes</div>
+                            <div style={{background:"rgba(136,146,160,.1)",borderRadius:20,padding:"2px 10px",fontSize:10,fontWeight:700,color:GRAY}}>{myTickets.filter(t=>t.status!=="valid"&&t.status!=="upcoming").length}</div>
+                          </div>
+                          {myTickets.filter(t=>t.status!=="valid"&&t.status!=="upcoming").map((t,i)=><TicketCard key={t.id} ticket={t} events={events} onShowQR={setQrTicket} index={i}/>)}
+                        </div>
+                      );})()}
+                    </div>
+                  )}
                   <div style={{height:20}}/>
                 </div>
               )}
@@ -898,7 +1069,10 @@ export default function App(){
                 </div>
               )}
 
-              <NavBar current={tab} onNav={navHandler}/>
+              </div>
+              )}
+
+              <NavBar current={tab} onNav={navHandler} onProfil={()=>setScreen("profil")} onEvents={()=>setTab("agenda")}/>
             </div>
           </div>
         )}
@@ -971,7 +1145,231 @@ export default function App(){
           </div>
         )}
 
-        {screen==="adminLogin"&&(
+        {screen==="onboarding"&&(
+  <div style={{position:"absolute",inset:0,background:"#0D1117",display:"flex",flexDirection:"column",zIndex:100}}>
+    <div onClick={()=>{setScreen("login");}} style={{position:"absolute",bottom:120,right:24,zIndex:10,padding:"8px 16px",borderRadius:20,background:"rgba(255,255,255,.08)",color:"rgba(255,255,255,.5)",fontSize:12,fontWeight:700,cursor:"pointer",letterSpacing:1}}>PASSER</div>
+    <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 30px 0",textAlign:"center"}}>
+      {onbStep===0&&(
+        <div style={{animation:"slideUp .4s both"}}>
+          <div style={{width:100,height:100,borderRadius:28,background:"linear-gradient(135deg,#FF0080,#FF3399)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 32px",boxShadow:"0 0 60px rgba(255,0,128,.5)",animation:"pulse 2s ease-in-out infinite"}}>
+            <img src={LOGO} alt="" style={{width:70,height:70,objectFit:"contain"}}/>
+          </div>
+          <div style={{fontSize:28,fontWeight:900,color:"#FFFFFF",marginBottom:12,lineHeight:1.2}}>Bienvenue sur No Limit Events</div>
+          <div style={{fontSize:15,color:"rgba(255,255,255,.5)",lineHeight:1.6}}>Chaque soiree est une nouvelle surprise. Decouvre les meilleurs evenements pres de chez toi.</div>
+        </div>
+      )}
+      {onbStep===1&&(
+        <div style={{animation:"slideUp .4s both"}}>
+          <div style={{width:100,height:100,borderRadius:28,background:"linear-gradient(135deg,#FF0080,#FF3399)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 32px",boxShadow:"0 0 60px rgba(255,0,128,.5)"}}>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/></svg>
+          </div>
+          <div style={{fontSize:28,fontWeight:900,color:"#FFFFFF",marginBottom:12,lineHeight:1.2}}>Vos billets, simplifies</div>
+          <div style={{fontSize:15,color:"rgba(255,255,255,.5)",lineHeight:1.6}}>QR code securise, achat en 2 clics, acces VIP exclusifs. Tout dans ta poche.</div>
+        </div>
+      )}
+      {onbStep===2&&(
+        <div style={{animation:"slideUp .4s both"}}>
+          <div style={{width:100,height:100,borderRadius:28,background:"linear-gradient(135deg,#FF0080,#FF3399)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 32px",boxShadow:"0 0 60px rgba(255,0,128,.5)"}}>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div style={{fontSize:28,fontWeight:900,color:"#FFFFFF",marginBottom:12,lineHeight:1.2}}>Partagez l experience</div>
+          <div style={{fontSize:15,color:"rgba(255,255,255,.5)",lineHeight:1.6}}>Rejoins la communaute No Limit. Retrouve tes amis, partage tes soirees et vis l experience a fond.</div>
+        </div>
+      )}
+    </div>
+    <div style={{padding:"20px 30px 40px"}}>
+      <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:28}}>
+        {[0,1,2].map(i=>(
+          <div key={i} style={{height:4,borderRadius:4,background:i===onbStep?"#FF0080":"rgba(255,255,255,.15)",width:i===onbStep?28:8,transition:"all .3s"}}/>
+        ))}
+      </div>
+      <div onClick={()=>{
+        if(onbStep<2){setOnbStep(onbStep+1);}
+        else{localStorage.setItem("nle_onb","1");setScreen("login");}
+      }} style={{width:"100%",padding:"16px 0",borderRadius:16,background:"linear-gradient(135deg,#FF0080,#FF3399)",textAlign:"center",fontWeight:900,fontSize:16,color:"#FFFFFF",cursor:"pointer",letterSpacing:1,boxShadow:"0 8px 30px rgba(255,0,128,.4)"}}>
+        {onbStep<2?"SUIVANT →":"COMMENCER 🎉"}
+      </div>
+    </div>
+  </div>
+)}
+{screen==="login"&&(
+  <div style={{position:"absolute",inset:0,background:"#0D1117",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,zIndex:100}}>
+    <img src={LOGO} alt="" style={{width:80,height:80,objectFit:"contain",marginBottom:20,filter:"drop-shadow(0 0 20px rgba(255,0,128,.6))",animation:"pulse 2s ease-in-out infinite"}}/>
+    <div style={{fontSize:24,fontWeight:900,color:"#FFFFFF",marginBottom:6,letterSpacing:1}}>Connexion</div>
+    <div style={{fontSize:13,color:"#8892A0",marginBottom:28}}>Content de te revoir !</div>
+    <input type="email" placeholder="Adresse email" value={loginEmail} onChange={e=>setLoginEmail(e.target.value)} style={{width:"100%",padding:"14px 16px",background:"#141A22",border:"1.5px solid #1E2A38",borderRadius:14,color:"#FFFFFF",fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:12,boxSizing:"border-box"}}/>
+    <input type="password" placeholder="Mot de passe" value={loginPass} onChange={e=>setLoginPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} style={{width:"100%",padding:"14px 16px",background:"#141A22",border:"1.5px solid #1E2A38",borderRadius:14,color:"#FFFFFF",fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:8,boxSizing:"border-box"}}/>
+    {loginErr&&<div style={{color:"#FF4444",fontSize:12,fontWeight:700,marginBottom:12,textAlign:"center"}}>{loginErr}</div>}
+    <div onClick={doLogin} style={{width:"100%",padding:"15px 0",borderRadius:14,background:"linear-gradient(135deg,#FF0080,#FF3399)",textAlign:"center",fontWeight:900,fontSize:15,color:"#FFFFFF",cursor:"pointer",marginBottom:12,letterSpacing:1}}>SE CONNECTER</div>
+    <div style={{fontSize:13,color:"#8892A0",marginBottom:20}}>Pas encore de compte ? <span onClick={()=>setScreen("register")} style={{color:"#FF0080",fontWeight:700,cursor:"pointer"}}>S inscrire</span></div>
+    <div onClick={()=>setScreen("main")} style={{fontSize:12,color:"#8892A0",cursor:"pointer"}}>Continuer sans compte</div>
+  </div>
+)}
+{screen==="register"&&(
+  <div style={{position:"absolute",inset:0,background:"#0D1117",overflowY:"auto",zIndex:100}}>
+    <div style={{padding:"60px 24px 40px"}}>
+      <img src={LOGO} alt="" style={{width:60,height:60,objectFit:"contain",display:"block",margin:"0 auto 16px",filter:"drop-shadow(0 0 16px rgba(255,0,128,.6))"}}/>
+      <div style={{fontSize:24,fontWeight:900,color:"#FFFFFF",marginBottom:6,letterSpacing:1,textAlign:"center"}}>Créer un compte</div>
+      <div style={{fontSize:13,color:"#8892A0",marginBottom:28,textAlign:"center"}}>Rejoins la communaute No Limit !</div>
+      {regDone?(
+        <div style={{textAlign:"center",padding:"40px 0"}}>
+          <div style={{fontSize:48,marginBottom:16}}>🎉</div>
+          <div style={{fontSize:20,fontWeight:900,color:"#FFFFFF",marginBottom:8}}>Compte cree !</div>
+          <div style={{fontSize:13,color:"#8892A0",marginBottom:24}}>Verifie ton email pour confirmer ton compte.</div>
+          <div onClick={()=>setScreen("login")} style={{padding:"15px 0",borderRadius:14,background:"linear-gradient(135deg,#FF0080,#FF3399)",textAlign:"center",fontWeight:900,fontSize:15,color:"#FFFFFF",cursor:"pointer",letterSpacing:1}}>SE CONNECTER</div>
+        </div>
+      ):(
+        <div>
+          <div style={{display:"flex",gap:10,marginBottom:12}}>
+            <input type="text" placeholder="Prenom" value={regPrenom} onChange={e=>setRegPrenom(e.target.value)} style={{flex:1,padding:"14px 16px",background:"#141A22",border:"1.5px solid #1E2A38",borderRadius:14,color:"#FFFFFF",fontSize:14,outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}/>
+            <input type="text" placeholder="Nom" value={regNom} onChange={e=>setRegNom(e.target.value)} style={{flex:1,padding:"14px 16px",background:"#141A22",border:"1.5px solid #1E2A38",borderRadius:14,color:"#FFFFFF",fontSize:14,outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}/>
+          </div>
+          <input type="email" placeholder="Adresse email" value={regEmail} onChange={e=>setRegEmail(e.target.value)} style={{width:"100%",padding:"14px 16px",background:"#141A22",border:"1.5px solid #1E2A38",borderRadius:14,color:"#FFFFFF",fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:12,boxSizing:"border-box"}}/>
+          <input type="password" placeholder="Mot de passe (6 min)" value={regPass} onChange={e=>setRegPass(e.target.value)} style={{width:"100%",padding:"14px 16px",background:"#141A22",border:"1.5px solid #1E2A38",borderRadius:14,color:"#FFFFFF",fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:8,boxSizing:"border-box"}}/>
+          {regErr&&<div style={{color:"#FF4444",fontSize:12,fontWeight:700,marginBottom:12,textAlign:"center"}}>{regErr}</div>}
+          <div onClick={doRegister} style={{width:"100%",padding:"15px 0",borderRadius:14,background:"linear-gradient(135deg,#FF0080,#FF3399)",textAlign:"center",fontWeight:900,fontSize:15,color:"#FFFFFF",cursor:"pointer",marginBottom:12,letterSpacing:1}}>CREER MON COMPTE</div>
+          <div style={{fontSize:13,color:"#8892A0",textAlign:"center"}}>Deja un compte ? <span onClick={()=>setScreen("login")} style={{color:"#FF0080",fontWeight:700,cursor:"pointer"}}>Se connecter</span></div>
+        </div>
+      )}
+    </div>
+  </div>
+)}
+{screen==="profil"&&(
+  <div style={{position:"absolute",inset:0,background:"#0D1117",overflowY:"auto",zIndex:100}}>
+    <div style={{background:"linear-gradient(135deg,rgba(255,0,128,.25),rgba(255,51,153,.05))",padding:"60px 24px 30px",textAlign:"center",position:"relative"}}>
+      <div style={{width:86,height:86,borderRadius:"50%",background:"linear-gradient(135deg,#FF0080,#FF3399)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32,fontWeight:900,color:"#FFFFFF",margin:"0 auto 14px",boxShadow:"0 0 40px rgba(255,0,128,.5)"}}>
+        {authUser?(authUser.user_metadata&&authUser.user_metadata.prenom?authUser.user_metadata.prenom[0].toUpperCase():"U"):"?"}
+      </div>
+      <div style={{fontSize:21,fontWeight:900,color:"#FFFFFF",marginBottom:2}}>
+        {authUser?((authUser.user_metadata&&authUser.user_metadata.prenom?authUser.user_metadata.prenom+" ":"")+(authUser.user_metadata&&authUser.user_metadata.nom?authUser.user_metadata.nom:""))||"Utilisateur":"Non connecte"}
+      </div>
+      {profil&&profil.pseudo&&<div style={{fontSize:13,color:"#FF0080",fontWeight:700,marginBottom:4}}>{"@"+profil.pseudo}</div>}
+      <div style={{fontSize:12,color:"rgba(255,255,255,.5)",marginBottom:16}}>{authUser?authUser.email:""}</div>
+      <div style={{display:"flex",justifyContent:"center",gap:20}}>
+        {[["🎟️",tickets.filter(t=>authUser&&t.email===authUser.email).length,"Billets"],["⭐",profil?profil.points||0:0,"Points"],["📅",events.filter(e=>!e.ended).length,"Events"]].map(([emoji,val,label])=>(
+          <div key={label} style={{textAlign:"center"}}>
+            <div style={{fontSize:20,fontWeight:900,color:"#FFFFFF"}}>{val}</div>
+            <div style={{fontSize:10,color:"rgba(255,255,255,.5)",fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>{label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+    <div style={{padding:"20px 24px 40px"}}>
+      {authUser?(
+        <div>
+          <div style={{background:"#141A22",borderRadius:16,padding:16,marginBottom:12,border:"1px solid #1E2A38"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+              <div style={{fontSize:11,fontWeight:900,color:"#FF0080",letterSpacing:2,textTransform:"uppercase"}}>Mon Pseudo Social</div>
+              <div onClick={()=>setProfilEdit(!profilEdit)} style={{fontSize:11,fontWeight:700,color:"#FF0080",cursor:"pointer"}}>{profilEdit?"ANNULER":"MODIFIER"}</div>
+            </div>
+            {profilEdit?(
+              <div>
+                <div style={{marginBottom:10}}>
+                  <div style={{fontSize:10,color:"#8892A0",fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>Pseudo @</div>
+                  <input type="text" placeholder="tonpseudo" value={profilPseudo} onChange={e=>setProfilPseudo(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g,""))} style={{width:"100%",padding:"11px 14px",background:"#1C2430",border:"1.5px solid #1E2A38",borderRadius:12,color:"#FFFFFF",fontSize:13,outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}/>
+                </div>
+                <div style={{marginBottom:10}}>
+                  <div style={{fontSize:10,color:"#8892A0",fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>Instagram</div>
+                  <input type="text" placeholder="@toninstagram" value={profilInsta} onChange={e=>setProfilInsta(e.target.value)} style={{width:"100%",padding:"11px 14px",background:"#1C2430",border:"1.5px solid #1E2A38",borderRadius:12,color:"#FFFFFF",fontSize:13,outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}/>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <div style={{fontSize:10,color:"#8892A0",fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>Snapchat</div>
+                  <input type="text" placeholder="tonsnapchat" value={profilSnap} onChange={e=>setProfilSnap(e.target.value)} style={{width:"100%",padding:"11px 14px",background:"#1C2430",border:"1.5px solid #1E2A38",borderRadius:12,color:"#FFFFFF",fontSize:13,outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}/>
+                </div>
+                {profilErr&&<div style={{color:"#FF4444",fontSize:12,fontWeight:700,marginBottom:8,textAlign:"center"}}>{profilErr}</div>}
+                <div onClick={saveProfil} style={{padding:"13px 0",borderRadius:12,background:"linear-gradient(135deg,#FF0080,#FF3399)",textAlign:"center",fontWeight:900,fontSize:13,color:"#FFFFFF",cursor:"pointer",letterSpacing:1}}>{profilSaving?"SAUVEGARDE...":"SAUVEGARDER"}</div>
+              </div>
+            ):(
+              <div>
+                {[["@",profil&&profil.pseudo?"@"+profil.pseudo:"Non defini","Pseudo"],["📸",profil&&profil.instagram?profil.instagram:"Non renseigne","Instagram"],["👻",profil&&profil.snapchat?profil.snapchat:"Non renseigne","Snapchat"]].map(([icon,val,label])=>(
+                  <div key={label} style={{display:"flex",alignItems:"center",gap:12,paddingBottom:10,marginBottom:10,borderBottom:"1px solid #1E2A38"}}>
+                    <div style={{width:32,height:32,borderRadius:10,background:"rgba(255,0,128,.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>{icon}</div>
+                    <div><div style={{fontSize:10,color:"#8892A0",fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>{label}</div><div style={{fontSize:13,color:"#FFFFFF",fontWeight:600,marginTop:1}}>{val}</div></div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div style={{background:"#141A22",borderRadius:16,padding:16,marginBottom:12,border:"1px solid #1E2A38"}}>
+            <div style={{fontSize:11,fontWeight:900,color:"#FF0080",letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>Mon Compte</div>
+            {[["📧","Email",authUser.email],["👤","Prenom",(authUser.user_metadata&&authUser.user_metadata.prenom)||"-"],["👤","Nom",(authUser.user_metadata&&authUser.user_metadata.nom)||"-"]].map(([icon,label,val])=>(
+              <div key={label} style={{display:"flex",alignItems:"center",gap:12,paddingBottom:10,marginBottom:10,borderBottom:"1px solid #1E2A38"}}>
+                <div style={{width:32,height:32,borderRadius:10,background:"rgba(255,0,128,.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>{icon}</div>
+                <div><div style={{fontSize:10,color:"#8892A0",fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>{label}</div><div style={{fontSize:13,color:"#FFFFFF",fontWeight:600,marginTop:1}}>{val}</div></div>
+              </div>
+            ))}
+          </div>
+          <div onClick={doLogout} style={{width:"100%",padding:"15px 0",borderRadius:14,background:"rgba(204,0,0,.15)",border:"1px solid rgba(204,0,0,.3)",textAlign:"center",fontWeight:900,fontSize:14,color:"#FF4444",cursor:"pointer",marginBottom:12,letterSpacing:1}}>SE DECONNECTER</div>
+        </div>
+      ):(
+        <div style={{textAlign:"center",padding:"20px 0"}}>
+          <div style={{fontSize:48,marginBottom:16}}>👤</div>
+          <div style={{fontSize:18,fontWeight:900,color:"#FFFFFF",marginBottom:8}}>Pas encore connecte</div>
+          <div style={{fontSize:13,color:"#8892A0",marginBottom:24}}>Connecte-toi pour acceder a tes billets et ton profil.</div>
+          <div onClick={()=>setScreen("login")} style={{padding:"15px 0",borderRadius:14,background:"linear-gradient(135deg,#FF0080,#FF3399)",textAlign:"center",fontWeight:900,fontSize:15,color:"#FFFFFF",cursor:"pointer",marginBottom:12,letterSpacing:1}}>SE CONNECTER</div>
+          <div onClick={()=>setScreen("register")} style={{padding:"15px 0",borderRadius:14,background:"transparent",border:"1.5px solid #FF0080",textAlign:"center",fontWeight:900,fontSize:15,color:"#FF0080",cursor:"pointer",letterSpacing:1}}>CREER UN COMPTE</div>
+        </div>
+      )}
+      <div onClick={()=>setScreen("main")} style={{padding:"15px 0",borderRadius:14,textAlign:"center",fontWeight:900,fontSize:13,color:"#8892A0",cursor:"pointer",letterSpacing:1}}>RETOUR</div>
+    </div>
+  </div>
+)}
+{screen==="about"&&(
+  <div style={{position:"absolute",inset:0,background:"#0D1117",overflowY:"auto",zIndex:100}}>
+    <div style={{position:"relative",height:320,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column"}}>
+      <div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,rgba(255,0,128,.15),rgba(255,51,153,.05))"}}/>
+      <div style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 60%,rgba(255,0,128,.25),transparent 70%)"}}/>
+      <img src={LOGO} alt="" style={{width:120,height:120,objectFit:"contain",position:"relative",zIndex:2,animation:"aboutPulse 3s ease-in-out infinite",filter:"drop-shadow(0 0 40px rgba(255,0,128,.8))"}}/>
+      <div style={{position:"relative",zIndex:2,textAlign:"center",marginTop:16}}>
+        <div style={{fontSize:26,fontWeight:900,color:"#FFFFFF",letterSpacing:2,textTransform:"uppercase"}}>No Limit Events</div>
+        <div style={{fontSize:13,color:"#FF0080",fontWeight:700,marginTop:4,letterSpacing:3,textTransform:"uppercase"}}>La Chaux-de-Fonds</div>
+      </div>
+      <div style={{position:"absolute",bottom:0,left:0,right:0,height:80,background:"linear-gradient(transparent,#0D1117)"}}/>
+    </div>
+    <div style={{padding:"0 20px 40px"}}>
+      <div style={{background:"#141A22",borderRadius:20,padding:20,marginBottom:16,border:"1px solid #1E2A38"}}>
+        <div style={{fontSize:11,fontWeight:900,color:"#FF0080",letterSpacing:3,textTransform:"uppercase",marginBottom:10}}>Notre Histoire</div>
+        <div style={{fontSize:14,color:"rgba(255,255,255,.85)",lineHeight:1.7}}>Fondée en 2026 à La Chaux-de-Fonds, No Limit Events est née d une passion simple : créer des soirées inoubliables. Chaque événement est pensé pour offrir une expérience unique, où la musique, l ambiance et les gens se rejoignent pour former quelque chose d exceptionnel.</div>
+      </div>
+      <div style={{background:"#141A22",borderRadius:20,padding:20,marginBottom:16,border:"1px solid #1E2A38"}}>
+        <div style={{fontSize:11,fontWeight:900,color:"#FF0080",letterSpacing:3,textTransform:"uppercase",marginBottom:14}}>Nos Valeurs</div>
+        {[["🎉","Expériences Uniques","Chaque soirée est une nouvelle surprise, une nouvelle aventure."],["🔥","Ambiance Incomparable","Du Hip-Hop à l Afro, on crée l atmosphère qui te fait bouger."],["👑","Accès VIP","Des offres exclusives pour vivre la soirée différemment."],["❤️","Communauté","Plus qu un événement, une famille de fêtards passionnés."]].map(([emoji,title,desc])=>(
+          <div key={title} style={{display:"flex",gap:14,marginBottom:16,alignItems:"flex-start"}}>
+            <div style={{width:42,height:42,borderRadius:12,background:"rgba(255,0,128,.1)",border:"1px solid rgba(255,0,128,.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{emoji}</div>
+            <div><div style={{fontSize:13,fontWeight:800,color:"#FFFFFF",marginBottom:3}}>{title}</div><div style={{fontSize:12,color:"#8892A0",lineHeight:1.5}}>{desc}</div></div>
+          </div>
+        ))}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
+        {[["2026","Fondée"],["16+","Âge minimum"],["100%","Passion"]].map(([val,label])=>(
+          <div key={label} style={{background:"#141A22",borderRadius:16,padding:"16px 10px",textAlign:"center",border:"1px solid #1E2A38"}}>
+            <div style={{fontSize:22,fontWeight:900,background:"linear-gradient(135deg,#FF0080,#FF3399)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>{val}</div>
+            <div style={{fontSize:10,color:"#8892A0",fontWeight:700,marginTop:4,textTransform:"uppercase",letterSpacing:1}}>{label}</div>
+          </div>
+        ))}
+      </div>
+      {aboutMedia.length>0&&(
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:11,fontWeight:900,color:"#FF0080",letterSpacing:3,textTransform:"uppercase",marginBottom:12}}>Nos Soirées</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            {aboutMedia.map((m,i)=>(
+              <div key={i} style={{borderRadius:16,overflow:"hidden",aspectRatio:"1",background:"#141A22"}}>
+                {m.type==="video"?<video src={m.url} style={{width:"100%",height:"100%",objectFit:"cover"}} autoPlay muted loop playsInline/>:<img src={m.url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <div onClick={()=>window.open("https://www.instagram.com/nolimit_eventss","_blank")} style={{background:"linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045)",borderRadius:16,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",marginBottom:16}}>
+        <div style={{width:44,height:44,borderRadius:12,background:"rgba(255,255,255,.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>📸</div>
+        <div><div style={{fontSize:14,fontWeight:900,color:"#FFFFFF"}}>@nolimit_eventss</div><div style={{fontSize:11,color:"rgba(255,255,255,.7)",marginTop:2}}>Suis-nous sur Instagram</div></div>
+        <div style={{marginLeft:"auto",color:"rgba(255,255,255,.5)",fontSize:18}}>→</div>
+      </div>
+      <div onClick={()=>setScreen("main")} style={{borderRadius:16,padding:"15px 0",textAlign:"center",fontWeight:900,fontSize:14,color:"#FF0080",cursor:"pointer",border:"1.5px solid #FF0080",letterSpacing:1}}>RETOUR</div>
+    </div>
+  </div>
+)}
+{screen==="adminLogin"&&(
           <div className="sc">
             <div style={{height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:30,background:BG,paddingTop:SAFE_TOP}}>
               <img src={LOGO} alt="" style={{width:80,height:80,objectFit:"contain",marginBottom:20,animation:"pulse 2s ease-in-out infinite"}}/>
@@ -1001,7 +1399,7 @@ export default function App(){
                   </div>
                 </div>
                 <div style={{display:"flex",padding:"0 20px"}}>
-                  {[["bar","Stats","dashboard"],["calendar","Soirées","events"],["gift","Gratuits","free"],["eye","Scanner","scanner"],["upload","Ajouter","add"]].map(([ico,label,t])=>(
+                  {[["bar","Stats","dashboard"],["calendar","Soirées","events"],["ticket","Billets","tickets"],["gift","Gratuits","free"],["eye","Scanner","scanner"],["upload","Ajouter","add"]].map(([ico,label,t])=>(
                     <div key={t} onClick={()=>{setAdminTab(t);if(t==="add"){setEditEv({});setShowEvForm(true);}if(t==="free"){setShowFreeForm(true);}if(t==="scanner"){setShowScanner(true);}}} style={{flex:1,padding:"10px 0",textAlign:"center",borderBottom:adminTab===t?`3px solid ${t==="free"?GREEN:PINK}`:"3px solid transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
                       <Icon n={ico} s={15} c={adminTab===t?(t==="free"?GREEN:PINK):GRAY}/>
                       <span style={{fontSize:8,fontWeight:800,color:adminTab===t?(t==="free"?GREEN:PINK):GRAY,letterSpacing:.5,textTransform:"uppercase"}}>{label}</span>
@@ -1038,6 +1436,80 @@ export default function App(){
                     {events.map((ev,i)=><AdminEventRow key={ev.id} ev={ev} index={i} onEdit={(ev)=>{setEditEv(ev);setShowEvForm(true);}} onToggle={toggleSoldOut} onEnd={toggleEnd} onDelete={(id)=>setDelConfirm(id)} onUpload={handleUpload}/>)}
                   </div>
                 )}
+                {adminTab==="tickets"&&(
+                  <div style={{padding:"0 16px 20px"}}>
+                    <div style={{fontSize:11,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase",marginBottom:14}}>TOUS LES BILLETS ({tickets.length})</div>
+                    {tickets.length===0?(
+                      <div style={{textAlign:"center",padding:"40px 0",color:GRAY,fontSize:13}}>Aucun billet</div>
+                    ):(
+                      tickets.map(t=>(
+                        <div key={t.id} style={{background:BG2,borderRadius:16,padding:"14px 16px",marginBottom:10,border:"1px solid "+BORDER,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:13,fontWeight:800,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.event}</div>
+                            <div style={{fontSize:10,color:GRAY,marginTop:2}}>{t.owner} - {t.date}</div>
+                            <div style={{display:"flex",gap:6,marginTop:6,alignItems:"center"}}>
+                              <div style={{fontSize:9,fontWeight:900,fontFamily:"monospace",color:PINK}}>{t.id}</div>
+                              <div style={{background:t.status==="valid"?"rgba(255,0,128,.15)":"rgba(136,146,160,.1)",borderRadius:20,padding:"2px 8px",fontSize:9,fontWeight:700,color:t.status==="valid"?PINK:GRAY}}>{t.status==="valid"?"VALIDE":"A VENIR"}</div>
+                              <div style={{background:"rgba(255,255,255,.05)",borderRadius:20,padding:"2px 8px",fontSize:9,fontWeight:700,color:WHITE}}>CHF {t.price}</div>
+                            </div>
+                          </div>
+                          <div onClick={()=>setDelTicketConfirm(t.id)} style={{marginLeft:12,width:36,height:36,borderRadius:10,background:"rgba(204,0,0,.15)",border:"1px solid rgba(204,0,0,.3)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
+                            <Icon n="trash" s={15} c="#FF4444"/>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+                {delTicketConfirm&&(
+                  <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.85)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:30}}>
+                    <div style={{background:BG2,borderRadius:20,padding:24,width:"100%",border:"1px solid "+BORDER}}>
+                      <div style={{fontSize:16,fontWeight:900,color:WHITE,marginBottom:8,textAlign:"center"}}>Supprimer ce billet ?</div>
+                      <div style={{fontSize:12,color:GRAY,marginBottom:20,textAlign:"center"}}>Cette action est irreversible.</div>
+                      <div style={{display:"flex",gap:10}}>
+                        <div onClick={()=>setDelTicketConfirm(null)} style={{flex:1,padding:"14px 0",borderRadius:50,background:BG3,textAlign:"center",fontWeight:900,color:GRAY,cursor:"pointer",border:"1px solid "+BORDER}}>ANNULER</div>
+                        <div onClick={()=>deleteTicketFn(delTicketConfirm)} style={{flex:1,padding:"14px 0",borderRadius:50,background:"#CC0000",textAlign:"center",fontWeight:900,color:WHITE,cursor:"pointer"}}>SUPPRIMER</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {adminTab==="tickets"&&(
+                  <div style={{padding:"0 16px 20px"}}>
+                    <div style={{fontSize:11,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase",marginBottom:14}}>TOUS LES BILLETS ({tickets.length})</div>
+                    {tickets.length===0?(
+                      <div style={{textAlign:"center",padding:"40px 0",color:GRAY,fontSize:13}}>Aucun billet</div>
+                    ):(
+                      tickets.map(t=>(
+                        <div key={t.id} style={{background:BG2,borderRadius:16,padding:"14px 16px",marginBottom:10,border:"1px solid "+BORDER,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:13,fontWeight:800,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.event}</div>
+                            <div style={{fontSize:10,color:GRAY,marginTop:2}}>{t.owner} - {t.date}</div>
+                            <div style={{display:"flex",gap:6,marginTop:6,alignItems:"center"}}>
+                              <div style={{fontSize:9,fontWeight:900,fontFamily:"monospace",color:PINK}}>{t.id}</div>
+                              <div style={{background:t.status==="valid"?"rgba(255,0,128,.15)":"rgba(136,146,160,.1)",borderRadius:20,padding:"2px 8px",fontSize:9,fontWeight:700,color:t.status==="valid"?PINK:GRAY}}>{t.status==="valid"?"VALIDE":"A VENIR"}</div>
+                              <div style={{background:"rgba(255,255,255,.05)",borderRadius:20,padding:"2px 8px",fontSize:9,fontWeight:700,color:WHITE}}>CHF {t.price}</div>
+                            </div>
+                          </div>
+                          <div onClick={()=>setDelTicketConfirm(t.id)} style={{marginLeft:12,width:36,height:36,borderRadius:10,background:"rgba(204,0,0,.15)",border:"1px solid rgba(204,0,0,.3)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
+                            <Icon n="trash" s={15} c="#FF4444"/>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+                {delTicketConfirm&&(
+                  <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.85)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:30}}>
+                    <div style={{background:BG2,borderRadius:20,padding:24,width:"100%",border:"1px solid "+BORDER}}>
+                      <div style={{fontSize:16,fontWeight:900,color:WHITE,marginBottom:8,textAlign:"center"}}>Supprimer ce billet ?</div>
+                      <div style={{fontSize:12,color:GRAY,marginBottom:20,textAlign:"center"}}>Cette action est irreversible.</div>
+                      <div style={{display:"flex",gap:10}}>
+                        <div onClick={()=>setDelTicketConfirm(null)} style={{flex:1,padding:"14px 0",borderRadius:50,background:BG3,textAlign:"center",fontWeight:900,color:GRAY,cursor:"pointer",border:"1px solid "+BORDER}}>ANNULER</div>
+                        <div onClick={()=>deleteTicketFn(delTicketConfirm)} style={{flex:1,padding:"14px 0",borderRadius:50,background:"#CC0000",textAlign:"center",fontWeight:900,color:WHITE,cursor:"pointer"}}>SUPPRIMER</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {adminTab==="free"&&!showFreeForm&&(
                   <div>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
@@ -1054,7 +1526,7 @@ export default function App(){
                           </div>
                           <div style={{display:"flex",gap:8}}>
                             <div onClick={()=>setQrTicket(t)} style={{background:`${GREEN}22`,color:GREEN,padding:"7px 12px",borderRadius:10,fontSize:11,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon n="eye" s={13} c={GREEN}/> QR</div>
-                            <div onClick={()=>setTickets(p=>p.filter(x=>x.id!==t.id))} style={{background:"rgba(255,68,68,.1)",color:"#FF4444",padding:"7px 10px",borderRadius:10,cursor:"pointer"}}><Icon n="trash" s={13} c="#FF4444"/></div>
+                            <div onClick={()=>setDelTicketConfirm(t.id)} style={{background:"rgba(255,68,68,.1)",color:"#FF4444",padding:"7px 10px",borderRadius:10,cursor:"pointer"}}><Icon n="trash" s={13} c="#FF4444"/></div>
                           </div>
                         </div>
                       </div>
@@ -1253,16 +1725,18 @@ export default function App(){
                 <button onClick={()=>setMenuOpen(false)} style={{background:"none",border:"none",color:GRAY,cursor:"pointer",fontSize:22}}>×</button>
               </div>
               <div style={{flex:1,overflowY:"auto",padding:"20px"}}>
-                <div onClick={()=>{setMenuOpen(false);setScreen("signup");}} style={{background:GRAD,borderRadius:16,padding:"16px 18px",marginBottom:20,cursor:"pointer",display:"flex",alignItems:"center",gap:12}}>
+                <div onClick={()=>{setMenuOpen(false);setScreen("profil");}} style={{background:GRAD,borderRadius:16,padding:"16px 18px",marginBottom:20,cursor:"pointer",display:"flex",alignItems:"center",gap:12}}>
                   <span style={{fontSize:22}}>🎉</span>
-                  <div><div style={{fontSize:15,fontWeight:900,color:WHITE}}>S'inscrire</div><div style={{fontSize:11,color:"rgba(255,255,255,.75)"}}>Rejoins la communauté</div></div>
+                  <div><div style={{fontSize:15,fontWeight:900,color:WHITE}}>{authUser?"Mon Profil 👤":"Se connecter"}</div><div style={{fontSize:11,color:"rgba(255,255,255,.75)"}}>{authUser?(authUser.user_metadata&&authUser.user_metadata.prenom?authUser.user_metadata.prenom+" ":"")+authUser.email:"Rejoins la communaute"}</div></div>
                 </div>
                 <div style={{fontSize:10,color:GRAY,fontWeight:900,letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>NAVIGATION</div>
                 {[["home","Accueil",()=>{setTab("home");setMenuOpen(false);setScreen("main");}],
                   ["ticket","Mes Billets",()=>{setTab("tickets");setMenuOpen(false);setScreen("main");}],
                   ["image","Galerie",()=>{setTab("gallery");setMenuOpen(false);setScreen("main");}],
                   ["calendar","Agenda",()=>{setTab("agenda");setMenuOpen(false);setScreen("main");}],
-                  ["star","VIP",()=>{setMenuOpen(false);setScreen("vip");}]
+                  ["star","VIP",()=>{setMenuOpen(false);setScreen("vip");}],
+                  ["info","À propos",()=>{setMenuOpen(false);setScreen("about");}],
+                  ["users","Mon Profil",()=>{setMenuOpen(false);setScreen("profil");}]
                 ].map(([ico,label,action])=>(
                   <div key={label} onClick={action} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 0",borderBottom:`1px solid ${BORDER}`,cursor:"pointer"}}>
                     <Icon n={ico} s={20} c={PINK}/>
