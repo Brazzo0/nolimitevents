@@ -499,6 +499,15 @@ function GroupsScreen({authUser,supabase}){
           </div>
         )}
       </div>
+      <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#141A22",borderTop:"1px solid #1E2A38",paddingTop:8,paddingBottom:20,display:"flex",zIndex:200}}>
+        {[["home","Accueil","home"],["events","Events","calendar"],["tickets","Billets","ticket"],["agenda","Groupes","users"],["profil","Profil","users"]].map(([s,label,ico])=>(
+          <div key={s} onClick={()=>{if(s==="agenda"){}else if(s==="events"){window.dispatchEvent(new CustomEvent("navigate",{detail:"events"}));}else if(s==="tickets"){window.dispatchEvent(new CustomEvent("navigate",{detail:"tickets"}));}else if(s==="profil"){window.dispatchEvent(new CustomEvent("navigate",{detail:"profil"}));}else{window.dispatchEvent(new CustomEvent("navigate",{detail:s}));}}} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",padding:"4px 0"}}>
+            <Icon n={ico} s={20} c={s==="agenda"?"#FF0080":"#8892A0"}/>
+            <span style={{fontSize:9,fontWeight:700,color:s==="agenda"?"#FF0080":"#8892A0"}}>{label}</span>
+            {s==="agenda"&&<div style={{width:16,height:2.5,borderRadius:2,background:"linear-gradient(135deg,#FF0080,#FF3399)"}}/>}
+          </div>
+        ))}
+      </div>
       {showCreate&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
           <div style={{width:"100%",maxWidth:420,background:"#141414",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",display:"flex",flexDirection:"column",gap:16}}>
@@ -883,6 +892,18 @@ export default function App(){
   const changeQty=(d)=>{setQty(q=>Math.min(10,Math.max(1,q+d)));setQtyAnim(true);setTimeout(()=>setQtyAnim(false),300);};
   const showToast=(msg)=>{setToast(msg);setTimeout(()=>setToast(null),2500);};
   const navHandler=(t)=>{setTab(t);if(screen!=="main")setScreen("main");};
+  useEffect(()=>{
+    const handler=(e)=>{
+      const dest=e.detail;
+      if(dest==="events")setScreen("events");
+      else if(dest==="tickets")setScreen("tickets");
+      else if(dest==="profil")setScreen("profil");
+      else if(dest==="groups")setScreen("groups");
+      else{setTab(dest);setScreen("main");}
+    };
+    window.addEventListener("navigate",handler);
+    return()=>window.removeEventListener("navigate",handler);
+  },[]);
 
   const tapLogo=()=>{
     tapsRef.current+=1;
