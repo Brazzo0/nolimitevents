@@ -150,33 +150,64 @@ function SoldOut(){
 function TicketCard({ticket,events,onShowQR,index=0}){
   const isFree=ticket.type==="free";
   const ev=events.find(e=>e.id===ticket.eventId);
+  const isValid=ticket.status==="valid";
+  const isUsed=ticket.status==="used";
+  const isCancelled=ticket.status==="cancelled";
+  const statusColor=isValid?"#00E676":isUsed?GRAY:"#FF4444";
+  const statusLabel=isValid?"✓ VALIDE":isUsed?"UTILISÉ":"ANNULÉ";
+  const delay=index*0.08;
   return(
-    <div style={{background:BG2,borderRadius:20,overflow:"hidden",marginBottom:14,border:`1px solid ${BORDER}`}}>
-      <div style={{background:GRAD,padding:"16px 18px",position:"relative"}}>
-        {ev?.poster&&<img src={ev.poster} alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",opacity:.3}}/>}
-        <div style={{position:"relative",zIndex:1}}>
-          <div style={{fontSize:15,fontWeight:900,color:WHITE}}>{ticket.event}</div>
-          <div style={{fontSize:11,color:"rgba(255,255,255,.75)",marginTop:3}}>{ticket.date} • {ticket.location}</div>
-          <div style={{display:"flex",gap:6,marginTop:6}}>
-            <div style={{background:"rgba(255,255,255,.2)",color:WHITE,fontSize:9,fontWeight:900,padding:"3px 10px",borderRadius:20}}>{ticket.status==="valid"?"✓ VALIDE":"À VENIR"}</div>
-            {isFree&&<div style={{background:"rgba(78,205,196,.25)",color:GREEN,fontSize:9,fontWeight:900,padding:"3px 10px",borderRadius:20}}>GRATUIT</div>}
+    <div style={{borderRadius:24,overflow:"hidden",marginBottom:16,boxShadow:`0 8px 32px rgba(0,0,0,.4)`,animation:`slideUp .5s ${delay}s both`,position:"relative"}}>
+      {/* Partie haute : affiche + infos */}
+      <div style={{position:"relative",minHeight:120,background:"linear-gradient(135deg,#1C2430,#141A22)"}}>
+        {ev?.poster&&<img src={ev.poster} alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",opacity:.22}}/>}
+        <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(13,17,23,0) 0%,rgba(13,17,23,.85) 100%)"}}/>
+        {/* Badge statut */}
+        <div style={{position:"absolute",top:12,right:12,background:`${statusColor}18`,border:`1px solid ${statusColor}55`,color:statusColor,fontSize:9,fontWeight:900,padding:"4px 10px",borderRadius:20,letterSpacing:1,backdropFilter:"blur(6px)"}}>{statusLabel}</div>
+        {isFree&&<div style={{position:"absolute",top:12,left:12,background:"rgba(78,205,196,.15)",border:`1px solid ${GREEN}55`,color:GREEN,fontSize:9,fontWeight:900,padding:"4px 10px",borderRadius:20,letterSpacing:1}}>GRATUIT</div>}
+        <div style={{position:"relative",zIndex:1,padding:"16px 16px 14px",display:"flex",gap:14,alignItems:"flex-end"}}>
+          <div style={{width:64,height:78,borderRadius:14,overflow:"hidden",flexShrink:0,border:`1.5px solid rgba(255,255,255,.1)`,boxShadow:"0 4px 16px rgba(0,0,0,.5)"}}>
+            {ev?.poster?<img src={ev.poster} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#FF0080,#7B2FFF)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26}}>🎉</div>}
+          </div>
+          <div style={{flex:1,paddingBottom:2}}>
+            <div style={{fontSize:16,fontWeight:900,color:WHITE,lineHeight:1.2,marginBottom:5}}>{(ev&&ev.title)||ticket.event||"Soirée"}</div>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={GRAY} strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span style={{fontSize:11,color:"rgba(255,255,255,.6)"}}>{(ev&&ev.date)||ticket.date||"—"}</span>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={GRAY} strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <span style={{fontSize:11,color:"rgba(255,255,255,.6)"}}>{(ev&&ev.location)||ticket.location||"Eden Night Club"}</span>
+            </div>
           </div>
         </div>
       </div>
-      <div style={{display:"flex",alignItems:"center",padding:"0 14px"}}>
-        <div style={{width:16,height:16,borderRadius:"50%",background:BG,border:`1px solid ${BORDER}`,flexShrink:0,marginLeft:-22}}/>
-        <div style={{flex:1,borderTop:`2px dashed ${BORDER}`,margin:"0 8px"}}/>
-        <div style={{width:16,height:16,borderRadius:"50%",background:BG,border:`1px solid ${BORDER}`,flexShrink:0,marginRight:-22}}/>
+      {/* Séparateur ticket déchiré */}
+      <div style={{position:"relative",height:20,background:BG2,display:"flex",alignItems:"center"}}>
+        <div style={{position:"absolute",left:-10,width:20,height:20,borderRadius:"50%",background:BG,zIndex:2}}/>
+        <div style={{flex:1,marginLeft:16,marginRight:16,borderTop:`2px dashed rgba(255,255,255,.08)`}}/>
+        <div style={{position:"absolute",right:-10,width:20,height:20,borderRadius:"50%",background:BG,zIndex:2}}/>
       </div>
-      <div style={{padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      {/* Partie basse : ID + QR */}
+      <div style={{background:BG2,padding:"12px 16px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div>
-          <div style={{fontSize:10,color:GRAY,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:3}}>ID Billet</div>
-          <div style={{fontSize:12,fontWeight:800,color:WHITE,fontFamily:"monospace"}}>{ticket.id}</div>
-          <div style={{fontSize:10,color:GRAY,marginTop:2}}>{ticket.owner}</div>
+          <div style={{fontSize:9,color:GRAY,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",marginBottom:4}}>ID Billet</div>
+          <div style={{fontSize:11,fontWeight:800,color:PINK,fontFamily:"monospace",letterSpacing:.5,marginBottom:3}}>{ticket.id}</div>
+          <div style={{fontSize:11,color:"rgba(255,255,255,.5)"}}>{ticket.owner}</div>
+          {ticket.price>0&&<div style={{fontSize:12,fontWeight:900,color:WHITE,marginTop:4}}>CHF {ticket.price}</div>}
         </div>
-        <div onClick={()=>onShowQR(ticket)} style={{background:ticket.status==="valid"?GRAD:BG3,padding:"10px 16px",borderRadius:12,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-          <Icon n="eye" s={16} c={ticket.status==="valid"?WHITE:GRAY}/>
-          <span style={{fontSize:9,fontWeight:900,color:ticket.status==="valid"?WHITE:GRAY,letterSpacing:1,textTransform:"uppercase"}}>QR CODE</span>
+        <div onClick={()=>isValid&&onShowQR(ticket)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,cursor:isValid?"pointer":"default",opacity:isValid?1:.4,transition:"transform .15s",userSelect:"none"}}
+          onMouseDown={e=>{if(isValid)e.currentTarget.style.transform="scale(.94)"}}
+          onMouseUp={e=>{if(isValid)e.currentTarget.style.transform="scale(1)"}}>
+          <div style={{width:58,height:58,borderRadius:16,background:isValid?"linear-gradient(135deg,#FF0080,#FF3399)":"rgba(255,255,255,.05)",border:isValid?"none":`1px solid ${BORDER}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:isValid?"0 4px 20px rgba(255,0,128,.4)":"none"}}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={isValid?WHITE:GRAY} strokeWidth="2" strokeLinecap="round">
+              <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+              <line x1="14" y1="14" x2="14" y2="14"/><line x1="17" y1="14" x2="17" y2="14"/><line x1="20" y1="14" x2="20" y2="14"/>
+              <line x1="14" y1="17" x2="14" y2="17"/><line x1="17" y1="17" x2="17" y2="17"/><line x1="20" y1="17" x2="20" y2="17"/>
+              <line x1="14" y1="20" x2="14" y2="20"/><line x1="17" y1="20" x2="17" y2="20"/><line x1="20" y1="20" x2="20" y2="20"/>
+            </svg>
+          </div>
+          <span style={{fontSize:9,fontWeight:900,color:isValid?PINK:GRAY,letterSpacing:1,textTransform:"uppercase"}}>QR CODE</span>
         </div>
       </div>
     </div>
@@ -363,7 +394,8 @@ function CalendarWidget({events}){
 
 function TicketsScreen({tickets,events,user,loading}){
   const [tab,setTab]=useState(0);
-  const tabs=["À venir","Passés","Tous"];
+  const [qrTicket,setQrTicket]=useState(null);
+  const tabs=[{label:"À venir",icon:"🗓️"},{label:"Passés",icon:"✓"},{label:"Tous",icon:"#"}];
   const now=new Date();
   const myTickets=user?tickets.filter(t=>t.email&&user.email&&t.email.toLowerCase()===user.email.toLowerCase()):[];
   const parseFrDate=(s)=>{if(!s)return null;const mn={"JANV":0,"FÉV":1,"MARS":2,"AVRIL":3,"MAI":4,"JUIN":5,"JUIL":6,"AOÛT":7,"SEPT":8,"OCT":9,"NOV":10,"DÉC":11,"janvier":0,"février":1,"mars":2,"avril":3,"mai":4,"juin":5,"juillet":6,"août":7,"septembre":8,"octobre":9,"novembre":10,"décembre":11};const p=s.split(" ");if(p.length>=4){const m=mn[p[2]];if(m!==undefined)return new Date(parseInt(p[3]),m,parseInt(p[1]));}if(p.length===3){const m=mn[p[1]];if(m!==undefined)return new Date(parseInt(p[2]),m,parseInt(p[0]));}return new Date(s);};
@@ -374,60 +406,112 @@ function TicketsScreen({tickets,events,user,loading}){
     if(tab===1)return t.status!=="cancelled"&&d&&d<now;
     return true;
   });
-  const statusColor={valid:"#00E676",used:"#888",cancelled:"#FF4444"};
-  const statusLabel={valid:"✓ Valide",used:"Utilisé",cancelled:"Annulé"};
+  const validCount=myTickets.filter(t=>t.status==="valid").length;
   if(loading)return(
-    <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14}}>
-      <div style={{width:36,height:36,border:"3px solid rgba(255,0,128,.2)",borderTop:"3px solid #FF0080",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
-      <div style={{fontSize:13,color:"#8892A0"}}>Chargement des billets...</div>
+    <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16,background:BG}}>
+      <div style={{position:"relative",width:56,height:56}}>
+        <div style={{position:"absolute",inset:0,border:"2px solid rgba(255,0,128,.1)",borderRadius:"50%"}}/>
+        <div style={{position:"absolute",inset:0,border:"2px solid transparent",borderTopColor:PINK,borderRadius:"50%",animation:"spin .8s linear infinite"}}/>
+        <div style={{position:"absolute",inset:8,border:"2px solid transparent",borderTopColor:"rgba(255,0,128,.4)",borderRadius:"50%",animation:"spin 1.2s linear infinite reverse"}}/>
+      </div>
+      <div style={{fontSize:13,color:GRAY,fontWeight:600}}>Chargement des billets...</div>
     </div>
   );
   if(!user)return(
-    <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"60px 20px",gap:16}}>
-      <div style={{fontSize:52}}>🔐</div>
-      <div style={{fontSize:18,fontWeight:900,color:"#fff"}}>Connecte-toi !</div>
-      <div style={{fontSize:13,color:"#8892A0",textAlign:"center"}}>Pour voir tes billets, connecte-toi à ton compte.</div>
+    <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"60px 24px",gap:18,background:BG}}>
+      <div style={{width:72,height:72,borderRadius:24,background:"rgba(255,0,128,.08)",border:`1px solid rgba(255,0,128,.2)`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={PINK} strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <div style={{textAlign:"center"}}>
+        <div style={{fontSize:20,fontWeight:900,color:WHITE,marginBottom:8}}>Connexion requise</div>
+        <div style={{fontSize:13,color:GRAY,lineHeight:1.6}}>Connecte-toi pour accéder à tes billets et les présenter à l'entrée.</div>
+      </div>
     </div>
   );
   return(
-    <div style={{flex:1,display:"flex",flexDirection:"column",overflowY:"auto",paddingBottom:80}}>
-      <div style={{padding:"60px 20px 8px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
-        <div style={{fontSize:24,fontWeight:800,color:"#fff"}}>🎟️ Mes Billets</div>
-        {myTickets.length>0&&<div style={{background:"rgba(255,0,128,0.15)",border:"1px solid rgba(255,0,128,0.4)",color:"#FF0080",padding:"4px 12px",borderRadius:20,fontSize:13,fontWeight:700}}>{myTickets.length} billet{myTickets.length>1?"s":""}</div>}
+    <div style={{flex:1,display:"flex",flexDirection:"column",overflowY:"auto",background:BG}}>
+      <style>{`
+        @keyframes fadeSlideUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+      `}</style>
+
+      {/* QR Modal inline */}
+      {qrTicket&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.96)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",zIndex:500,padding:24,animation:"slideUp .3s both"}} onClick={()=>setQrTicket(null)}>
+          <div style={{background:BG2,borderRadius:28,padding:"28px 24px",width:"100%",maxWidth:340,textAlign:"center",border:`1px solid ${BORDER}`,boxShadow:"0 24px 64px rgba(0,0,0,.6)"}} onClick={e=>e.stopPropagation()}>
+            <div style={{width:52,height:52,borderRadius:16,background:GRAD,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px"}}>
+              <img src={LOGO} alt="" style={{width:32,height:32,objectFit:"contain"}}/>
+            </div>
+            <div style={{fontSize:17,fontWeight:900,color:WHITE,marginBottom:4}}>{qrTicket.event}</div>
+            <div style={{fontSize:12,color:GRAY,marginBottom:16}}>{qrTicket.date} · {qrTicket.location}</div>
+            {qrTicket.type==="free"&&<div style={{background:"rgba(78,205,196,.12)",border:`1px solid ${GREEN}44`,color:GREEN,fontSize:10,fontWeight:900,padding:"4px 14px",borderRadius:20,marginBottom:16,display:"inline-block"}}>BILLET GRATUIT</div>}
+            <div style={{background:WHITE,padding:14,borderRadius:18,display:"inline-block",marginBottom:16}}>
+              <QRCode id={qrTicket.id} size={170}/>
+            </div>
+            <div style={{fontSize:13,fontWeight:900,color:PINK,fontFamily:"monospace",marginBottom:4,letterSpacing:.5}}>{qrTicket.id}</div>
+            <div style={{fontSize:12,color:GRAY,marginBottom:20}}>{qrTicket.owner}</div>
+            <div onClick={()=>setQrTicket(null)} style={{padding:"13px 0",borderRadius:14,background:"rgba(255,255,255,.06)",border:`1px solid ${BORDER}`,fontSize:13,fontWeight:900,color:WHITE,cursor:"pointer",letterSpacing:.5}}>FERMER</div>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div style={{padding:"52px 20px 0",position:"relative",overflow:"hidden"}}>
+        <div style={{position:"absolute",top:-60,right:-40,width:220,height:220,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,0,128,.12) 0%,transparent 70%)",pointerEvents:"none"}}/>
+        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:20}}>
+          <div>
+            <div style={{fontSize:11,fontWeight:700,color:PINK,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>NolimitEvents</div>
+            <div style={{fontSize:26,fontWeight:900,color:WHITE,lineHeight:1.1}}>Mes Billets</div>
+          </div>
+          {myTickets.length>0&&(
+            <div style={{background:"rgba(255,0,128,.1)",border:"1px solid rgba(255,0,128,.3)",borderRadius:14,padding:"8px 14px",textAlign:"center"}}>
+              <div style={{fontSize:20,fontWeight:900,color:PINK}}>{myTickets.length}</div>
+              <div style={{fontSize:9,color:GRAY,fontWeight:700,letterSpacing:.8,textTransform:"uppercase"}}>billet{myTickets.length>1?"s":""}</div>
+            </div>
+          )}
+        </div>
+
+        {/* Mini stats */}
+        {myTickets.length>0&&(
+          <div style={{display:"flex",gap:8,marginBottom:20}}>
+            {[
+              [validCount,"Valides","#00E676"],
+              [myTickets.filter(t=>t.status==="used").length,"Utilisés",GRAY],
+              [myTickets.filter(t=>t.type==="free").length,"Gratuits",GREEN],
+            ].map(([n,l,c])=>(
+              <div key={l} style={{flex:1,background:"rgba(255,255,255,.03)",border:`1px solid rgba(255,255,255,.06)`,borderRadius:14,padding:"10px 8px",textAlign:"center"}}>
+                <div style={{fontSize:18,fontWeight:900,color:c,marginBottom:2}}>{n}</div>
+                <div style={{fontSize:9,color:GRAY,fontWeight:700,textTransform:"uppercase",letterSpacing:.6}}>{l}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Tabs */}
+        <div style={{display:"flex",gap:6,marginBottom:0}}>
+          {tabs.map((t,i)=>(
+            <div key={t.label} onClick={()=>setTab(i)} style={{flex:1,padding:"9px 4px",borderRadius:14,border:`1px solid ${tab===i?"rgba(255,0,128,.4)":BORDER}`,background:tab===i?"rgba(255,0,128,.1)":"transparent",textAlign:"center",cursor:"pointer",transition:"all .2s"}}>
+              <div style={{fontSize:12,fontWeight:800,color:tab===i?PINK:GRAY}}>{t.label}</div>
+            </div>
+          ))}
+        </div>
       </div>
-      <div style={{display:"flex",gap:8,padding:"0 20px 16px",flexShrink:0}}>
-        {tabs.map((t,i)=>(
-          <button key={t} onClick={()=>setTab(i)} style={{padding:"8px 18px",borderRadius:20,border:"1px solid "+(tab===i?"#FF0080":"#333"),background:tab===i?"#FF0080":"transparent",color:tab===i?"#fff":"#888",fontSize:14,fontWeight:600,cursor:"pointer"}}>{t}</button>
-        ))}
-      </div>
-      <div style={{padding:"0 16px"}}>
+
+      {/* Liste */}
+      <div style={{padding:"16px 16px 100px"}}>
         {filtered.length===0?(
-          <div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"60px 20px",gap:10}}>
-            <div style={{fontSize:52}}>🎟️</div>
-            <div style={{fontSize:18,fontWeight:700,color:"#fff"}}>Aucun billet</div>
-            <div style={{fontSize:14,color:"#666"}}>Achète des billets pour les prochains events !</div>
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"60px 20px",gap:14,animation:"fadeSlideUp .5s both"}}>
+            <div style={{width:80,height:80,borderRadius:24,background:"rgba(255,255,255,.04)",border:`1px solid ${BORDER}`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke={GRAY} strokeWidth="1.5"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/></svg>
+            </div>
+            <div style={{fontSize:18,fontWeight:900,color:WHITE}}>Aucun billet</div>
+            <div style={{fontSize:13,color:GRAY,textAlign:"center",lineHeight:1.6}}>
+              {tab===0?"Aucun événement à venir. Achète tes billets !":tab===1?"Aucun événement passé.":"Tu n'as pas encore de billets."}
+            </div>
           </div>
         ):(
-          filtered.map(t=>{
-            const ev=events.find(e=>e.id===t.eventId);
-            const sc=statusColor[t.status]||"#00E676";
-            const sl=statusLabel[t.status]||"✓ Valide";
-            return(
-              <div key={t.id} style={{display:"flex",gap:14,background:"#1A1A1A",borderRadius:16,padding:14,border:"1px solid #2A2A2A",marginBottom:12}}>
-                <div style={{position:"relative",flexShrink:0}}>
-                  {ev&&ev.poster?<img src={ev.poster} style={{width:70,height:85,borderRadius:10,objectFit:"cover"}} alt=""/>:<div style={{width:70,height:85,borderRadius:10,background:"#222",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28}}>🎉</div>}
-                  <div style={{position:"absolute",bottom:4,left:0,right:0,textAlign:"center",fontSize:9,fontWeight:700,padding:"2px 4px",borderRadius:6,background:sc+"22",color:sc,border:"1px solid "+sc+"55"}}>{sl}</div>
-                </div>
-                <div style={{flex:1,display:"flex",flexDirection:"column",gap:4}}>
-                  <div style={{fontSize:15,fontWeight:800,color:"#fff"}}>{(ev&&ev.title)||t.event||"Soirée"}</div>
-                  <div style={{fontSize:12,color:"#888"}}>📅 {ev&&ev.date?new Date(ev.date).toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"}):t.date||"—"}</div>
-                  <div style={{fontSize:12,color:"#888"}}>📍 {(ev&&ev.location)||t.location||"Eden Night Club"}</div>
-                  <div style={{fontSize:12,color:"#888"}}>🎟️ {t.type||"Standard"} · CHF {t.price||"—"}</div>
-                  {t.note&&<div style={{fontSize:11,color:"#FF0080",marginTop:2}}>📝 {t.note}</div>}
-                </div>
-              </div>
-            );
-          })
+          filtered.map((t,i)=>(
+            <TicketCard key={t.id} ticket={t} events={events} onShowQR={setQrTicket} index={i}/>
+          ))
         )}
       </div>
     </div>
