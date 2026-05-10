@@ -13,8 +13,8 @@ const PINK="#FF0080",PINK2="#FF3399",GREEN="#4ECDC4";
 const WHITE="#FFFFFF",GRAY="#8892A0",BORDER="#1E2A38";
 const ADMIN_PASS="nolimit2026";
 const GRAD=`linear-gradient(135deg,${PINK},${PINK2})`;
-const SAFE_TOP="env(safe-area-inset-top, 44px)";
-const SAFE_BOT="env(safe-area-inset-bottom, 20px)";
+const SAFE_TOP="env(safe-area-inset-top, 20px)";
+const SAFE_BOT="env(safe-area-inset-bottom, 8px)";
 
 const initialEvents=[];
 
@@ -370,7 +370,7 @@ function NavBar({current,onNav,onProfil,onEvents}){
         <div key={s} onClick={()=>{
           if(s==="profil"&&onProfil){onProfil();}
           else if(s==="events"&&onEvents){onEvents();}
-          else{onNav(s==="events"?"agenda":s);}
+          else{onNav(s);}
         }} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",padding:"4px 0"}}>
           <div style={{width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",borderRadius:8,background:current===s?"rgba(255,0,128,.15)":"transparent",transition:"all .2s"}}>
             <Icon n={ico} s={20} c={current===s?PINK:GRAY}/>
@@ -864,18 +864,17 @@ export default function App(){
               {tab==="home"&&(
                 <div style={{display:"flex",flexDirection:"column",flex:1,overflow:"hidden"}}>
                   <div className="scroll" style={{padding:"0 0 20px"}}>
-                    <div style={{background:"linear-gradient(135deg,rgba(255,0,128,.2),rgba(255,51,153,.05))",borderRadius:"0 0 24px 24px",padding:"10px 16px 16px",marginBottom:16}}>
+                    <div style={{background:"linear-gradient(135deg,rgba(255,0,128,.2),rgba(255,51,153,.05))",borderRadius:"0 0 24px 24px",padding:"50px 16px 16px",marginBottom:16}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                         <div style={{display:"flex",alignItems:"center",gap:10}}>
+                          <img src={LOGO} alt="" onClick={tapLogo} style={{width:65,height:65,objectFit:"contain",filter:"drop-shadow(0 0 14px rgba(255,0,128,.7))",animation:"pulse 2s ease-in-out infinite",cursor:"pointer"}}/>
                           <div>
                             <div style={{fontSize:10,color:"rgba(255,255,255,.5)"}}>{new Date().getHours()<12?"Bonjour":new Date().getHours()<18?"Bon apres-midi":"Bonsoir"}</div>
                             <div style={{fontSize:15,fontWeight:900,color:WHITE}}>{authUser&&authUser.user_metadata&&authUser.user_metadata.prenom?authUser.user_metadata.prenom:"No Limiter"} !</div>
                           </div>
                         </div>
                         <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                          <div onClick={()=>setScreen(adminAuth?"admin":"adminLogin")} style={{width:34,height:34,borderRadius:10,background:"rgba(255,0,128,.15)",border:"1px solid rgba(255,0,128,.3)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
-                            <Icon n="settings" s={16} c={PINK}/>
-                          </div>
+
                           <div onClick={()=>setNotifOpen(true)} style={{width:34,height:34,borderRadius:10,background:"rgba(255,255,255,.1)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",position:"relative"}}>
                             <Icon n="bell" s={16} c={WHITE}/>
                             <div style={{position:"absolute",top:6,right:6,width:7,height:7,borderRadius:"50%",background:PINK}}/>
@@ -906,7 +905,9 @@ export default function App(){
                     {authUser&&(
                       <div style={{margin:"0 16px 16px",background:BG2,borderRadius:16,padding:"14px 16px",border:"1px solid "+BORDER}}>
                         <div style={{display:"flex",alignItems:"center",gap:12}}>
-                          <div style={{width:36,height:36,borderRadius:10,background:"rgba(255,165,0,.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🥉</div>
+                          <div style={{width:36,height:36,borderRadius:10,background:"rgba(255,165,0,.15)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFB347" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+</div>
                           <div style={{flex:1}}>
                             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
                               <div style={{fontSize:13,fontWeight:800,color:"#FFB347"}}>Bronze</div>
@@ -924,7 +925,7 @@ export default function App(){
                       <div style={{margin:"0 16px 16px"}}>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                           <div style={{fontSize:16,fontWeight:900,color:WHITE}}>A la une</div>
-                          <div style={{fontSize:12,color:PINK,fontWeight:700,cursor:"pointer"}}>Voir tout</div>
+                          <div onClick={()=>setScreen("events")} style={{fontSize:12,color:PINK,fontWeight:700,cursor:"pointer"}}>Voir tout</div>
                         </div>
                         <div style={{borderRadius:20,overflow:"hidden",position:"relative",height:190,background:BG2,cursor:"pointer"}} onClick={()=>{const ev=events.filter(e=>!e.ended)[0];if(ev)openEv(ev);}}>
                           {events.filter(e=>!e.ended)[0]&&events.filter(e=>!e.ended)[0].poster?<img src={events.filter(e=>!e.ended)[0].poster} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,rgba(255,0,128,.3),rgba(255,51,153,.1))"}}/>}
@@ -1038,6 +1039,74 @@ export default function App(){
                 </div>
               )}
 
+              {tab==="events"&&(<div style={{position:"fixed",top:0,left:0,right:0,bottom:60,background:"#0D1117",zIndex:50,overflowY:"auto",padding:"70px 16px 20px"}}><div style={{fontSize:22,fontWeight:900,color:"#FFFFFF",marginBottom:20}}>TEST EVENTS</div></div>)}{tab==="events_old"&&(
+                <div style={{position:"absolute",inset:0,overflowY:"auto",padding:"20px 16px",paddingBottom:80,zIndex:2,background:BG}}>
+                  <div style={{fontSize:22,fontWeight:900,color:WHITE,marginBottom:6}}>Evenements</div>
+                  <div style={{fontSize:13,color:PINK,fontWeight:700,marginBottom:20}}>La Chaux-de-Fonds</div>
+                  <div style={{marginBottom:20}}>
+                    <CalendarWidget events={events}/>
+                  </div>
+                  {events.length===0?(
+                    <div style={{textAlign:"center",padding:"60px 0"}}>
+                      <div style={{fontSize:48,marginBottom:16}}>🎉</div>
+                      <div style={{fontSize:16,fontWeight:900,color:WHITE,marginBottom:8}}>Aucun evenement</div>
+                      <div style={{fontSize:13,color:GRAY}}>Reviens bientot !</div>
+                    </div>
+                  ):(
+                    <div>
+                      {events.filter(e=>!e.ended).length>0&&(
+                        <div style={{marginBottom:24}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+                            <div style={{width:3,height:18,background:GRAD,borderRadius:4}}/>
+                            <div style={{fontSize:12,fontWeight:900,color:PINK,letterSpacing:2,textTransform:"uppercase"}}>A venir</div>
+                            <div style={{background:"rgba(255,0,128,.15)",borderRadius:20,padding:"2px 10px",fontSize:10,fontWeight:700,color:PINK}}>{events.filter(e=>!e.ended).length}</div>
+                          </div>
+                          {events.filter(e=>!e.ended).map((ev,i)=>(
+                            <div key={ev.id} onClick={()=>openEv(ev)} style={{display:"flex",gap:12,alignItems:"center",background:BG2,borderRadius:16,padding:"12px 14px",marginBottom:10,border:"1px solid "+BORDER,cursor:"pointer",animation:"rowSlide .4s "+i*.08+"s both"}}>
+                              <div style={{width:60,height:60,borderRadius:14,overflow:"hidden",flexShrink:0,background:GRAD}}>
+                                {ev.poster?<img src={ev.poster} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:
+                                <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+                                  <div style={{fontSize:14,fontWeight:900,color:WHITE}}>{ev.date.split(" ")[1]||"?"}</div>
+                                  <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,.8)"}}>{ev.date.split(" ")[2]||""}</div>
+                                </div>}
+                              </div>
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{fontSize:14,fontWeight:800,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</div>
+                                <div style={{fontSize:11,color:GRAY,marginTop:2}}>{ev.location}</div>
+                                <div style={{fontSize:11,color:GRAY,marginTop:1}}>{ev.date} • {ev.time}</div>
+                              </div>
+                              <div style={{textAlign:"right",flexShrink:0}}>
+                                <div style={{fontSize:14,fontWeight:900,color:PINK}}>CHF {ev.price}</div>
+                                <div style={{fontSize:9,color:GRAY,marginTop:2,background:BG3,padding:"2px 8px",borderRadius:10}}>{ev.category||"Soiree"}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {events.filter(e=>e.ended).length>0&&(
+                        <div>
+                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+                            <div style={{width:3,height:18,background:BG3,borderRadius:4,border:"1px solid "+BORDER}}/>
+                            <div style={{fontSize:12,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase"}}>Terminees</div>
+                          </div>
+                          {events.filter(e=>e.ended).map((ev,i)=>(
+                            <div key={ev.id} style={{display:"flex",gap:12,alignItems:"center",background:BG2,borderRadius:16,padding:"12px 14px",marginBottom:10,border:"1px solid "+BORDER,opacity:.6}}>
+                              <div style={{width:60,height:60,borderRadius:14,overflow:"hidden",flexShrink:0,background:BG3}}>
+                                {ev.poster?<img src={ev.poster} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{width:"100%",height:"100%"}}/>}
+                              </div>
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{fontSize:14,fontWeight:800,color:GRAY,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</div>
+                                <div style={{fontSize:11,color:GRAY,marginTop:2}}>{ev.date}</div>
+                              </div>
+                              <div style={{background:"rgba(255,255,255,.1)",padding:"3px 10px",borderRadius:20,fontSize:9,fontWeight:900,color:GRAY}}>TERMINEE</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
               {tab==="agenda"&&(
                 <div className="scroll" style={{padding:"20px"}}>
                   <div style={{fontSize:22,fontWeight:900,color:WHITE,marginBottom:20}}>Agenda</div>
@@ -1072,7 +1141,7 @@ export default function App(){
               </div>
               )}
 
-              <NavBar current={tab} onNav={navHandler} onProfil={()=>setScreen("profil")} onEvents={()=>setTab("agenda")}/>
+              <NavBar current={tab} onNav={navHandler} onProfil={()=>setScreen("profil")} onEvents={()=>setScreen("events")}/>
             </div>
           </div>
         )}
@@ -1366,6 +1435,42 @@ export default function App(){
         <div style={{marginLeft:"auto",color:"rgba(255,255,255,.5)",fontSize:18}}>→</div>
       </div>
       <div onClick={()=>setScreen("main")} style={{borderRadius:16,padding:"15px 0",textAlign:"center",fontWeight:900,fontSize:14,color:"#FF0080",cursor:"pointer",border:"1.5px solid #FF0080",letterSpacing:1}}>RETOUR</div>
+    </div>
+  </div>
+)}
+{screen==="events"&&(
+  <div style={{position:"fixed",inset:0,background:"#0D1117",zIndex:100,overflowY:"auto",paddingBottom:80}}>
+    <div style={{padding:"60px 16px 20px"}}>
+      <div style={{fontSize:24,fontWeight:900,color:"#FFFFFF",marginBottom:6}}>Evenements</div>
+      <div style={{fontSize:13,color:"#FF0080",fontWeight:700,marginBottom:20}}>La Chaux-de-Fonds</div>
+      {events.filter(e=>!e.ended).map((ev,i)=>(
+        <div key={ev.id} onClick={()=>{openEv(ev);}} style={{display:"flex",gap:12,alignItems:"center",background:"#141A22",borderRadius:16,padding:"12px 14px",marginBottom:10,border:"1px solid #1E2A38",cursor:"pointer"}}>
+          <div style={{width:60,height:60,borderRadius:14,overflow:"hidden",flexShrink:0,background:"linear-gradient(135deg,#FF0080,#FF3399)"}}>
+            {ev.poster?<img src={ev.poster} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:
+            <div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <span style={{fontSize:20,color:"#FFFFFF",fontWeight:900}}>{ev.date.split(" ")[1]||"?"}</span>
+            </div>}
+          </div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:14,fontWeight:800,color:"#FFFFFF",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</div>
+            <div style={{fontSize:11,color:"#8892A0",marginTop:2}}>{ev.location}</div>
+            <div style={{fontSize:11,color:"#8892A0",marginTop:1}}>{ev.date} • {ev.time}</div>
+          </div>
+          <div style={{fontSize:14,fontWeight:900,color:"#FF0080",flexShrink:0}}>CHF {ev.price}</div>
+        </div>
+      ))}
+      {events.filter(e=>!e.ended).length===0&&(
+        <div style={{textAlign:"center",padding:"60px 0",color:"#8892A0",fontSize:14}}>Aucun evenement a venir</div>
+      )}
+    </div>
+    <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#141A22",borderTop:"1px solid #1E2A38",paddingTop:8,paddingBottom:20,display:"flex",zIndex:200}}>
+      {[["home","Accueil","home"],["events","Events","calendar"],["tickets","Billets","ticket"],["agenda","Groupes","users"],["profil","Profil","users"]].map(([s,label,ico])=>(
+        <div key={s} onClick={()=>{if(s==="events"){}else if(s==="profil"){setScreen("profil");}else{setTab(s);setScreen("main");}}} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",padding:"4px 0"}}>
+          <Icon n={ico} s={20} c={s==="events"?"#FF0080":"#8892A0"}/>
+          <span style={{fontSize:9,fontWeight:700,color:s==="events"?"#FF0080":"#8892A0"}}>{label}</span>
+          {s==="events"&&<div style={{width:16,height:2.5,borderRadius:2,background:"linear-gradient(135deg,#FF0080,#FF3399)"}}/>}
+        </div>
+      ))}
     </div>
   </div>
 )}
