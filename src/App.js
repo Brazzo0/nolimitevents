@@ -356,7 +356,7 @@ function CalendarWidget({events}){
   );
 }
 
-function NavBar({current,onNav,onProfil,onEvents}){
+function NavBar({current,onNav,onProfil,onEvents,onTickets}){
   const tabs=[
     ["home","Accueil","home"],
     ["events","Events","calendar"],
@@ -370,6 +370,7 @@ function NavBar({current,onNav,onProfil,onEvents}){
         <div key={s} onClick={()=>{
           if(s==="profil"&&onProfil){onProfil();}
           else if(s==="events"&&onEvents){onEvents();}
+          else if(s==="tickets"){if(onTickets)onTickets();}
           else{onNav(s);}
         }} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",padding:"4px 0"}}>
           <div style={{width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",borderRadius:8,background:current===s?"rgba(255,0,128,.15)":"transparent",transition:"all .2s"}}>
@@ -1141,7 +1142,7 @@ export default function App(){
               </div>
               )}
 
-              <NavBar current={tab} onNav={navHandler} onProfil={()=>setScreen("profil")} onEvents={()=>setScreen("events")}/>
+              <NavBar current={tab} onNav={navHandler} onProfil={()=>setScreen("profil")} onEvents={()=>setScreen("events")} onTickets={()=>setScreen("tickets")}/>
             </div>
           </div>
         )}
