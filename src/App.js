@@ -550,7 +550,7 @@ function TicketsScreen({tickets,events,user,loading}){
       )}
 
       {/* Header */}
-      <div style={{padding:"52px 20px 0",position:"relative",overflow:"hidden"}}>
+      <div style={{padding:`calc(env(safe-area-inset-top,44px) + 12px) 20px 0`,position:"relative",overflow:"hidden"}}>
         <div style={{position:"absolute",top:-60,right:-40,width:220,height:220,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,0,128,.12) 0%,transparent 70%)",pointerEvents:"none"}}/>
         <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:20}}>
           <div>
