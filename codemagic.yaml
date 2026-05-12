@@ -9,8 +9,6 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: ch.nolimitevents.app
-      groups:
-        - apple_credentials
       node: v22
       xcode: latest
     scripts:
@@ -20,7 +18,13 @@ workflows:
         script: npm run build
       - name: Sync Capacitor iOS
         script: npx cap sync ios
-      - name: Set up code signing settings
+      - name: Résoudre packages SPM
+        script: |
+          xcodebuild -resolvePackageDependencies \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -clonedSourcePackagesDirPath ios/App/SourcePackages
+      - name: Configurer le code signing
         script: xcode-project use-profiles
       - name: Build IPA
         script: |
@@ -31,9 +35,7 @@ workflows:
       - build/ios/ipa/*.ipa
     publishing:
       app_store_connect:
-        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
-        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        auth: integration
         submit_to_testflight: true
 
   android-google-play:
