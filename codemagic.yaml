@@ -9,6 +9,7 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: ch.nolimitevents.app
+        team_id: 6BWR2R97AU
       groups:
         - apple_credentials
       node: v18
