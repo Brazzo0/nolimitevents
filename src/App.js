@@ -640,7 +640,13 @@ function GroupsScreen({authUser,supabase}){
           supabase.from("profiles").select("referral_code").eq("id",authUser.id).single(),
           supabase.from("group_members").select("group_id,groups(id,name,emoji,owner_id)").eq("user_id",authUser.id)
         ]);
-        if(profData?.referral_code)setRefCode(profData.referral_code);
+        if(profData?.referral_code){
+          setRefCode(profData.referral_code);
+        }else{
+          const code="NLE"+Math.random().toString(36).substring(2,8).toUpperCase();
+          await supabase.from("profiles").update({referral_code:code}).eq("id",authUser.id);
+          setRefCode(code);
+        }
         if(memberData){
           const gs=memberData.map(d=>d.groups).filter(Boolean);
           const withCounts=await Promise.all(gs.map(async g=>{
@@ -1320,7 +1326,14 @@ export default function App(){
   const doLogout=async()=>{await supabase.auth.signOut();setAuthUser(null);setProfil(null);setScreen("login");};
   const loadProfil=async(uid)=>{
     const{data}=await supabase.from("profiles").select("*").eq("id",uid).single();
-    if(data){setProfil(data);setProfilPseudo(data.pseudo||"");setProfilInsta(data.instagram||"");setProfilSnap(data.snapchat||"");}
+    if(data){
+      if(!data.referral_code){
+        const code="NLE"+Math.random().toString(36).substring(2,8).toUpperCase();
+        await supabase.from("profiles").update({referral_code:code}).eq("id",uid);
+        data.referral_code=code;
+      }
+      setProfil(data);setProfilPseudo(data.pseudo||"");setProfilInsta(data.instagram||"");setProfilSnap(data.snapchat||"");
+    }
     else{
       const code="NLE"+Math.random().toString(36).substring(2,8).toUpperCase();
       const pendingRef=localStorage.getItem("nle_pendingRef");
