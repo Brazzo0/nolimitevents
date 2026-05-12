@@ -3,12 +3,12 @@ workflows:
   ios-app-store:
     name: iOS – App Store
     max_build_duration: 120
+    integrations:
+      app_store_connect: NolimitEvents
     environment:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: ch.nolimitevents.app
-      integrations:
-        app_store_connect: NolimitEvents
       groups:
         - apple_credentials
       node: v18
