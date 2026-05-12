@@ -17,6 +17,7 @@ const APP_VERSION="v2.5";
 const GRAD=`linear-gradient(135deg,${PINK},${PINK2})`;
 const SAFE_TOP="env(safe-area-inset-top, 20px)";
 const SAFE_BOT="env(safe-area-inset-bottom, 8px)";
+const normDate=(d)=>{if(!d)return"";const m=d.match(/^(\d{2})\.(\d{2})\.(\d{4})/);if(m)return`${m[3]}-${m[2]}-${m[1]}`;return d.slice(0,10);};
 
 const initialEvents=[];
 
@@ -1400,8 +1401,9 @@ export default function App(){
   };
 
   const saveFreeTicketFn=async(t)=>{
+    if(!authUser)return"Connecte-toi d'abord avec ton compte (email + mot de passe), puis reviens ici.";
     const dbErr=await dbSaveTicket(t);
-    if(!dbErr){setTickets(p=>[...p,t]);}
+    if(!dbErr)setTickets(p=>[...p,t]);
     return dbErr;
   };
   const deleteEventFn=async(id)=>{await dbDeleteEvent(id);setEvents(p=>p.filter(e=>e.id!==id));setDelConfirm(null);showToast("🗑️ Supprimé");};
@@ -2687,14 +2689,21 @@ export default function App(){
 )}
 {screen==="adminLogin"&&(
           <div className="sc">
-            <div style={{height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:30,background:BG,paddingTop:SAFE_TOP}}>
-              <img src={LOGO} alt="" style={{width:80,height:80,objectFit:"contain",marginBottom:20,animation:"pulse 2s ease-in-out infinite"}}/>
-              <div style={{fontSize:20,fontWeight:900,color:WHITE,marginBottom:6}}>Espace Admin</div>
-              <div style={{fontSize:13,color:GRAY,marginBottom:28,textAlign:"center"}}>Accès réservé</div>
-              <input type="password" placeholder="Mot de passe" value={adminPass} onChange={e=>setAdminPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&adminLogin()} className="inp" style={{width:"100%",marginBottom:12,textAlign:"center",letterSpacing:4}}/>
-              {adminErr&&<div style={{color:"#FF4444",fontWeight:700,fontSize:13,marginBottom:12}}>{adminErr}</div>}
-              <Btn onClick={adminLogin}>SE CONNECTER</Btn>
-              <div onClick={goMain} style={{marginTop:16,color:GRAY,fontSize:12,cursor:"pointer"}}>← Retour</div>
+            <div style={{height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"0 28px",background:`radial-gradient(ellipse at 50% 0%,rgba(255,0,128,.18) 0%,${BG} 70%)`}}>
+              <div style={{width:72,height:72,borderRadius:22,background:GRAD,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:20,boxShadow:`0 0 40px ${PINK}55`}}>
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke={WHITE} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </div>
+              <div style={{fontSize:24,fontWeight:900,color:WHITE,marginBottom:4,letterSpacing:-.3}}>Espace Admin</div>
+              <div style={{fontSize:13,color:GRAY,marginBottom:36}}>No Limit Events · {APP_VERSION}</div>
+              <div style={{width:"100%",marginBottom:16}}>
+                <input type="password" placeholder="Mot de passe admin" value={adminPass} onChange={e=>setAdminPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&adminLogin()} className="inp" style={{width:"100%",textAlign:"center",letterSpacing:6,fontSize:16}}/>
+              </div>
+              {adminErr&&<div style={{background:"rgba(255,68,68,.1)",border:"1px solid rgba(255,68,68,.3)",borderRadius:10,padding:"10px 14px",color:"#FF4444",fontWeight:700,fontSize:13,marginBottom:16,width:"100%",textAlign:"center"}}>{adminErr}</div>}
+              <div onClick={adminLogin} style={{width:"100%",padding:"16px 0",borderRadius:14,background:GRAD,textAlign:"center",fontWeight:900,fontSize:14,color:WHITE,cursor:"pointer",letterSpacing:.5,boxShadow:`0 4px 20px ${PINK}44`}}>ACCÉDER AU PANEL</div>
+              <div onClick={goMain} style={{marginTop:20,color:GRAY,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={GRAY} strokeWidth="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                Retour à l'app
+              </div>
             </div>
           </div>
         )}
@@ -2706,35 +2715,37 @@ export default function App(){
 
               {/* Header */}
               <div style={{background:BG2,borderBottom:`1px solid ${BORDER}`,flexShrink:0,paddingTop:SAFE_TOP}}>
-                <div style={{padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div style={{padding:"10px 14px 8px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <div style={{display:"flex",alignItems:"center",gap:10}}>
-                    <div style={{width:34,height:34,borderRadius:10,background:GRAD,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={WHITE} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    <div style={{width:36,height:36,borderRadius:11,background:GRAD,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:`0 0 18px ${PINK}44`}}>
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={WHITE} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                     </div>
                     <div>
-                      <span style={{fontSize:16,fontWeight:900,color:WHITE}}>Panel Admin</span>
-                      <span style={{fontSize:9,color:GRAY,marginLeft:6}}>{APP_VERSION}</span>
+                      <div style={{fontSize:15,fontWeight:900,color:WHITE,letterSpacing:-.2}}>Panel Admin</div>
+                      <div style={{display:"flex",alignItems:"center",gap:5,marginTop:1}}>
+                        <div style={{width:6,height:6,borderRadius:"50%",background:authUser?"#4ADE80":"#FF4444",boxShadow:authUser?"0 0 6px #4ADE8099":"0 0 6px #FF444499"}}/>
+                        <span style={{fontSize:9,color:authUser?"#4ADE80":"#FF6B6B",fontWeight:700}}>{authUser?"Connecté · billets actifs":"Non connecté · gratuits désactivés"}</span>
+                      </div>
                     </div>
                   </div>
                   <div style={{display:"flex",gap:8}}>
-                    <div onClick={()=>setShowScanner(true)} style={{width:36,height:36,borderRadius:10,background:BG3,border:`1px solid ${BORDER}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
+                    <div onClick={()=>setShowScanner(true)} style={{width:36,height:36,borderRadius:11,background:"rgba(78,205,196,.1)",border:`1px solid ${GREEN}33`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
                       <Icon n="eye" s={16} c={GREEN}/>
                     </div>
-                    <div onClick={goMain} style={{width:36,height:36,borderRadius:10,background:BG3,border:`1px solid ${BORDER}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
+                    <div onClick={goMain} style={{width:36,height:36,borderRadius:11,background:BG3,border:`1px solid ${BORDER}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
                       <Icon n="home" s={16} c={GRAY}/>
                     </div>
                   </div>
                 </div>
-                {/* 5 onglets */}
-                <div style={{display:"flex",padding:"0 4px",overflowX:"auto",scrollbarWidth:"none"}}>
-                  {[["bar","Stats","dashboard"],["calendar","Soirées","events"],["ticket","Billets","tickets"],["gift","Gratuits","free"],["users","Membres","users"],["image","Médias","media"]].map(([ico,label,t])=>{
-                    const col=t==="free"?GREEN:t==="media"?"#7B6CF6":t==="users"?"#60A5FA":PINK;
-                    return(
-                    <div key={t} onClick={()=>setAdminTab(t)} style={{flex:1,padding:"10px 4px",textAlign:"center",borderBottom:adminTab===t?`2.5px solid ${col}`:"2.5px solid transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4,transition:"all .2s",minWidth:56}}>
-                      <Icon n={ico} s={17} c={adminTab===t?col:GRAY}/>
-                      <span style={{fontSize:8,fontWeight:800,color:adminTab===t?col:GRAY,letterSpacing:.3,textTransform:"uppercase",whiteSpace:"nowrap"}}>{label}</span>
-                    </div>);
-                  })}
+                {/* Onglets */}
+                <div style={{display:"flex",padding:"0 6px",overflowX:"auto",scrollbarWidth:"none",gap:2}}>
+                  {[["bar","Stats","dashboard",PINK],["calendar","Soirées","events",PINK],["ticket","Billets","tickets","#7B6CF6"],["gift","Gratuits","free",GREEN],["users","Membres","users","#60A5FA"],["image","Médias","media","#FFB347"]].map(([ico,label,t,col])=>(
+                    <div key={t} onClick={()=>setAdminTab(t)} style={{flex:1,padding:"9px 2px 8px",textAlign:"center",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,transition:"all .2s",minWidth:52,position:"relative"}}>
+                      <Icon n={ico} s={16} c={adminTab===t?col:GRAY}/>
+                      <span style={{fontSize:8,fontWeight:800,color:adminTab===t?col:GRAY,letterSpacing:.4,textTransform:"uppercase",whiteSpace:"nowrap"}}>{label}</span>
+                      {adminTab===t&&<div style={{position:"absolute",bottom:0,left:"15%",right:"15%",height:2.5,borderRadius:2,background:`linear-gradient(90deg,${col},${col}88)`}}/>}
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -2744,23 +2755,69 @@ export default function App(){
                 {/* Dashboard */}
                 {adminTab==="dashboard"&&(
                   <div>
-                    <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>VUE D'ENSEMBLE</div>
+                    {/* KPI */}
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
                       {[
-                        [<Icon n="dollar" s={20} c={PINK}/>,"Revenus",`CHF ${totalRev}`,"Total encaissé",PINK,"rgba(255,0,128,.08)"],
-                        [<Icon n="ticket" s={20} c={"#7B6CF6"}/>,"Billets",totalSold,`sur ${totalCap} places`,"#7B6CF6","rgba(123,108,246,.08)"],
-                        [<Icon n="gift" s={20} c={GREEN}/>,"Gratuits",freeCount,"Invités / Staff",GREEN,"rgba(78,205,196,.08)"],
-                        [<Icon n="bar" s={20} c={"#FFB347"}/>,"Remplissage",`${Math.round(totalSold/Math.max(totalCap,1)*100)}%`,"Moyenne","#FFB347","rgba(255,179,71,.08)"],
-                      ].map(([icon,label,val,sub,color,bg],i)=>(
-                        <div key={label} style={{background:bg,borderRadius:16,padding:"14px 12px",border:`1px solid ${color}33`,animation:`slideUp .4s ${i*.07}s both`}}>
-                          <div style={{marginBottom:8}}>{icon}</div>
-                          <div style={{fontSize:20,fontWeight:900,color}}>{val}</div>
-                          <div style={{fontSize:11,fontWeight:700,color:WHITE,marginTop:2}}>{label}</div>
-                          <div style={{fontSize:10,color:GRAY,marginTop:1}}>{sub}</div>
+                        {icon:<Icon n="dollar" s={20} c={PINK}/>,label:"Revenus",val:`CHF ${totalRev}`,sub:"Total encaissé",color:PINK,bg:"rgba(255,0,128,.06)"},
+                        {icon:<Icon n="ticket" s={20} c={"#7B6CF6"}/>,label:"Billets",val:totalSold,sub:`sur ${totalCap} places`,color:"#7B6CF6",bg:"rgba(123,108,246,.06)"},
+                        {icon:<Icon n="gift" s={20} c={GREEN}/>,label:"Gratuits",val:freeCount,sub:"Invités / Staff",color:GREEN,bg:"rgba(78,205,196,.06)"},
+                        {icon:<Icon n="users" s={20} c={"#60A5FA"}/>,label:"Membres",val:adminUsersLoading?"…":adminUsers.length,sub:"Inscrits",color:"#60A5FA",bg:"rgba(96,165,250,.06)"},
+                      ].map(({icon,label,val,sub,color,bg},i)=>(
+                        <div key={label} style={{background:bg,borderRadius:18,padding:"16px 14px",border:`1px solid ${color}22`,animation:`slideUp .4s ${i*.07}s both`}}>
+                          <div style={{marginBottom:10}}>{icon}</div>
+                          <div style={{fontSize:22,fontWeight:900,color,lineHeight:1}}>{val}</div>
+                          <div style={{fontSize:12,fontWeight:700,color:WHITE,marginTop:4}}>{label}</div>
+                          <div style={{fontSize:10,color:GRAY,marginTop:2}}>{sub}</div>
                         </div>
                       ))}
                     </div>
-                    <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>SOIRÉES ACTIVES</div>
+
+                    {/* Graphique ventes 7 jours */}
+                    {(()=>{
+                      const paidTix=tickets.filter(t=>t.type!=="free"&&t.createdAt);
+                      const days=Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(6-i));return d;});
+                      const dayData=days.map(d=>{
+                        const key=d.toISOString().slice(0,10);
+                        const dayTix=paidTix.filter(t=>t.createdAt&&normDate(t.createdAt)===key);
+                        return{label:d.toLocaleDateString("fr-CH",{weekday:"short"}).slice(0,3),count:dayTix.length,rev:dayTix.reduce((s,t)=>s+(Number(t.price)||0),0)};
+                      });
+                      const maxRev=Math.max(...dayData.map(d=>d.rev),1);
+                      const totalPeriod=dayData.reduce((s,d)=>s+d.rev,0);
+                      const totalCount=dayData.reduce((s,d)=>s+d.count,0);
+                      return(
+                        <div style={{marginBottom:20}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                            <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase"}}>VENTES 7 JOURS</div>
+                            <div style={{textAlign:"right"}}>
+                              <div style={{fontSize:16,fontWeight:900,color:PINK}}>CHF {totalPeriod}</div>
+                              <div style={{fontSize:9,color:GRAY}}>{totalCount} billet{totalCount!==1?"s":""}</div>
+                            </div>
+                          </div>
+                          <div style={{background:BG2,borderRadius:18,padding:"18px 14px 12px",border:`1px solid ${BORDER}`}}>
+                            {totalCount===0&&<div style={{textAlign:"center",color:GRAY,fontSize:11,paddingBottom:8}}>Aucune vente sur 7 jours</div>}
+                            <svg viewBox="0 0 280 90" style={{width:"100%",overflow:"visible",display:"block"}}>
+                              <defs>{dayData.map((_,i)=><linearGradient key={i} id={`cg${i}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={PINK} stopOpacity=".95"/><stop offset="100%" stopColor="#7B2FFF" stopOpacity=".75"/></linearGradient>)}</defs>
+                              {[0,25,50,75,100].map(pct=><line key={pct} x1={0} y1={70*(1-pct/100)} x2={280} y2={70*(1-pct/100)} stroke={BORDER} strokeWidth={.6} strokeDasharray="4,4"/>)}
+                              {dayData.map((d,i)=>{
+                                const barH=d.rev>0?Math.max(6,Math.round((d.rev/maxRev)*66)):3;
+                                const x=i*40+4;
+                                const y=70-barH;
+                                return(
+                                  <g key={i}>
+                                    <rect x={x} y={d.rev>0?y:67} width={32} height={barH} rx={5} fill={d.rev>0?`url(#cg${i})`:"rgba(255,255,255,.05)"}/>
+                                    {d.count>0&&<text x={x+16} y={y-5} textAnchor="middle" fill={WHITE} fontSize={7.5} fontWeight="900">{d.count}</text>}
+                                    <text x={x+16} y={83} textAnchor="middle" fill={GRAY} fontSize={8} fontWeight="700">{d.label}</text>
+                                  </g>
+                                );
+                              })}
+                            </svg>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Soirées actives */}
+                    <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>SOIRÉES ACTIVES</div>
                     {events.filter(e=>!e.ended).length===0?(
                       <div style={{textAlign:"center",padding:"24px 0",color:GRAY,fontSize:13}}>Aucune soirée active</div>
                     ):(
@@ -2778,62 +2835,11 @@ export default function App(){
                         </div>
                       ))
                     )}
-                    {/* Graphique ventes 7 derniers jours */}
-                    {(()=>{
-                      const paidTix=tickets.filter(t=>t.type!=="free"&&t.createdAt);
-                      const days=Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(6-i));return d;});
-                      const dayData=days.map(d=>{
-                        const key=d.toISOString().slice(0,10);
-                        const dayTix=paidTix.filter(t=>t.createdAt&&t.createdAt.slice(0,10)===key);
-                        return{label:d.toLocaleDateString("fr-CH",{weekday:"short"}).slice(0,3),count:dayTix.length,rev:dayTix.reduce((s,t)=>s+(Number(t.price)||0),0)};
-                      });
-                      const maxRev=Math.max(...dayData.map(d=>d.rev),1);
-                      const totalPeriod=dayData.reduce((s,d)=>s+d.rev,0);
-                      const totalCount=dayData.reduce((s,d)=>s+d.count,0);
-                      return(
-                        <div style={{marginTop:20,marginBottom:4}}>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                            <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase"}}>VENTES 7 JOURS</div>
-                            <div style={{display:"flex",gap:10}}>
-                              <div style={{textAlign:"right"}}>
-                                <div style={{fontSize:16,fontWeight:900,color:PINK}}>CHF {totalPeriod}</div>
-                                <div style={{fontSize:9,color:GRAY}}>{totalCount} billet{totalCount!==1?"s":""}</div>
-                              </div>
-                            </div>
-                          </div>
-                          <div style={{background:BG2,borderRadius:16,padding:"16px 12px 10px",border:`1px solid ${BORDER}`}}>
-                            <svg viewBox="0 0 280 90" style={{width:"100%",overflow:"visible"}}>
-                              {/* Grille */}
-                              {[0,25,50,75,100].map(pct=>(
-                                <line key={pct} x1={0} y1={70*(1-pct/100)} x2={280} y2={70*(1-pct/100)} stroke={BORDER} strokeWidth={.5} strokeDasharray="3,3"/>
-                              ))}
-                              {/* Barres */}
-                              {dayData.map((d,i)=>{
-                                const barH=d.rev>0?Math.max(4,Math.round((d.rev/maxRev)*66)):2;
-                                const x=i*40+4;
-                                const y=70-barH;
-                                return(
-                                  <g key={i}>
-                                    <defs>
-                                      <linearGradient id={`bg${i}`} x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor={PINK} stopOpacity=".9"/>
-                                        <stop offset="100%" stopColor="#7B2FFF" stopOpacity=".7"/>
-                                      </linearGradient>
-                                    </defs>
-                                    <rect x={x} y={y} width={32} height={barH} rx={5} fill={d.rev>0?`url(#bg${i})`:"rgba(255,255,255,.06)"}/>
-                                    {d.count>0&&<text x={x+16} y={y-4} textAnchor="middle" fill={WHITE} fontSize={7} fontWeight="800">{d.count}</text>}
-                                    <text x={x+16} y={82} textAnchor="middle" fill={GRAY} fontSize={8} fontWeight="700">{d.label}</text>
-                                  </g>
-                                );
-                              })}
-                            </svg>
-                          </div>
-                        </div>
-                      );
-                    })()}
 
                     <div style={{marginTop:24}}>
-                      <div onClick={()=>{setAdminAuth(false);setAdminPass("");goMain();}} style={{padding:"14px 0",borderRadius:14,background:"rgba(255,68,68,.08)",border:"1px solid rgba(255,68,68,.25)",textAlign:"center",fontWeight:900,color:"#FF4444",cursor:"pointer",fontSize:13,letterSpacing:.5}}>SE DÉCONNECTER</div>
+                      <div onClick={()=>{setAdminAuth(false);setAdminPass("");goMain();}} style={{padding:"14px 0",borderRadius:14,background:"rgba(255,68,68,.07)",border:"1px solid rgba(255,68,68,.2)",textAlign:"center",fontWeight:900,color:"#FF4444",cursor:"pointer",fontSize:13,letterSpacing:.5,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                        <Icon n="logout" s={15} c="#FF4444"/>SE DÉCONNECTER
+                      </div>
                     </div>
                   </div>
                 )}
@@ -2859,16 +2865,19 @@ export default function App(){
                 {/* Billets */}
                 {adminTab==="tickets"&&(
                   <div>
-                    <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase",marginBottom:14}}>TOUS LES BILLETS ({tickets.length})</div>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                      <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase"}}>TOUS ({tickets.length})</div>
+                      {tickets.filter(t=>t.type!=="free").length>0&&<div style={{background:"rgba(123,108,246,.1)",border:"1px solid rgba(123,108,246,.25)",color:"#7B6CF6",padding:"5px 12px",borderRadius:12,fontSize:10,fontWeight:900}}>CHF {tickets.filter(t=>t.type!=="free").reduce((s,t)=>s+(Number(t.price)||0),0)}</div>}
+                    </div>
                     {tickets.length===0?(
                       <div style={{textAlign:"center",padding:"40px 0"}}><div style={{fontSize:40,marginBottom:12}}>🎟️</div><div style={{color:GRAY,fontSize:13}}>Aucun billet vendu</div></div>
                     ):(
                       tickets.map((t,i)=>(
-                        <div key={t.id} style={{background:BG2,borderRadius:14,padding:"12px 14px",marginBottom:10,border:`1px solid ${BORDER}`,animation:`rowSlide .3s ${i*.04}s both`}}>
+                        <div key={t.id} style={{background:BG2,borderRadius:14,padding:"12px 14px",marginBottom:8,border:`1px solid ${BORDER}`,animation:`rowSlide .3s ${i*.03}s both`}}>
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
                             <div style={{flex:1,minWidth:0}}>
                               <div style={{fontSize:13,fontWeight:800,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.event}</div>
-                              <div style={{fontSize:11,color:GRAY,marginTop:2}}>{t.owner}</div>
+                              <div style={{fontSize:11,color:GRAY,marginTop:2}}>{t.owner}{t.email?` · ${t.email}`:""}</div>
                             </div>
                             <div onClick={()=>setDelTicketConfirm(t.id)} style={{width:32,height:32,borderRadius:8,background:"rgba(255,68,68,.1)",border:"1px solid rgba(255,68,68,.2)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,marginLeft:10}}>
                               <Icon n="trash" s={13} c="#FF4444"/>
@@ -2876,8 +2885,8 @@ export default function App(){
                           </div>
                           <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
                             <div style={{background:"rgba(255,255,255,.05)",borderRadius:8,padding:"3px 8px",fontSize:9,fontWeight:700,color:GRAY}}>{t.date}</div>
-                            <div style={{background:t.status==="valid"?"rgba(255,0,128,.15)":"rgba(136,146,160,.1)",borderRadius:8,padding:"3px 8px",fontSize:9,fontWeight:700,color:t.status==="valid"?PINK:GRAY}}>{t.status==="valid"?"VALIDE":"UTILISÉ"}</div>
-                            <div style={{background:"rgba(255,255,255,.05)",borderRadius:8,padding:"3px 8px",fontSize:9,fontWeight:700,color:WHITE}}>CHF {t.price}</div>
+                            <div style={{background:t.type==="free"?"rgba(78,205,196,.12)":t.status==="valid"?"rgba(255,0,128,.12)":"rgba(136,146,160,.1)",borderRadius:8,padding:"3px 8px",fontSize:9,fontWeight:700,color:t.type==="free"?GREEN:t.status==="valid"?PINK:GRAY}}>{t.type==="free"?"GRATUIT":t.status==="valid"?"VALIDE":"UTILISÉ"}</div>
+                            {t.type!=="free"&&<div style={{background:"rgba(255,179,71,.1)",borderRadius:8,padding:"3px 8px",fontSize:9,fontWeight:700,color:"#FFB347"}}>CHF {t.price}</div>}
                           </div>
                         </div>
                       ))
@@ -2888,10 +2897,21 @@ export default function App(){
                 {/* Gratuits */}
                 {adminTab==="free"&&(
                   <div>
+                    {!authUser&&(
+                      <div style={{background:"rgba(255,68,68,.07)",border:"1px solid rgba(255,68,68,.25)",borderRadius:14,padding:"14px 16px",marginBottom:16,display:"flex",gap:12,alignItems:"flex-start"}}>
+                        <div style={{width:32,height:32,borderRadius:10,background:"rgba(255,68,68,.12)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FF4444" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        </div>
+                        <div>
+                          <div style={{fontSize:13,fontWeight:900,color:"#FF4444",marginBottom:3}}>Connexion requise</div>
+                          <div style={{fontSize:11,color:"#FF8888",lineHeight:1.5}}>Connecte-toi avec ton compte email dans l'app, puis reviens ici pour créer des billets gratuits.</div>
+                        </div>
+                      </div>
+                    )}
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
                       <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase"}}>GRATUITS ({tickets.filter(t=>t.type==="free").length})</div>
-                      <div onClick={()=>setShowFreeForm(true)} style={{background:`linear-gradient(135deg,${GREEN},#38B2AC)`,color:BG,padding:"9px 16px",borderRadius:20,fontSize:11,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={BG} strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                      <div onClick={()=>authUser&&setShowFreeForm(true)} style={{background:authUser?`linear-gradient(135deg,${GREEN},#38B2AC)`:"rgba(78,205,196,.15)",color:authUser?BG:GREEN,padding:"9px 16px",borderRadius:20,fontSize:11,fontWeight:900,cursor:authUser?"pointer":"default",display:"flex",alignItems:"center",gap:6,opacity:authUser?1:.5}}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={authUser?BG:GREEN} strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         CRÉER
                       </div>
                     </div>
