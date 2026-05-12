@@ -24,6 +24,10 @@ workflows:
             -project ios/App/App.xcodeproj \
             -scheme App \
             -clonedSourcePackagesDirPath ios/App/SourcePackages
+      - name: Incrémenter le numéro de build
+        script: |
+          cd ios/App
+          agvtool new-version -all $BUILD_NUMBER
       - name: Configurer le code signing
         script: xcode-project use-profiles
       - name: Build IPA
