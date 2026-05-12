@@ -673,14 +673,6 @@ function GroupsScreen({authUser,supabase}){
     setInviting(false);
   };
 
-  const copyRefLink=()=>{
-    const code=refCode;if(!code)return;
-    const done=()=>{setRefCopied(true);setTimeout(()=>setRefCopied(false),2500);};
-    try{
-      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(code).then(done).catch(()=>{const el=document.createElement("textarea");el.value=code;el.style.position="fixed";el.style.opacity="0";document.body.appendChild(el);el.focus();el.select();try{document.execCommand("copy");}catch{}document.body.removeChild(el);done();});}
-      else{const el=document.createElement("textarea");el.value=code;el.style.position="fixed";el.style.opacity="0";document.body.appendChild(el);el.focus();el.select();try{document.execCommand("copy");}catch{}document.body.removeChild(el);done();}
-    }catch{}
-  };
 
   const createGroup=async()=>{
     if(!newName.trim()||!authUser)return;
@@ -694,10 +686,14 @@ function GroupsScreen({authUser,supabase}){
     setCreating(false);
   };
 
-  const copyInvite=(g)=>{
-    navigator.clipboard.writeText("https://nolimitevents.vercel.app/join/"+g.id);
-    setCopied(g.id);setTimeout(()=>setCopied(null),2500);
+  const copyText=(text,done)=>{
+    try{
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(done).catch(()=>{const el=document.createElement("textarea");el.value=text;el.style.cssText="position:fixed;opacity:0";document.body.appendChild(el);el.focus();el.select();try{document.execCommand("copy");}catch{}document.body.removeChild(el);done();});}
+      else{const el=document.createElement("textarea");el.value=text;el.style.cssText="position:fixed;opacity:0";document.body.appendChild(el);el.focus();el.select();try{document.execCommand("copy");}catch{}document.body.removeChild(el);done();}
+    }catch{}
   };
+  const copyRefLink=()=>{if(!refCode)return;copyText(refCode,()=>{setRefCopied(true);setTimeout(()=>setRefCopied(false),2500);});};
+  const copyInvite=(g)=>{copyText("Code groupe : "+g.id,()=>{setCopied(g.id);setTimeout(()=>setCopied(null),2500);});};
 
   const getColor=(id)=>GROUP_COLORS[(id||0)%GROUP_COLORS.length];
 
