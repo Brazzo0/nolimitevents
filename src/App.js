@@ -1151,6 +1151,7 @@ export default function App(){
   const [regNom,setRegNom]=useState("");
   const [regEmail,setRegEmail]=useState("");
   const [regPass,setRegPass]=useState("");
+  const [regRefCode,setRegRefCode]=useState("");
   const [regErr,setRegErr]=useState("");
   const [regDone,setRegDone]=useState(false);
   const [tab,setTab]=useState("home");
@@ -1304,12 +1305,7 @@ export default function App(){
     const{error}=await supabase.auth.signUp({email:regEmail,password:regPass,options:{data:{prenom:regPrenom,nom:regNom}}});
     if(error){setRegErr(error.message);}
     else{
-      const refId=localStorage.getItem("nle_ref");
-      if(refId){
-        const{data:inv}=await supabase.from("profiles").select("points").eq("id",refId).single();
-        if(inv)await supabase.from("profiles").update({points:(inv.points||0)+50}).eq("id",refId);
-        localStorage.removeItem("nle_ref");
-      }
+      if(regRefCode.trim())localStorage.setItem("nle_pendingRef",regRefCode.trim().toUpperCase());
       setRegDone(true);
     }
   };
@@ -1317,7 +1313,21 @@ export default function App(){
   const loadProfil=async(uid)=>{
     const{data}=await supabase.from("profiles").select("*").eq("id",uid).single();
     if(data){setProfil(data);setProfilPseudo(data.pseudo||"");setProfilInsta(data.instagram||"");setProfilSnap(data.snapchat||"");}
-    else{await supabase.from("profiles").insert({id:uid,pseudo:null,instagram:"",snapchat:"",points:0});setProfil({pseudo:"",instagram:"",snapchat:"",points:0});}
+    else{
+      const code="NLE"+Math.random().toString(36).substring(2,8).toUpperCase();
+      const pendingRef=localStorage.getItem("nle_pendingRef");
+      let newDiscount=0;
+      if(pendingRef){
+        const{data:ref}=await supabase.from("profiles").select("id,discount_20").eq("referral_code",pendingRef).single();
+        if(ref){
+          await supabase.from("profiles").update({discount_20:(ref.discount_20||0)+1}).eq("id",ref.id);
+          newDiscount=1;
+        }
+        localStorage.removeItem("nle_pendingRef");
+      }
+      await supabase.from("profiles").insert({id:uid,pseudo:null,instagram:"",snapchat:"",points:0,referral_code:code,discount_20:newDiscount});
+      setProfil({pseudo:"",instagram:"",snapchat:"",points:0,referral_code:code,discount_20:newDiscount});
+    }
   };
   const saveProfil=async()=>{
     if(!authUser)return;
@@ -1421,11 +1431,13 @@ export default function App(){
 
   const addPaidTicket=async(buyerEmail="jean@example.ch",buyerName="Client")=>{
     if(!selEv) return;
+    const hasDisc=(profil?.discount_20||0)>0;
+    const unitPrice=hasDisc?Math.round(selEv.price*0.8*100)/100:selEv.price;
     const newTickets=[];
     for(let i=0;i<qty;i++){
       await new Promise(r=>setTimeout(r,50));
       const id="NLE-"+Date.now().toString().slice(-6)+"-"+(i+1);
-      const t={id,eventId:selEv.id,event:selEv.title,date:selEv.date.split(" ").slice(0,3).join(" "),location:selEv.location,time:selEv.time,owner:buyerName,email:buyerEmail,type:"paid",price:selEv.price,status:"valid",createdAt:new Date().toLocaleDateString("fr-CH")};
+      const t={id,eventId:selEv.id,event:selEv.title,date:selEv.date.split(" ").slice(0,3).join(" "),location:selEv.location,time:selEv.time,owner:buyerName,email:buyerEmail,type:"paid",price:unitPrice,status:"valid",createdAt:new Date().toLocaleDateString("fr-CH")};
       await dbSaveTix(t);
       newTickets.push(t);
       try{await fetch(`${API_BASE}/api/send-ticket`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:buyerEmail,name:buyerName,eventTitle:selEv.title,eventDate:selEv.date,eventLocation:selEv.location,ticketId:id})});}catch{}
@@ -1433,6 +1445,11 @@ export default function App(){
     setTickets(p=>[...p,...newTickets]);
     await supabase.from("events").update({tickets_sold:selEv.ticketsSold+qty}).eq("id",selEv.id);
     setEvents(p=>p.map(e=>e.id===selEv.id?{...e,ticketsSold:e.ticketsSold+qty}:e));
+    if(hasDisc&&authUser){
+      const nd=Math.max(0,(profil.discount_20||0)-1);
+      await supabase.from("profiles").update({discount_20:nd}).eq("id",authUser.id);
+      setProfil(p=>({...p,discount_20:nd}));
+    }
   };
 
   const totalRev=events.reduce((s,e)=>s+e.ticketsSold*e.price,0);
@@ -2051,7 +2068,13 @@ export default function App(){
               <input type="text" placeholder="Nom" value={regNom} onChange={e=>setRegNom(e.target.value)} style={{flex:1,padding:"13px 14px",background:BG3,border:`1.5px solid ${BORDER}`,borderRadius:12,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",boxSizing:"border-box",transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
             </div>
             <input type="email" placeholder="Adresse email" value={regEmail} onChange={e=>setRegEmail(e.target.value)} style={{width:"100%",padding:"13px 14px",background:BG3,border:`1.5px solid ${BORDER}`,borderRadius:12,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:12,boxSizing:"border-box",transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
-            <input type="password" placeholder="Mot de passe (6 min)" value={regPass} onChange={e=>setRegPass(e.target.value)} style={{width:"100%",padding:"13px 14px",background:BG3,border:`1.5px solid ${BORDER}`,borderRadius:12,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:8,boxSizing:"border-box",transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
+            <input type="password" placeholder="Mot de passe (6 min)" value={regPass} onChange={e=>setRegPass(e.target.value)} style={{width:"100%",padding:"13px 14px",background:BG3,border:`1.5px solid ${BORDER}`,borderRadius:12,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:12,boxSizing:"border-box",transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
+            <div style={{position:"relative",marginBottom:8}}>
+              <input type="text" placeholder="Code de parrainage (optionnel)" value={regRefCode} onChange={e=>setRegRefCode(e.target.value.toUpperCase())} style={{width:"100%",padding:"13px 14px 13px 40px",background:BG3,border:`1.5px solid ${regRefCode.length>=6?"rgba(255,0,128,.6)":BORDER}`,borderRadius:12,color:PINK,fontSize:13,fontWeight:700,outline:"none",fontFamily:"monospace",boxSizing:"border-box",letterSpacing:1,transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor="rgba(255,0,128,.6)"} onBlur={e=>e.target.style.borderColor=regRefCode.length>=6?"rgba(255,0,128,.6)":BORDER}/>
+              <span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",fontSize:16}}>🎁</span>
+              {regRefCode.length>=6&&<span style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",fontSize:14,color:"#00E676"}}>✓</span>}
+            </div>
+            {regRefCode.length>=6&&<div style={{fontSize:11,color:"#00E676",fontWeight:700,marginBottom:8,textAlign:"center"}}>-20% sur ta première soirée !</div>}
             {regErr&&<div style={{color:"#FF4444",fontSize:12,fontWeight:700,marginBottom:12,textAlign:"center",padding:"8px",background:"rgba(255,68,68,.08)",borderRadius:10}}>{regErr}</div>}
             <div onClick={doRegister} style={{width:"100%",padding:"15px 0",borderRadius:14,background:GRAD,textAlign:"center",fontWeight:900,fontSize:15,color:WHITE,cursor:"pointer",letterSpacing:1,boxShadow:`0 6px 24px rgba(255,0,128,.35)`,marginTop:4}}>CRÉER MON COMPTE</div>
           </div>
@@ -2200,6 +2223,29 @@ export default function App(){
             </div>
             );
           })()}
+
+          {/* Parrainage */}
+          <div style={{background:"linear-gradient(135deg,rgba(255,0,128,.07),rgba(123,47,255,.05))",borderRadius:20,padding:"16px",marginBottom:14,border:`1px solid rgba(255,0,128,.2)`}}>
+            <div style={{fontSize:11,fontWeight:900,color:PINK,letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>Parrainage</div>
+            {(profil?.discount_20||0)>0&&(
+              <div style={{background:"rgba(0,230,118,.08)",border:"1px solid rgba(0,230,118,.3)",borderRadius:12,padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:18}}>🎁</span>
+                <div>
+                  <div style={{fontSize:13,fontWeight:900,color:"#00E676"}}>-20% disponible !</div>
+                  <div style={{fontSize:11,color:GRAY}}>S'applique automatiquement à ton prochain achat</div>
+                </div>
+              </div>
+            )}
+            <div style={{fontSize:12,color:GRAY,marginBottom:10,lineHeight:1.5}}>Partage ton code. Chaque ami qui s'inscrit avec lui vous offre <span style={{color:WHITE,fontWeight:800}}>-20%</span> à tous les deux sur la prochaine soirée.</div>
+            {profil?.referral_code?(
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <div style={{flex:1,background:BG3,borderRadius:12,padding:"12px 14px",fontFamily:"monospace",fontSize:15,fontWeight:900,color:PINK,letterSpacing:2,border:`1px solid rgba(255,0,128,.3)`}}>{profil.referral_code}</div>
+                <div onClick={()=>{navigator.clipboard.writeText(profil.referral_code);showToast("✅ Code copié !");}} style={{background:"rgba(255,0,128,.12)",border:"1px solid rgba(255,0,128,.3)",borderRadius:12,padding:"12px 14px",cursor:"pointer",fontSize:18}}>📋</div>
+              </div>
+            ):(
+              <div style={{fontSize:12,color:GRAY,fontStyle:"italic"}}>Code en cours de génération...</div>
+            )}
+          </div>
 
           {/* Profil social */}
           <div style={{background:BG2,borderRadius:20,padding:"16px",marginBottom:14,border:`1px solid ${BORDER}`}}>
@@ -3305,14 +3351,17 @@ export default function App(){
                       <input placeholder={ph} className="inp"/>
                     </div>
                   ))}
-                  <div style={{background:BG2,borderRadius:14,padding:16,marginBottom:20,border:`1px solid ${BORDER}`,marginTop:16}}>
-                    <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WHITE,fontWeight:700,marginBottom:8}}><span>{selEv?.title} × {qty}</span><span>CHF {(selEv?.price||0)*qty}</span></div>
+                  {(()=>{const hasD=(profil?.discount_20||0)>0;const base=(selEv?.price||0)*qty;const disc=hasD?Math.round(base*0.2*100)/100:0;const total=Math.round((base-disc+2.90)*100)/100;return(
+                  <div style={{background:BG2,borderRadius:14,padding:16,marginBottom:20,border:`1px solid ${hasD?"rgba(0,230,118,.3)":BORDER}`,marginTop:16}}>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WHITE,fontWeight:700,marginBottom:8}}><span>{selEv?.title} × {qty}</span><span>CHF {base}</span></div>
+                    {hasD&&<div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#00E676",fontWeight:800,marginBottom:8}}><span>🎁 Réduction parrainage -20%</span><span>- CHF {disc}</span></div>}
                     <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:GRAY}}><span>Frais</span><span>CHF 2.90</span></div>
                     <div style={{borderTop:`1px solid ${BORDER}`,marginTop:10,paddingTop:10,display:"flex",justifyContent:"space-between"}}>
                       <span style={{fontSize:14,fontWeight:900,color:WHITE}}>TOTAL</span>
-                      <span style={{fontSize:20,fontWeight:900,color:PINK}}>CHF {(selEv?.price||0)*qty+2.90}</span>
+                      <span style={{fontSize:20,fontWeight:900,color:hasD?"#00E676":PINK}}>CHF {total}</span>
                     </div>
                   </div>
+                  );})()}
                   <Btn onClick={()=>setPayStep(1)}>CONTINUER</Btn>
                 </div>
               )}
@@ -3337,7 +3386,7 @@ export default function App(){
                     </div>
                   )}
                   <div style={{height:20}}/>
-                  <Btn onClick={()=>{setPayStep(2);addPaidTicket();}}>PAYER CHF {(selEv?.price||0)*qty+2.90}</Btn>
+                  {(()=>{const hasD=(profil?.discount_20||0)>0;const base=(selEv?.price||0)*qty;const disc=hasD?Math.round(base*0.2*100)/100:0;const total=Math.round((base-disc+2.90)*100)/100;return(<Btn onClick={()=>{setPayStep(2);addPaidTicket();}}>PAYER CHF {total}</Btn>);})()}
                 </div>
               )}
               {payStep===2&&(
