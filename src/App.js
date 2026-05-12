@@ -1376,7 +1376,11 @@ export default function App(){
     e.target.value="";
   };
 
-  const adminLogin=()=>{if(adminPass===ADMIN_PASS){setAdminAuth(true);setAdminErr("");setScreen("admin");}else setAdminErr("Mot de passe incorrect ❌");};
+  const ADMIN_EMAILS=["info@nolimitevents.ch","alexandre.11ferreira@icloud.com"];
+  const adminLogin=()=>{
+    if(!authUser||!ADMIN_EMAILS.includes(authUser.email)){setAdminErr("Accès réservé — connecte-toi d'abord avec ton compte propriétaire.");return;}
+    if(adminPass===ADMIN_PASS){setAdminAuth(true);setAdminErr("");setScreen("admin");}else setAdminErr("Mot de passe incorrect ❌");
+  };
 
   const saveEventFn=async(ev)=>{
     showToast("⏳ Sauvegarde...");
