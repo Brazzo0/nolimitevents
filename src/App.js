@@ -90,7 +90,8 @@ const dbSaveTicket=async(t)=>{
   }catch(e){return e.message||"Erreur inconnue";}
 };
 
-const dbDeleteTicket=async(id)=>{try{await supabase.from("tickets").delete().eq("id",id);}catch{}};
+const dbDeleteTicket=async(id)=>{try{const{error}=await supabase.from("tickets").delete().eq("id",id);if(error)return error.message;return null;}catch(e){return e.message||"Erreur";}};
+
 
 const dbSaveSignup=async(f)=>{
   try{await supabase.from("signups").upsert({prenom:f.prenom,nom:f.nom,email:f.email,tel:f.tel||null});}catch{}
@@ -1407,7 +1408,7 @@ export default function App(){
     return dbErr;
   };
   const deleteEventFn=async(id)=>{await dbDeleteEvent(id);setEvents(p=>p.filter(e=>e.id!==id));setDelConfirm(null);showToast("🗑️ Supprimé");};
-  const deleteTicketFn=async(id)=>{await dbDeleteTicket(id);setTickets(p=>p.filter(t=>t.id!==id));setDelTicketConfirm(null);showToast("🗑️ Billet supprimé");};
+  const deleteTicketFn=async(id)=>{const err=await dbDeleteTicket(id);if(err){showToast("❌ Erreur suppression : "+err,8000);setDelTicketConfirm(null);return;}setTickets(p=>p.filter(t=>t.id!==id));setDelTicketConfirm(null);showToast("🗑️ Billet supprimé");};
   const deleteUserFn=async(id)=>{await dbDeleteProfile(id);setAdminUsers(p=>p.filter(u=>u.id!==id));setDelUserConfirm(null);showToast("🗑️ Compte supprimé");};
   const toggleSoldOut=async(id)=>{const ev=events.find(e=>e.id===id);if(!ev)return;const v=!ev.soldOut;await supabase.from("events").update({sold_out:v}).eq("id",id);setEvents(p=>p.map(e=>e.id===id?{...e,soldOut:v}:e));showToast("✅ Mis à jour");};
   const toggleEnd=async(id)=>{const ev=events.find(e=>e.id===id);if(!ev)return;const ending=!ev.ended;await supabase.from("events").update({ended:ending,sold_out:ending?true:ev.soldOut}).eq("id",id);setEvents(p=>p.map(e=>e.id===id?{...e,ended:ending,soldOut:ending?true:e.soldOut}:e));showToast(ending?"✅ Terminée !":"✅ Réactivée !");};
