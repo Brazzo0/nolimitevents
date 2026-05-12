@@ -1,23 +1,67 @@
 workflows:
-  react-native-ios:
-    name: React Native iOS
+
+  ios-app-store:
+    name: iOS – App Store
     max_build_duration: 120
     environment:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: ch.nolimitevents.app
+      vars:
+        APP_STORE_CONNECT_PRIVATE_KEY: Encrypted(...)
+        APP_STORE_CONNECT_KEY_IDENTIFIER: Encrypted(...)
+        APP_STORE_CONNECT_ISSUER_ID: Encrypted(...)
       node: v18
+      xcode: latest
+      cocoapods: default
     scripts:
-      - name: Install dependencies
+      - name: Installer les dépendances
         script: npm install
-      - name: Install CocoaPods
+      - name: Build React
+        script: npm run build
+      - name: Sync Capacitor iOS
+        script: npx cap sync ios
+      - name: CocoaPods
         script: |
           cd ios/App
           pod install
-      - name: Build iOS
+      - name: Build IPA
         script: |
           xcode-project build-ipa \
             --workspace ios/App/App.xcworkspace \
             --scheme App
     artifacts:
       - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: true
+
+  android-google-play:
+    name: Android – Google Play
+    max_build_duration: 120
+    environment:
+      android_signing:
+        - nolimitevents_keystore
+      vars:
+        PACKAGE_NAME: ch.nolimitevents.app
+      node: v18
+    scripts:
+      - name: Installer les dépendances
+        script: npm install
+      - name: Build React
+        script: npm run build
+      - name: Sync Capacitor Android
+        script: npx cap sync android
+      - name: Build AAB
+        script: |
+          cd android
+          ./gradlew bundleRelease
+    artifacts:
+      - android/app/build/outputs/**/*.aab
+    publishing:
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal

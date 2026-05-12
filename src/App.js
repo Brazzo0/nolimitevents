@@ -88,6 +88,40 @@ const dbSaveSignup=async(f)=>{
   try{await supabase.from("signups").upsert({prenom:f.prenom,nom:f.nom,email:f.email,tel:f.tel||null});}catch{}
 };
 
+const dbLoadMedia=async(eventId=null)=>{
+  try{
+    let q=supabase.from("event_media").select("*").order("position",{ascending:true}).order("created_at",{ascending:true});
+    if(eventId!=null)q=q.eq("event_id",eventId);
+    const{data}=await q;
+    return data||[];
+  }catch{return[];}
+};
+const dbSavePositions=async(list)=>{
+  try{
+    for(let i=0;i<list.length;i++){
+      await supabase.from("event_media").update({position:i}).eq("id",list[i].id);
+    }
+  }catch{}
+};
+const dbUploadMedia=async(file,eventId=null)=>{
+  try{
+    const ext=(file.name||"media.jpg").split(".").pop()||"jpg";
+    const isVideo=(file.type||"").startsWith("video");
+    const fn=`media_${eventId||"about"}_${Date.now()}.${ext}`;
+    const bucket=isVideo?"event-videos":"event-photos";
+    const{error:storageErr}=await supabase.storage.from(bucket).upload(fn,file,{upsert:true,contentType:file.type||"image/jpeg"});
+    if(storageErr){console.error("Storage error:",storageErr);return null;}
+    const{data}=supabase.storage.from(bucket).getPublicUrl(fn);
+    const url=data?.publicUrl||null;
+    if(url){
+      const{error:dbErr}=await supabase.from("event_media").insert({event_id:eventId||null,url,type:isVideo?"video":"photo"});
+      if(dbErr){console.error("DB insert error:",dbErr);return "ERR:"+dbErr.message;}
+    }
+    return url;
+  }catch(e){console.error("Upload exception:",e);return null;}
+};
+const dbDeleteMedia=async(id)=>{try{await supabase.from("event_media").delete().eq("id",id);}catch{}};
+
 const Icon=({n,s=22,c=GRAY,fill="none",sw=2.2})=>{
   const p={width:s,height:s,viewBox:"0 0 24 24",fill,stroke:c,strokeWidth:sw,strokeLinecap:"round",strokeLinejoin:"round"};
   const icons={
@@ -118,12 +152,39 @@ const Icon=({n,s=22,c=GRAY,fill="none",sw=2.2})=>{
 };
 
 function LightBeams(){
+  const p="M 30 -15 C 30 50,370 100,370 165 C 370 230,30 280,30 345 C 30 410,370 460,370 525 C 370 590,30 640,30 705 C 30 770,370 820,370 885 C 370 940,200 970,200 970";
   return(
     <div style={{position:"absolute",inset:0,overflow:"hidden",pointerEvents:"none",zIndex:0}}>
-      <div style={{position:"absolute",top:0,left:"-50%",width:"40%",height:"120%",background:`linear-gradient(90deg,transparent,${PINK}12,transparent)`,animation:"lightBeam 8s ease-in-out infinite"}}/>
-      <div style={{position:"absolute",top:0,right:"-50%",width:"30%",height:"120%",background:`linear-gradient(90deg,transparent,${PINK}08,transparent)`,animation:"lightBeam2 10s ease-in-out infinite 1.5s"}}/>
-      {[...Array(18)].map((_,i)=><div key={i} style={{position:"absolute",left:`${(i*41)%100}%`,top:-20,width:i%5===0?2:1,height:`${15+((i*17)%45)}px`,background:"linear-gradient(180deg,transparent,rgba(255,0,128,.8),transparent)",borderRadius:2,animation:`rainDrop ${1.5+(i%4)*.6}s ${(i%8)*.45}s linear infinite`}}/>)}
-      <div style={{position:"absolute",bottom:-60,left:"30%",right:"30%",height:100,background:`radial-gradient(ellipse,${PINK}10,transparent 70%)`,animation:"glow 4s ease-in-out infinite"}}/>
+      <style>{`
+        @keyframes snakeMove{from{stroke-dashoffset:240}to{stroke-dashoffset:-2360}}
+        @keyframes ambPulse{0%,100%{opacity:.4}50%{opacity:.8}}
+      `}</style>
+
+      {/* Halos d'ambiance */}
+      <div style={{position:"absolute",top:-60,left:-60,width:260,height:260,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,0,128,.13) 0%,transparent 70%)",animation:"ambPulse 7s ease-in-out infinite"}}/>
+      <div style={{position:"absolute",bottom:-50,right:-50,width:210,height:210,borderRadius:"50%",background:"radial-gradient(circle,rgba(123,47,255,.10) 0%,transparent 70%)",animation:"ambPulse 10s ease-in-out infinite 3.5s"}}/>
+
+      {/* Serpent néon – 2 instances décalées pour effet continu */}
+      <svg style={{position:"absolute",inset:0,width:"100%",height:"100%"}} viewBox="0 0 400 850" preserveAspectRatio="none">
+        {/* Trace fantôme (fond glow large) */}
+        {[0,4.4].map((delay,i)=>(
+          <path key={"g"+i} d={p} fill="none" stroke="#FF0080" strokeWidth="12" strokeDasharray="220 2500" strokeLinecap="round" opacity="0.08"
+            style={{animation:`snakeMove 8.8s ${delay}s linear infinite`}}
+          />
+        ))}
+        {/* Corps principal du serpent */}
+        {[0,4.4].map((delay,i)=>(
+          <path key={"s"+i} d={p} fill="none" stroke="#FF0080" strokeWidth="2.5" strokeDasharray="220 2500" strokeLinecap="round" opacity="0.9"
+            style={{animation:`snakeMove 8.8s ${delay}s linear infinite`,filter:"drop-shadow(0 0 6px #FF0080) drop-shadow(0 0 14px #FF008088)"}}
+          />
+        ))}
+        {/* Tête lumineuse (point brillant) */}
+        {[0,4.4].map((delay,i)=>(
+          <path key={"h"+i} d={p} fill="none" stroke="#ffffff" strokeWidth="1" strokeDasharray="18 2702" strokeLinecap="round" opacity="0.85"
+            style={{animation:`snakeMove 8.8s ${delay}s linear infinite`,filter:"drop-shadow(0 0 4px #ffffff)"}}
+          />
+        ))}
+      </svg>
     </div>
   );
 }
@@ -811,22 +872,36 @@ function NavBar({current,onNav,onProfil,onEvents,onTickets,onGroups}){
     ["profil","Profil","users"]
   ];
   return(
-    <div style={{display:"flex",background:BG2,borderTop:"1px solid "+BORDER,paddingTop:8,paddingBottom:SAFE_BOT,flexShrink:0,position:"fixed",bottom:0,left:0,right:0,zIndex:200}}>
-      {tabs.map(([s,label,ico])=>(
-        <div key={s} onClick={()=>{
-          if(s==="profil"&&onProfil){onProfil();}
-          else if(s==="events"&&onEvents){onEvents();}
-          else if(s==="tickets"){if(onTickets)onTickets();}
-          else if(s==="agenda"){if(onGroups)onGroups();}
-          else{onNav(s);}
-        }} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",padding:"4px 0"}}>
-          <div style={{width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",borderRadius:8,background:current===s?"rgba(255,0,128,.15)":"transparent",transition:"all .2s"}}>
-            <Icon n={ico} s={20} c={current===s?PINK:GRAY}/>
-          </div>
-          <span style={{fontSize:9,fontWeight:700,letterSpacing:.3,color:current===s?PINK:GRAY}}>{label}</span>
-          {current===s&&<div style={{width:16,height:2.5,borderRadius:2,background:GRAD}}/>}
-        </div>
-      ))}
+    <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:200,background:"linear-gradient(to top,rgba(13,17,23,1) 60%,transparent)",paddingBottom:"env(safe-area-inset-bottom,8px)",pointerEvents:"none"}}>
+      <style>{`
+        @keyframes navPop{0%{transform:scale(.85)}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+        @keyframes navGlow{0%,100%{box-shadow:0 0 10px rgba(255,0,128,.2)}50%{box-shadow:0 0 22px rgba(255,0,128,.45)}}
+      `}</style>
+      <div style={{margin:"0 10px 10px",borderRadius:26,background:"rgba(14,19,27,.82)",backdropFilter:"blur(24px)",WebkitBackdropFilter:"blur(24px)",border:"1px solid rgba(255,255,255,.07)",display:"flex",alignItems:"center",padding:"6px 4px",boxShadow:"0 -2px 0 rgba(255,255,255,.03) inset, 0 12px 40px rgba(0,0,0,.6)",pointerEvents:"auto"}}>
+        {tabs.map(([s,label,ico])=>{
+          const active=current===s;
+          return(
+            <div key={s} onClick={()=>{
+              if(s==="profil"&&onProfil)onProfil();
+              else if(s==="events"&&onEvents)onEvents();
+              else if(s==="tickets"&&onTickets)onTickets();
+              else if(s==="agenda"&&onGroups)onGroups();
+              else onNav(s);
+            }} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,cursor:"pointer",padding:"4px 2px",position:"relative"}}>
+              {/* Pill indicator */}
+              <div style={{width:active?44:32,height:32,borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center",background:active?"linear-gradient(135deg,rgba(255,0,128,.28),rgba(255,51,153,.15))":"transparent",border:active?"1px solid rgba(255,0,128,.3)":"1px solid transparent",transition:"all .3s cubic-bezier(.34,1.56,.64,1)",animation:active?"navGlow 2.5s ease-in-out infinite":"none",boxShadow:active?"0 0 14px rgba(255,0,128,.2)":"none"}}>
+                <div style={{transition:"transform .3s cubic-bezier(.34,1.56,.64,1)",transform:active?"scale(1.15)":"scale(1)"}}>
+                  <Icon n={ico} s={active?20:18} c={active?PINK:GRAY}/>
+                </div>
+              </div>
+              {/* Label */}
+              <span style={{fontSize:9,fontWeight:active?800:600,color:active?PINK:GRAY,letterSpacing:active?.3:0,transition:"all .25s",whiteSpace:"nowrap"}}>{label}</span>
+              {/* Dot */}
+              {active&&<div style={{position:"absolute",bottom:0,width:4,height:4,borderRadius:"50%",background:PINK,boxShadow:`0 0 8px ${PINK}`}}/>}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1083,6 +1158,11 @@ export default function App(){
   const [setupPseudo,setSetupPseudo]=useState("");
   const [setupPseudoErr,setSetupPseudoErr]=useState("");
   const [setupPseudoSaving,setSetupPseudoSaving]=useState(false);
+  const [evMedia,setEvMedia]=useState({});
+  const [galleryEv,setGalleryEv]=useState(null);
+  const [galleryIdx,setGalleryIdx]=useState(0);
+  const [mediaUploading,setMediaUploading]=useState(false);
+  const mediaFileRef=useRef();
   const tapsRef=useRef(0);
   const tapsTimer=useRef(null);
   const uploadRef=useRef(null);
@@ -1094,6 +1174,19 @@ export default function App(){
       if(tix&&tix.length>0) setTickets(tix);
       setLoading(false);
     }).catch(()=>setLoading(false));
+  },[]);
+
+  useEffect(()=>{
+    dbLoadMedia().then(items=>{
+      const map={};
+      items.forEach(m=>{
+        const key=m.event_id||"about";
+        if(!map[key])map[key]=[];
+        map[key].push(m);
+      });
+      setEvMedia(map);
+      setAboutMedia(map["about"]||[]);
+    });
   },[]);
 
   useEffect(()=>{
@@ -1345,16 +1438,108 @@ export default function App(){
       <div className="phone">
 
         {screen==="splash"&&(
-          <div style={{height:"100%",position:"relative",overflow:"hidden",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"0 40px"}}>
-            <img src={ROSEBG} alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>
-            <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.2)"}}/>
-            {[...Array(25)].map((_,i)=><div key={i} style={{position:"absolute",left:`${(i*41)%100}%`,top:-20,width:i%5===0?2:1,height:`${20+((i*17)%55)}px`,background:"linear-gradient(180deg,transparent,rgba(255,255,255,.9),transparent)",borderRadius:2,animation:`rainDrop ${1.5+(i%4)*.6}s ${(i%8)*.45}s linear infinite`,zIndex:1}}/>)}
-            <div style={{position:"relative",zIndex:2,marginBottom:60,animation:"splashIn .8s cubic-bezier(.34,1.56,.64,1) both"}}>
-              <img src={LOGO} alt="" style={{width:"50vw",maxWidth:190,height:"50vw",maxHeight:190,objectFit:"contain",display:"block",filter:"drop-shadow(0 0 24px rgba(255,255,255,.6))",animation:"pulse 2s ease-in-out infinite"}}/>
+          <div style={{height:"100%",position:"relative",overflow:"hidden",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"#000"}}>
+            <style>{`
+              @keyframes starBlink{0%,100%{opacity:.08}50%{opacity:.9}}
+              @keyframes gridAppear{from{opacity:0}to{opacity:1}}
+              @keyframes rayBurst{0%{opacity:0;transform:scaleY(0)}22%{opacity:.95}65%{opacity:.35}100%{opacity:0;transform:scaleY(1)}}
+              @keyframes shockExpand{0%{transform:scale(.08);opacity:1}100%{transform:scale(8);opacity:0}}
+              @keyframes logoExplode{0%{transform:scale(.05);opacity:0;filter:blur(30px) brightness(6)}55%{transform:scale(1.2);filter:blur(1px) brightness(1.5)}78%{transform:scale(.96)}100%{transform:scale(1);opacity:1;filter:blur(0) brightness(1)}}
+              @keyframes splashLogoGlow{0%,100%{box-shadow:0 0 25px ${PINK}cc,0 0 55px ${PINK}66,0 0 90px ${PINK}22}50%{box-shadow:0 0 50px ${PINK},0 0 100px ${PINK}88,0 0 160px ${PINK}44}}
+              @keyframes rRing{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+              @keyframes rRingR{from{transform:rotate(0deg)}to{transform:rotate(-360deg)}}
+              @keyframes dotOrbit1{from{transform:rotate(0deg) translateX(72px) rotate(0deg)}to{transform:rotate(360deg) translateX(72px) rotate(-360deg)}}
+              @keyframes dotOrbit2{from{transform:rotate(130deg) translateX(58px) rotate(-130deg)}to{transform:rotate(490deg) translateX(58px) rotate(-490deg)}}
+              @keyframes dotOrbit3{from{transform:rotate(255deg) translateX(88px) rotate(-255deg)}to{transform:rotate(615deg) translateX(88px) rotate(-615deg)}}
+              @keyframes splashTitleSweep{0%{clip-path:inset(0 100% 0 0);opacity:0}8%{opacity:1}100%{clip-path:inset(0 0% 0 0)}}
+              @keyframes splashSubFade{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:translateY(0)}}
+              @keyframes splashBarGrow{0%{width:0}100%{width:100%}}
+              @keyframes splashDotJump{0%,75%,100%{transform:translateY(0);opacity:.2}38%{transform:translateY(-9px);opacity:1}}
+              @keyframes ambBreath{0%,100%{opacity:.5;transform:translate(-50%,-50%) scale(1)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.14)}}
+              @keyframes vignette{from{opacity:0}to{opacity:1}}
+            `}</style>
+
+            {/* Fond void */}
+            <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse at 50% 46%,#0E0016 0%,#000 68%)"}}/>
+
+            {/* Vignette coins */}
+            <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse at 50% 50%,transparent 38%,rgba(0,0,0,.75) 100%)",animation:"vignette 1.5s ease both"}}/>
+
+            {/* Grille */}
+            <div style={{position:"absolute",inset:0,backgroundImage:`linear-gradient(rgba(255,0,128,.042) 1px,transparent 1px),linear-gradient(90deg,rgba(255,0,128,.042) 1px,transparent 1px)`,backgroundSize:"46px 46px",animation:"gridAppear 2s ease both"}}/>
+
+            {/* Étoiles */}
+            {[...Array(68)].map((_,i)=>{
+              const x=((i*23.7+11)%100).toFixed(1);
+              const y=((i*15.3+7)%100).toFixed(1);
+              const s=(((i*7)%3)*.7+.35).toFixed(1);
+              const dur=((i*19)%20+15)/10;
+              const del=((i*7)%22)/10;
+              return <div key={i} style={{position:"absolute",left:x+"%",top:y+"%",width:+s,height:+s,borderRadius:"50%",background:"#fff",animation:`starBlink ${dur}s ${del}s ease-in-out infinite`}}/>;
+            })}
+
+            {/* Halo ambiant central */}
+            <div style={{position:"absolute",top:"50%",left:"50%",width:520,height:520,borderRadius:"50%",background:`radial-gradient(circle,${PINK}1A 0%,#7B2FFF0D 40%,transparent 68%)`,filter:"blur(38px)",animation:"ambBreath 3.5s ease-in-out infinite"}}/>
+
+            {/* Rayons d'énergie × 8 */}
+            {[0,45,90,135,180,225,270,315].map((deg,i)=>(
+              <div key={i} style={{position:"absolute",top:"50%",left:"50%",width:0,height:0,transform:`rotate(${deg}deg)`}}>
+                <div style={{position:"absolute",top:0,left:-1,width:2,height:230,transformOrigin:"50% 0%",background:`linear-gradient(to bottom,${PINK}EE,#7B2FFF55,transparent)`,animation:`rayBurst .7s ${.08+i*.025}s ease-out both`}}/>
+              </div>
+            ))}
+
+            {/* Ondes de choc */}
+            {[.2,.35,.5].map((del,i)=>(
+              <div key={i} style={{position:"absolute",top:"50%",left:"50%",width:90,height:90,marginLeft:-45,marginTop:-45,borderRadius:"50%",border:`${3-i}px solid rgba(255,0,128,${.9-i*.3})`,animation:`shockExpand 1s ${del}s cubic-bezier(0,.55,.5,1) both`}}/>
+            ))}
+
+            {/* Zone logo */}
+            <div style={{position:"relative",zIndex:10}}>
+
+              {/* Anneau extérieur pointillé */}
+              <div style={{position:"absolute",top:"50%",left:"50%",marginTop:-76,marginLeft:-76,width:152,height:152,borderRadius:"50%",border:"1px dashed rgba(255,0,128,.16)",animation:"rRing 22s linear infinite"}}/>
+
+              {/* Anneau intérieur */}
+              <div style={{position:"absolute",top:"50%",left:"50%",marginTop:-65,marginLeft:-65,width:130,height:130,borderRadius:"50%",border:"1px solid rgba(123,47,255,.14)",animation:"rRingR 13s linear infinite"}}/>
+
+              {/* Particule orbitale 1 – rose */}
+              <div style={{position:"absolute",top:"50%",left:"50%",width:0,height:0,animation:"dotOrbit1 3s 1.2s linear infinite"}}>
+                <div style={{position:"absolute",top:-5,left:-5,width:10,height:10,borderRadius:"50%",background:PINK,boxShadow:`0 0 14px ${PINK},0 0 28px ${PINK}99`}}/>
+              </div>
+
+              {/* Particule orbitale 2 – violet */}
+              <div style={{position:"absolute",top:"50%",left:"50%",width:0,height:0,animation:"dotOrbit2 5s 1.2s linear infinite"}}>
+                <div style={{position:"absolute",top:-4,left:-4,width:8,height:8,borderRadius:"50%",background:"#A78BFA",boxShadow:"0 0 12px #A78BFA,0 0 24px #A78BFA99"}}/>
+              </div>
+
+              {/* Particule orbitale 3 – cyan */}
+              <div style={{position:"absolute",top:"50%",left:"50%",width:0,height:0,animation:"dotOrbit3 7s 1.2s linear infinite"}}>
+                <div style={{position:"absolute",top:-3,left:-3,width:6,height:6,borderRadius:"50%",background:"#00E5FF",boxShadow:"0 0 10px #00E5FF,0 0 20px #00E5FF88"}}/>
+              </div>
+
+              {/* Cercle logo */}
+              <div style={{width:112,height:112,borderRadius:"50%",background:"linear-gradient(135deg,rgba(255,0,128,.18),rgba(80,20,160,.12))",border:"1.5px solid rgba(255,0,128,.65)",display:"flex",alignItems:"center",justifyContent:"center",position:"relative",animation:"logoExplode .9s .28s cubic-bezier(.2,1.2,.4,1) both"}}>
+                <div style={{position:"absolute",inset:0,borderRadius:"50%",animation:"splashLogoGlow 2.8s 1.3s ease-in-out infinite"}}/>
+                <img src={LOGO} alt="" style={{width:82,height:82,objectFit:"contain",filter:"drop-shadow(0 0 22px rgba(255,0,128,1)) drop-shadow(0 0 8px rgba(255,0,128,.6))",position:"relative",zIndex:1}}/>
+              </div>
             </div>
-            <div style={{fontSize:12,color:WHITE,letterSpacing:4,textTransform:"uppercase",textAlign:"center",zIndex:2,fontWeight:800}}>LA SOIRÉE SANS LIMITES</div>
-            <div style={{width:100,height:3,background:"rgba(255,255,255,.3)",borderRadius:10,marginTop:40,overflow:"hidden",zIndex:2}}>
-              <div style={{height:"100%",background:WHITE,animation:"loadBar 2.3s ease forwards"}}/>
+
+            {/* Titre */}
+            <div style={{position:"relative",zIndex:10,marginTop:46,textAlign:"center"}}>
+              <div style={{fontSize:25,fontWeight:900,color:"#fff",letterSpacing:6,display:"inline-block",animation:"splashTitleSweep 1.1s 1.1s ease both",textShadow:`0 0 24px ${PINK},0 0 50px ${PINK}66`}}>NO LIMIT EVENTS</div>
+              <div style={{fontSize:10,color:PINK,letterSpacing:7,textTransform:"uppercase",fontWeight:700,marginTop:12,animation:"splashSubFade .9s 1.85s ease both"}}>La soirée sans limites</div>
+            </div>
+
+            {/* Barre de progression */}
+            <div style={{position:"relative",zIndex:10,marginTop:64,width:"55%",maxWidth:155}}>
+              <div style={{height:1.5,background:"rgba(255,255,255,.06)",borderRadius:6,overflow:"hidden",position:"relative"}}>
+                <div style={{position:"absolute",top:0,left:0,bottom:0,height:"100%",borderRadius:6,background:`linear-gradient(90deg,#7B2FFF,${PINK})`,animation:`splashBarGrow 2.1s 1.4s cubic-bezier(.25,.46,.45,.94) both`,boxShadow:`0 0 10px ${PINK},0 0 20px ${PINK}66`}}/>
+              </div>
+              <div style={{display:"flex",justifyContent:"center",gap:10,marginTop:24}}>
+                {[0,1,2].map(i=>(
+                  <div key={i} style={{width:5,height:5,borderRadius:"50%",background:PINK,animation:`splashDotJump 1.3s ${1.6+i*.18}s ease-in-out infinite`,boxShadow:`0 0 8px ${PINK}`}}/>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -1362,153 +1547,212 @@ export default function App(){
         {screen==="main"&&(
           <div className="sc">
             <LightBeams/>
-            <div style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",height:"100%",overflow:"hidden",paddingBottom:"60px"}}>
+            <div style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",height:"100%",overflow:"hidden",paddingBottom:"80px"}}>
 
 
               {tab==="home"&&(
                 <div style={{display:"flex",flexDirection:"column",flex:1,overflow:"hidden"}}>
                   <div className="scroll" style={{padding:"0 0 20px"}}>
-                    <div style={{background:"linear-gradient(135deg,rgba(255,0,128,.2),rgba(255,51,153,.05))",borderRadius:"0 0 24px 24px",padding:"50px 16px 16px",marginBottom:16}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                        <div style={{display:"flex",alignItems:"center",gap:10}}>
-                          <img src={LOGO} alt="" onClick={tapLogo} style={{width:65,height:65,objectFit:"contain",filter:"drop-shadow(0 0 14px rgba(255,0,128,.7))",animation:"pulse 2s ease-in-out infinite",cursor:"pointer"}}/>
+                    {/* ── HEADER ── */}
+                    <div style={{padding:"env(safe-area-inset-top,44px) 18px 0",paddingTop:`calc(env(safe-area-inset-top,44px) + 10px)`}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+                        <div style={{display:"flex",alignItems:"center",gap:12}}>
+                          <img src={LOGO} alt="" onClick={tapLogo} style={{width:46,height:46,objectFit:"contain",filter:"drop-shadow(0 0 10px rgba(255,0,128,.7))",animation:"pulse 2s ease-in-out infinite",cursor:"pointer"}}/>
                           <div>
-                            <div style={{fontSize:10,color:"rgba(255,255,255,.5)"}}>{new Date().getHours()<12?"Bonjour":new Date().getHours()<18?"Bon apres-midi":"Bonsoir"}</div>
-                            <div style={{fontSize:15,fontWeight:900,color:WHITE}}>{authUser&&authUser.user_metadata&&authUser.user_metadata.prenom?authUser.user_metadata.prenom:"No Limiter"} !</div>
+                            <div style={{fontSize:11,color:GRAY,fontWeight:600}}>{new Date().getHours()<12?"Bonjour":new Date().getHours()<18?"Bon après-midi":"Bonsoir"} {authUser?.user_metadata?.prenom||"No Limiter"} 👋</div>
+                            <div style={{fontSize:18,fontWeight:900,color:WHITE,lineHeight:1.1}}>No Limit Events</div>
                           </div>
                         </div>
                         <div style={{display:"flex",gap:8,alignItems:"center"}}>
-
-                          <div onClick={()=>setNotifOpen(true)} style={{width:34,height:34,borderRadius:10,background:"rgba(255,255,255,.1)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",position:"relative"}}>
-                            <Icon n="bell" s={16} c={WHITE}/>
-                            <div style={{position:"absolute",top:6,right:6,width:7,height:7,borderRadius:"50%",background:PINK}}/>
+                          <div onClick={()=>setNotifOpen(true)} style={{width:38,height:38,borderRadius:13,background:"rgba(255,0,128,.1)",border:"1px solid rgba(255,0,128,.25)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",position:"relative",boxShadow:"0 0 14px rgba(255,0,128,.15)"}}>
+                            <Icon n="bell" s={17} c={PINK}/>
+                            <div style={{position:"absolute",top:6,right:6,width:8,height:8,borderRadius:"50%",background:PINK,boxShadow:`0 0 8px ${PINK}`,animation:"liveDot 1.5s ease-in-out infinite"}}/>
                           </div>
                         </div>
                       </div>
-                      <div style={{position:"relative",marginBottom:12}}>
-                        <div style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",zIndex:1}}><Icon n="search" s={14} c={GRAY}/></div>
-                        <input type="text" placeholder="Rechercher une soiree..." value={search} onChange={e=>setSearch(e.target.value)} style={{width:"100%",padding:"10px 12px 10px 36px",background:"rgba(255,255,255,.08)",border:"1px solid rgba(255,255,255,.1)",borderRadius:12,color:WHITE,fontSize:12,outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}/>
-                        {search&&<div onClick={()=>setSearch("")} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",color:GRAY,cursor:"pointer",fontSize:16}}>x</div>}
+
+                      {/* Barre de recherche */}
+                      <div style={{position:"relative",marginBottom:16}}>
+                        <div style={{position:"absolute",left:13,top:"50%",transform:"translateY(-50%)"}}><Icon n="search" s={14} c={GRAY}/></div>
+                        <input type="text" placeholder="Rechercher une soirée..." value={search} onChange={e=>setSearch(e.target.value)} style={{width:"100%",padding:"11px 14px 11px 38px",background:BG2,border:`1px solid ${search?PINK:BORDER}`,borderRadius:14,color:WHITE,fontSize:13,outline:"none",fontFamily:"inherit",boxSizing:"border-box",transition:"border-color .2s"}}/>
+                        {search&&<div onClick={()=>setSearch("")} style={{position:"absolute",right:13,top:"50%",transform:"translateY(-50%)",width:20,height:20,borderRadius:"50%",background:"rgba(255,255,255,.1)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:WHITE,fontSize:12}}>×</div>}
                       </div>
-                      <div style={{display:"flex",gap:8,justifyContent:"space-between"}}>
+
+                      {/* Actions rapides */}
+                      <div style={{display:"flex",gap:10,marginBottom:6}}>
                         {[
-                          ["trophy","Fidelite",()=>setScreen("groups")],
-                          ["ticket","Billets",()=>setScreen("tickets")],
-                          ["star","VIP",()=>setScreen("vip")],
-                          ["users","Profil",()=>setScreen("profil")]
-                        ].map(([ico,label,action])=>(
-                          <div key={label} onClick={action} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:5,cursor:"pointer"}}>
-                            <div style={{width:50,height:50,borderRadius:"50%",background:"transparent",border:"2px solid "+PINK,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                              <Icon n={ico} s={20} c={PINK} fill={ico==="star"?PINK:"none"}/>
-                            </div>
-                            <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,.7)",textAlign:"center",letterSpacing:.5}}>{label}</div>
+                          [<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={PINK} strokeWidth="2.2" strokeLinecap="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/></svg>,"Billets",()=>setScreen("tickets"),PINK],
+                          [<svg width="18" height="18" viewBox="0 0 24 24" fill="#FFD700" stroke="#FFD700" strokeWidth="0"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,"VIP",()=>setScreen("vip"),"#FFD700"],
+                          [<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4ECDC4" strokeWidth="2.2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,"Groupes",()=>setScreen("groups"),"#4ECDC4"],
+                          [<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7B6CF6" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,"À propos",()=>setScreen("about"),"#7B6CF6"],
+                        ].map(([icon,label,action,color])=>(
+                          <div key={label} onClick={action} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:6,cursor:"pointer"}}>
+                            <div style={{width:52,height:52,borderRadius:16,background:`${color}14`,border:`1.5px solid ${color}30`,display:"flex",alignItems:"center",justifyContent:"center",transition:"transform .15s"}}
+                              onMouseDown={e=>e.currentTarget.style.transform="scale(.92)"}
+                              onMouseUp={e=>e.currentTarget.style.transform="scale(1)"}>{icon}</div>
+                            <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,.65)",textAlign:"center",letterSpacing:.3}}>{label}</div>
                           </div>
                         ))}
                       </div>
                     </div>
+
+                    {/* Niveau fidélité */}
                     {authUser&&(()=>{
-                      const pts=profil?profil.points||0:0;
-                      const tier=pts>=1000?{n:"Or",c:"#FFD700",bg:"rgba(255,215,0,.12)",grad:"linear-gradient(90deg,#FFD700,#FFA500)",next:1000,icon:"🏆"}:pts>=500?{n:"Argent",c:"#C0C0C0",bg:"rgba(192,192,192,.1)",grad:"linear-gradient(90deg,#C0C0C0,#A8A8A8)",next:1000,icon:"🥈"}:{n:"Bronze",c:"#CD7F32",bg:"rgba(205,127,50,.12)",grad:"linear-gradient(90deg,#CD7F32,#A0522D)",next:500,icon:"🥉"};
-                      const pct=Math.min(100,Math.round(pts/(tier.next)*100));
+                      const pts=profil?.points||0;
+                      const tier=pts>=1000?{n:"Or",c:"#FFD700",bg:"rgba(255,215,0,.08)",grad:"linear-gradient(90deg,#FFD700,#FFA500)",next:1000,icon:"🏆"}:pts>=500?{n:"Argent",c:"#C0C0C0",bg:"rgba(192,192,192,.08)",grad:"linear-gradient(90deg,#C0C0C0,#A8A8A8)",next:1000,icon:"🥈"}:{n:"Bronze",c:"#CD7F32",bg:"rgba(205,127,50,.08)",grad:"linear-gradient(90deg,#CD7F32,#A0522D)",next:500,icon:"🥉"};
+                      const pct=Math.min(100,Math.round(pts/tier.next*100));
                       return(
-                      <div onClick={()=>setScreen("groups")} style={{margin:"0 16px 16px",background:tier.bg,borderRadius:16,padding:"14px 16px",border:`1px solid ${tier.c}33`,cursor:"pointer"}}>
-                        <div style={{display:"flex",alignItems:"center",gap:12}}>
-                          <div style={{width:38,height:38,borderRadius:10,background:`${tier.c}22`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{tier.icon}</div>
-                          <div style={{flex:1}}>
-                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-                              <div style={{fontSize:13,fontWeight:900,color:tier.c}}>{tier.n}</div>
-                              <div style={{fontSize:11,color:GRAY,fontWeight:700}}>{pts} / {tier.next} pts</div>
+                        <div onClick={()=>setScreen("groups")} style={{margin:"0 16px 18px",background:tier.bg,borderRadius:18,padding:"14px 16px",border:`1px solid ${tier.c}25`,cursor:"pointer",animation:"slideUp .4s .1s both"}}>
+                          <div style={{display:"flex",alignItems:"center",gap:12}}>
+                            <div style={{width:40,height:40,borderRadius:12,background:`${tier.c}18`,border:`1px solid ${tier.c}30`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{tier.icon}</div>
+                            <div style={{flex:1}}>
+                              <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+                                <div style={{fontSize:13,fontWeight:900,color:tier.c}}>Niveau {tier.n}</div>
+                                <div style={{fontSize:11,color:GRAY,fontWeight:700}}>{pts} / {tier.next} pts</div>
+                              </div>
+                              <div style={{height:5,borderRadius:5,background:"rgba(255,255,255,.06)",overflow:"hidden"}}>
+                                <div style={{height:"100%",borderRadius:5,background:tier.grad,width:pct+"%",transition:"width 1.2s ease",boxShadow:`0 0 8px ${tier.c}66`}}/>
+                              </div>
+                              <div style={{fontSize:10,color:GRAY,marginTop:4}}>{pts>=1000?"🎉 30% de réduction activée !":` ${tier.next-pts} pts pour ${tier.n==="Bronze"?"l'Argent":"l'Or"}`}</div>
                             </div>
-                            <div style={{height:5,borderRadius:4,background:"rgba(255,255,255,.08)",overflow:"hidden"}}>
-                              <div style={{height:"100%",borderRadius:4,background:tier.grad,width:pct+"%",transition:"width 1.2s ease"}}/>
-                            </div>
-                            {pts>=1000?(
-                              <div style={{fontSize:10,color:"#FFD700",marginTop:4,fontWeight:800}}>🎉 30% de réduction sur ta prochaine soirée !</div>
-                            ):(
-                              <div style={{fontSize:10,color:GRAY,marginTop:3}}>Encore {tier.next-pts} pts pour {tier.n==="Bronze"?"Argent":"Or"}</div>
-                            )}
                           </div>
                         </div>
-                      </div>
                       );
                     })()}
-                    {!search&&events.filter(e=>!e.ended).length>0&&(
-                      <div style={{margin:"0 16px 16px"}}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                          <div style={{fontSize:16,fontWeight:900,color:WHITE}}>A la une</div>
-                          <div onClick={()=>setScreen("events")} style={{fontSize:12,color:PINK,fontWeight:700,cursor:"pointer"}}>Voir tout</div>
+
+                    {/* ── HERO événement à la une ── */}
+                    {(()=>{
+                      const featEv=events.find(e=>e.id===newestId&&!e.ended)||events.find(e=>!e.ended);
+                      if(!featEv||search) return null;
+                      return(
+                        <div style={{margin:"0 16px 20px",animation:"slideUp .45s .15s both"}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                            <div style={{display:"flex",alignItems:"center",gap:8}}>
+                              <div style={{width:3,height:16,background:GRAD,borderRadius:4}}/>
+                              <div style={{fontSize:10,fontWeight:900,color:PINK,letterSpacing:2,textTransform:"uppercase"}}>À la une</div>
+                            </div>
+                            <div onClick={()=>setScreen("events")} style={{fontSize:11,fontWeight:700,color:PINK,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>Tout voir <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={PINK} strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+                          </div>
+                          <div onClick={()=>openEv(featEv)} style={{borderRadius:22,overflow:"hidden",cursor:"pointer",position:"relative",boxShadow:"0 12px 40px rgba(0,0,0,.5)"}}>
+                            <div style={{height:210,position:"relative"}}>
+                              {featEv.poster?<img src={featEv.poster} alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,#FF0080,#7B2FFF)"}}/>}
+                              <div style={{position:"absolute",inset:0,background:"linear-gradient(0deg,rgba(13,17,23,1) 0%,rgba(13,17,23,.1) 70%,transparent 100%)"}}/>
+                              <div style={{position:"absolute",top:12,left:12,background:GRAD,color:WHITE,fontSize:9,fontWeight:900,padding:"4px 12px",borderRadius:20,animation:"pulse 2s ease-in-out infinite",letterSpacing:.5}}>⭐ À LA UNE</div>
+                              {featEv.soldOut&&<div style={{position:"absolute",top:12,right:12,background:"rgba(0,0,0,.6)",border:"1px solid rgba(255,255,255,.2)",color:WHITE,fontSize:9,fontWeight:900,padding:"4px 10px",borderRadius:20}}>COMPLET</div>}
+                              <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"16px 16px 14px"}}>
+                                <div style={{fontSize:19,fontWeight:900,color:WHITE,marginBottom:5,textShadow:"0 2px 8px rgba(0,0,0,.8)"}}>{featEv.title}</div>
+                                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                                  <div style={{fontSize:11,color:"rgba(255,255,255,.65)"}}>{featEv.date} · {featEv.location}</div>
+                                  <div style={{fontSize:18,fontWeight:900,color:PINK,textShadow:`0 0 12px ${PINK}88`}}>CHF {featEv.price}</div>
+                                </div>
+                                {featEv.capacity>0&&<div style={{marginTop:7,height:3,borderRadius:3,background:"rgba(255,255,255,.1)",overflow:"hidden"}}><div style={{height:"100%",borderRadius:3,background:GRAD,width:`${Math.min(100,Math.round((featEv.ticketsSold||0)/featEv.capacity*100))}%`,transition:"width 1.2s ease"}}/></div>}
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        {(()=>{const featEv=events.find(e=>e.id===newestId)||events.filter(e=>!e.ended)[0];return featEv&&(
-                        <div style={{borderRadius:20,overflow:"hidden",position:"relative",height:190,background:BG2,cursor:"pointer"}} onClick={()=>openEv(featEv)}>
-                          {featEv.poster?<img src={featEv.poster} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,rgba(255,0,128,.3),rgba(255,51,153,.1))"}}/>}
-                          <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,transparent 30%,rgba(13,17,23,.95) 100%)"}}/>
-                          <div style={{position:"absolute",top:12,left:12,background:GRAD,color:WHITE,fontSize:9,fontWeight:900,padding:"4px 10px",borderRadius:20,animation:"pulse 2s ease-in-out infinite"}}>⭐ A LA UNE</div>
-                          <div style={{position:"absolute",bottom:14,left:14,right:14}}>
-                            <div style={{fontSize:16,fontWeight:900,color:WHITE,marginBottom:2}}>{featEv.title}</div>
-                            <div style={{fontSize:11,color:"rgba(255,255,255,.7)"}}>{featEv.date} • {featEv.location}</div>
-                            <div style={{fontSize:13,fontWeight:900,color:PINK,marginTop:4}}>CHF {featEv.price}</div>
+                      );
+                    })()}
+
+                    {/* ── PROCHAINS ÉVÉNEMENTS carousel ── */}
+                    {!search&&events.filter(e=>!e.ended).length>1&&(
+                      <div style={{marginBottom:22,animation:"slideUp .45s .2s both"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,padding:"0 16px"}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8}}>
+                            <div style={{width:3,height:16,background:GRAD,borderRadius:4}}/>
+                            <div style={{fontSize:10,fontWeight:900,color:PINK,letterSpacing:2,textTransform:"uppercase"}}>Prochains events</div>
                           </div>
-                        </div>);})()}
-                      </div>
-                    )}
-                    {!search&&events.filter(e=>!e.ended).length>0&&(
-                      <div style={{margin:"0 16px 16px"}}>
-                        <div style={{fontSize:16,fontWeight:900,color:WHITE,marginBottom:10}}>A venir</div>
-                        {events.filter(e=>!e.ended).map((ev,i)=>(
-                          <div key={ev.id} onClick={()=>openEv(ev)} style={{display:"flex",gap:12,alignItems:"center",background:BG2,borderRadius:16,padding:"12px 14px",marginBottom:10,border:"1px solid "+BORDER,cursor:"pointer",animation:"rowSlide .4s "+i*.08+"s both"}}>
-                            <div style={{width:52,height:52,borderRadius:12,background:GRAD,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0,overflow:"hidden"}}>
-                              {ev.poster?<img src={ev.poster} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{textAlign:"center"}}><div style={{fontSize:16,fontWeight:900,color:WHITE}}>{ev.date.split(" ")[1]||"?"}</div><div style={{fontSize:8,fontWeight:700,color:"rgba(255,255,255,.8)"}}>{ev.date.split(" ")[2]||""}</div></div>}
+                        </div>
+                        <div style={{display:"flex",gap:12,overflowX:"auto",padding:"4px 16px 8px",scrollbarWidth:"none",WebkitOverflowScrolling:"touch",scrollSnapType:"x mandatory"}}>
+                          {events.filter(e=>!e.ended).slice(0,6).map((ev,i)=>(
+                            <div key={ev.id} onClick={()=>openEv(ev)} style={{flexShrink:0,width:155,borderRadius:18,overflow:"hidden",background:BG2,border:`1px solid ${BORDER}`,cursor:"pointer",scrollSnapAlign:"start",animation:`slideIn .4s ${i*.07}s both`,boxShadow:"0 6px 20px rgba(0,0,0,.35)"}}>
+                              <div style={{height:110,position:"relative",background:"linear-gradient(135deg,#FF0080,#7B2FFF)"}}>
+                                {ev.poster&&<img src={ev.poster} alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>}
+                                <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,transparent 40%,rgba(13,17,23,.8) 100%)"}}/>
+                                <div style={{position:"absolute",bottom:7,left:10,background:"rgba(0,0,0,.55)",borderRadius:8,padding:"3px 8px",backdropFilter:"blur(4px)"}}>
+                                  <div style={{fontSize:9,fontWeight:900,color:PINK}}>CHF {ev.price}</div>
+                                </div>
+                              </div>
+                              <div style={{padding:"9px 10px 11px"}}>
+                                <div style={{fontSize:12,fontWeight:900,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:3}}>{ev.title}</div>
+                                <div style={{fontSize:10,color:GRAY}}>{ev.date.split(" ").slice(0,3).join(" ")}</div>
+                              </div>
                             </div>
-                            <div style={{flex:1,minWidth:0}}>
-                              <div style={{fontSize:14,fontWeight:800,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</div>
-                              <div style={{fontSize:11,color:GRAY,marginTop:2}}>{ev.location} • {ev.time}</div>
-                            </div>
-                            <div style={{textAlign:"right",flexShrink:0}}>
-                              <div style={{fontSize:13,fontWeight:900,color:PINK}}>CHF {ev.price}</div>
-                            </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
                     )}
 
-                  <div style={{flex:1,overflow:"hidden"}}>
-                    {loading?(
-                      <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100%",gap:12}}>
-                        <div style={{width:36,height:36,borderRadius:"50%",border:`3px solid ${BG3}`,borderTop:`3px solid ${PINK}`,animation:"spin 1s linear infinite"}}/>
-                        <div style={{fontSize:12,color:GRAY}}>Chargement...</div>
-                      </div>
-                    ):(
-                      <div style={{display:"flex",overflowX:"auto",gap:16,padding:"4px 20px 16px",scrollSnapType:"x mandatory",WebkitOverflowScrolling:"touch",scrollbarWidth:"none",height:"100%",alignItems:"flex-start"}}>
-                        {filtered.map((ev,i)=>{
-                          const isNew=ev.id===newestId&&!ev.ended;
-                          return(
-                            <div key={ev.id} onClick={()=>{if(!ev.soldOut&&!ev.ended)openEv(ev);}} style={{flexShrink:0,width:"72vw",maxWidth:290,scrollSnapAlign:"center",borderRadius:22,overflow:"hidden",background:BG2,border:isNew?`1.5px solid ${PINK}`:ev.ended?"1px solid rgba(255,255,255,.1)":`1px solid ${BORDER}`,cursor:ev.soldOut||ev.ended?"default":"pointer",animation:`slideIn .4s ${i*.1}s both`,boxShadow:isNew?`0 0 20px ${PINK}35,0 8px 30px rgba(0,0,0,.5)`:"0 8px 30px rgba(0,0,0,.4)",position:"relative",opacity:ev.ended?.7:1}}>
-                              {isNew&&<div style={{position:"absolute",top:12,left:12,zIndex:10,background:GRAD,color:WHITE,fontSize:9,fontWeight:900,padding:"4px 10px",borderRadius:20,animation:"pulse 2s ease-in-out infinite"}}>✨ NOUVEAU</div>}
-                              {ev.ended&&<div style={{position:"absolute",top:12,left:12,zIndex:10,background:PINK,color:WHITE,fontSize:9,fontWeight:900,padding:"4px 10px",borderRadius:20}}>TERMINÉE</div>}
-                              <div style={{width:"100%",paddingTop:"125%",position:"relative",overflow:"hidden",background:`linear-gradient(135deg,${BG3},rgba(255,0,128,.08))`}}>
-                                {ev.poster?<img src={ev.poster} alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>
-                                  :<div style={{position:"absolute",inset:0,background:`linear-gradient(135deg,${BG3},rgba(255,0,128,.06))`}}/>}
-                                <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,transparent 40%,rgba(13,17,23,.98) 100%)"}}/>
-                                {ev.soldOut&&!ev.ended&&<SoldOut/>}
-                                <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"14px",zIndex:2}}>
-                                  <div style={{display:"flex",gap:5,marginBottom:7,flexWrap:"wrap"}}>{ev.tags.slice(0,2).map(t=><Tag key={t}>{t}</Tag>)}</div>
-                                  <div style={{fontSize:16,fontWeight:900,color:WHITE,marginBottom:3}}>{ev.title}</div>
-                                  <div style={{fontSize:11,color:"rgba(255,255,255,.6)",display:"flex",alignItems:"center",gap:5}}><Icon n="pin" s={10} c={GRAY}/>{ev.location}</div>
-                                </div>
-                              </div>
-                              <div style={{padding:"12px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                                <div style={{fontSize:11,color:GRAY,display:"flex",alignItems:"center",gap:4}}><Icon n="calendar" s={11} c={GRAY}/>{ev.date}</div>
-                                <div style={{fontSize:19,fontWeight:900,color:ev.ended?GRAY:PINK}}>{ev.ended?"TERMINÉE":`CHF ${ev.price}`}</div>
-                              </div>
+                    {/* ── GALERIE soirées ── */}
+                    {(()=>{
+                      const allMedia=Object.entries(evMedia).flatMap(([k,arr])=>k!=="about"?arr:[]).slice(0,6);
+                      if(allMedia.length===0)return null;
+                      return(
+                        <div style={{margin:"0 16px 22px",animation:"slideUp .45s .25s both"}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                            <div style={{display:"flex",alignItems:"center",gap:8}}>
+                              <div style={{width:3,height:16,background:"linear-gradient(135deg,#7B6CF6,#4ECDC4)",borderRadius:4}}/>
+                              <div style={{fontSize:10,fontWeight:900,color:"#7B6CF6",letterSpacing:2,textTransform:"uppercase"}}>Galerie soirées</div>
                             </div>
-                          );
-                        })}
-                        <div style={{flexShrink:0,width:20}}/>
+                            <div onClick={()=>setScreen("about")} style={{fontSize:11,fontWeight:700,color:"#7B6CF6",cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>Voir plus <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7B6CF6" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+                          </div>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+                            {allMedia.slice(0,6).map((m,i)=>(
+                              <div key={m.id||i} onClick={()=>{setGalleryEv({title:"Galerie",media:allMedia});setGalleryIdx(i);setScreen("gallery");}} style={{borderRadius:12,overflow:"hidden",aspectRatio:"1",background:BG2,cursor:"pointer",animation:`slideUp .3s ${i*.05}s both`,position:"relative"}}>
+                                {m.type==="video"
+                                  ?<video src={m.url} style={{width:"100%",height:"100%",objectFit:"cover"}} muted playsInline/>
+                                  :<img src={m.url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>}
+                                {m.type==="video"&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,.3)"}}><div style={{width:26,height:26,borderRadius:"50%",background:"rgba(255,255,255,.9)",display:"flex",alignItems:"center",justifyContent:"center"}}><svg width="10" height="10" viewBox="0 0 24 24" fill="#000"><polygon points="5 3 19 12 5 21 5 3"/></svg></div></div>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* ── À PROPOS teaser ── */}
+                    <div style={{margin:"0 16px 22px",animation:"slideUp .45s .3s both"}}>
+                      <div onClick={()=>setScreen("about")} style={{borderRadius:20,overflow:"hidden",position:"relative",cursor:"pointer",background:"linear-gradient(135deg,rgba(123,47,255,.15),rgba(255,0,128,.08))",border:"1px solid rgba(123,47,255,.25)"}}>
+                        <div style={{padding:"18px 18px 16px",display:"flex",alignItems:"center",gap:14}}>
+                          <div style={{width:52,height:52,borderRadius:16,background:"linear-gradient(135deg,#7B2FFF,#FF0080)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:"0 4px 16px rgba(123,47,255,.4)"}}>
+                            <img src={LOGO} alt="" style={{width:34,height:34,objectFit:"contain"}}/>
+                          </div>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:15,fontWeight:900,color:WHITE,marginBottom:4}}>No Limit Events</div>
+                            <div style={{fontSize:12,color:"rgba(255,255,255,.6)",lineHeight:1.5}}>La soirée sans limites · La Chaux-de-Fonds</div>
+                          </div>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+                        </div>
+                        <div style={{display:"flex",borderTop:"1px solid rgba(255,255,255,.06)"}}>
+                          {[["🎉","Soirées",events.length],["🎟️","Events actifs",events.filter(e=>!e.ended).length],["📸","Photos",Object.values(evMedia).flat().filter(m=>m.type==="photo").length]].map(([ico,label,val])=>(
+                            <div key={label} style={{flex:1,textAlign:"center",padding:"10px 4px",borderRight:"1px solid rgba(255,255,255,.04)"}}>
+                              <div style={{fontSize:9,marginBottom:3}}>{ico}</div>
+                              <div style={{fontSize:16,fontWeight:900,color:WHITE}}>{val}</div>
+                              <div style={{fontSize:8,color:GRAY,textTransform:"uppercase",letterSpacing:.5}}>{label}</div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    )}
+                    </div>
+
+                    {/* ── INSTAGRAM ── */}
+                    <div style={{margin:"0 16px 22px",animation:"slideUp .45s .35s both"}}>
+                      <div onClick={()=>window.open("https://www.instagram.com/nolimit_eventss","_blank")} style={{borderRadius:18,padding:"14px 16px",background:"linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045)",display:"flex",alignItems:"center",gap:14,cursor:"pointer",boxShadow:"0 8px 24px rgba(131,58,180,.3)"}}>
+                        <div style={{width:44,height:44,borderRadius:13,background:"rgba(255,255,255,.15)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={WHITE} strokeWidth="1.8" strokeLinecap="round"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                        </div>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:14,fontWeight:900,color:WHITE}}>@nolimit_eventss</div>
+                          <div style={{fontSize:11,color:"rgba(255,255,255,.75)",marginTop:2}}>Suis-nous sur Instagram</div>
+                        </div>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.6)" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                      </div>
+                    </div>
+
+                    <div style={{height:24}}/>
                   </div>
                 </div>
               )}
+
 
               {tab==="tickets"&&(
                 <div className="scroll" style={{padding:"20px"}}>
@@ -1551,114 +1795,13 @@ export default function App(){
                 </div>
               )}
 
-              {tab==="events"&&(<div style={{position:"fixed",top:0,left:0,right:0,bottom:60,background:"#0D1117",zIndex:50,overflowY:"auto",padding:"70px 16px 20px"}}><div style={{fontSize:22,fontWeight:900,color:"#FFFFFF",marginBottom:20}}>TEST EVENTS</div></div>)}{tab==="events_old"&&(
-                <div style={{position:"absolute",inset:0,overflowY:"auto",padding:"20px 16px",paddingBottom:80,zIndex:2,background:BG}}>
-                  <div style={{fontSize:22,fontWeight:900,color:WHITE,marginBottom:6}}>Evenements</div>
-                  <div style={{fontSize:13,color:PINK,fontWeight:700,marginBottom:20}}>La Chaux-de-Fonds</div>
-                  <div style={{marginBottom:20}}>
-                    <CalendarWidget events={events}/>
-                  </div>
-                  {events.length===0?(
-                    <div style={{textAlign:"center",padding:"60px 0"}}>
-                      <div style={{fontSize:48,marginBottom:16}}>🎉</div>
-                      <div style={{fontSize:16,fontWeight:900,color:WHITE,marginBottom:8}}>Aucun evenement</div>
-                      <div style={{fontSize:13,color:GRAY}}>Reviens bientot !</div>
-                    </div>
-                  ):(
-                    <div>
-                      {events.filter(e=>!e.ended).length>0&&(
-                        <div style={{marginBottom:24}}>
-                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
-                            <div style={{width:3,height:18,background:GRAD,borderRadius:4}}/>
-                            <div style={{fontSize:12,fontWeight:900,color:PINK,letterSpacing:2,textTransform:"uppercase"}}>A venir</div>
-                            <div style={{background:"rgba(255,0,128,.15)",borderRadius:20,padding:"2px 10px",fontSize:10,fontWeight:700,color:PINK}}>{events.filter(e=>!e.ended).length}</div>
-                          </div>
-                          {events.filter(e=>!e.ended).map((ev,i)=>(
-                            <div key={ev.id} onClick={()=>openEv(ev)} style={{display:"flex",gap:12,alignItems:"center",background:BG2,borderRadius:16,padding:"12px 14px",marginBottom:10,border:"1px solid "+BORDER,cursor:"pointer",animation:"rowSlide .4s "+i*.08+"s both"}}>
-                              <div style={{width:60,height:60,borderRadius:14,overflow:"hidden",flexShrink:0,background:GRAD}}>
-                                {ev.poster?<img src={ev.poster} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:
-                                <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
-                                  <div style={{fontSize:14,fontWeight:900,color:WHITE}}>{ev.date.split(" ")[1]||"?"}</div>
-                                  <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,.8)"}}>{ev.date.split(" ")[2]||""}</div>
-                                </div>}
-                              </div>
-                              <div style={{flex:1,minWidth:0}}>
-                                <div style={{fontSize:14,fontWeight:800,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</div>
-                                <div style={{fontSize:11,color:GRAY,marginTop:2}}>{ev.location}</div>
-                                <div style={{fontSize:11,color:GRAY,marginTop:1}}>{ev.date} • {ev.time}</div>
-                              </div>
-                              <div style={{textAlign:"right",flexShrink:0}}>
-                                <div style={{fontSize:14,fontWeight:900,color:PINK}}>CHF {ev.price}</div>
-                                <div style={{fontSize:9,color:GRAY,marginTop:2,background:BG3,padding:"2px 8px",borderRadius:10}}>{ev.category||"Soiree"}</div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {events.filter(e=>e.ended).length>0&&(
-                        <div>
-                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
-                            <div style={{width:3,height:18,background:BG3,borderRadius:4,border:"1px solid "+BORDER}}/>
-                            <div style={{fontSize:12,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase"}}>Terminees</div>
-                          </div>
-                          {events.filter(e=>e.ended).map((ev,i)=>(
-                            <div key={ev.id} style={{display:"flex",gap:12,alignItems:"center",background:BG2,borderRadius:16,padding:"12px 14px",marginBottom:10,border:"1px solid "+BORDER,opacity:.6}}>
-                              <div style={{width:60,height:60,borderRadius:14,overflow:"hidden",flexShrink:0,background:BG3}}>
-                                {ev.poster?<img src={ev.poster} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{width:"100%",height:"100%"}}/>}
-                              </div>
-                              <div style={{flex:1,minWidth:0}}>
-                                <div style={{fontSize:14,fontWeight:800,color:GRAY,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</div>
-                                <div style={{fontSize:11,color:GRAY,marginTop:2}}>{ev.date}</div>
-                              </div>
-                              <div style={{background:"rgba(255,255,255,.1)",padding:"3px 10px",borderRadius:20,fontSize:9,fontWeight:900,color:GRAY}}>TERMINEE</div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
               {tab==="agenda"&&(
                 <div style={{position:"absolute",inset:0,zIndex:10}}>
                   {React.createElement(GroupsScreen,{authUser:authUser,supabase:supabase})}
                 </div>
               )}
-              {false&&(
-                <div className="scroll" style={{padding:"20px"}}>
-                  <div style={{fontSize:22,fontWeight:900,color:WHITE,marginBottom:20}}>Agenda</div>
-                  <CalendarWidget events={events}/>
-                  <div style={{marginTop:20,marginBottom:12,fontSize:11,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase"}}>PROCHAINS ÉVÉNEMENTS</div>
-                  {[...events].sort((a,b)=>{
-    const mn={"janvier":0,"février":1,"mars":2,"avril":3,"mai":4,"juin":5,"juillet":6,"août":7,"septembre":8,"octobre":9,"novembre":10,"décembre":11,"JANV":0,"FÉV":1,"MARS":2,"AVRIL":3,"MAI":4,"JUIN":5,"JUIL":6,"AOÛT":7,"SEPT":8,"OCT":9,"NOV":10,"DÉC":11};
-    const pd=(d)=>{const p=d.split(" ");if(p.length>=4)return new Date(parseInt(p[3]),mn[p[2].toUpperCase()]??0,parseInt(p[1]));if(p.length===3)return new Date(parseInt(p[2]),mn[p[1].toLowerCase()]??0,parseInt(p[0]));return new Date(0);};
-    const now=new Date();
-    const da=pd(a.date),db=pd(b.date);
-    const fa=da>=now&&!a.ended,fb=db>=now&&!b.ended;
-    if(fa&&!fb) return -1;if(!fa&&fb) return 1;
-    return fa?da-db:db-da;
-  }).map((ev,i)=>(
-                    <div key={ev.id} onClick={()=>openEv(ev)} style={{background:BG2,borderRadius:16,padding:"14px 16px",marginBottom:10,border:`1px solid ${BORDER}`,display:"flex",gap:14,alignItems:"center",cursor:"pointer",animation:`rowSlide .4s ${i*.08}s both`}}>
-                      {ev.poster?<img src={ev.poster} alt="" style={{width:52,height:52,borderRadius:12,objectFit:"cover",flexShrink:0}}/>
-                        :<div style={{width:52,height:52,borderRadius:12,background:GRAD,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                          <span style={{fontSize:9,fontWeight:900,color:WHITE}}>{ev.date.split(" ")[0]}</span>
-                          <span style={{fontSize:16,fontWeight:900,color:WHITE}}>{ev.date.split(" ")[1]}</span>
-                        </div>}
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:14,fontWeight:800,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</div>
-                        <div style={{fontSize:11,color:GRAY,marginTop:2}}>{ev.location} • {ev.date}</div>
-                      </div>
-                      <div style={{fontSize:15,fontWeight:900,color:PINK,flexShrink:0}}>CHF {ev.price}</div>
-                    </div>
-                  ))}
-                  <div style={{height:20}}/>
-                </div>
-              )}
 
-              </div>
-              )}
-
-              <NavBar current={tab} onNav={navHandler} onProfil={()=>setScreen("profil")} onEvents={()=>setScreen("events")} onTickets={()=>setScreen("tickets")} onGroups={()=>setScreen("groups")}/>
+              <NavBar current={tab} onNav={navHandler} onProfil={()=>setScreen("profil")} onEvents={()=>setScreen("events")} onTickets={()=>navHandler("tickets")} onGroups={()=>setScreen("groups")}/>
             </div>
           </div>
         )}
@@ -1689,43 +1832,64 @@ export default function App(){
         )}
 
         {screen==="vip"&&(
-          <div className="sc">
+          <div className="sc" style={{background:"linear-gradient(180deg,#080600,#0D1117)"}}>
             <LightBeams/>
+            {/* Gold glow top */}
+            <div style={{position:"absolute",top:-60,left:"50%",transform:"translateX(-50%)",width:320,height:320,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,215,0,.14),transparent 70%)",pointerEvents:"none",zIndex:0}}/>
             <div style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",height:"100%",overflow:"hidden"}}>
-              <div style={{background:BG2,borderBottom:`1px solid ${BORDER}`,flexShrink:0,paddingTop:SAFE_TOP}}>
-                <div style={{padding:"14px 20px",display:"flex",alignItems:"center",gap:14}}>
-                  <button onClick={goMain} style={{background:"none",border:"none",color:PINK,cursor:"pointer",display:"flex"}}><Icon n="back" s={22} c={PINK}/></button>
-                  <div style={{fontSize:16,fontWeight:900,color:WHITE}}>Tables VIP</div>
+              {/* Header */}
+              <div style={{flexShrink:0,paddingTop:`calc(${SAFE_TOP} + 10px)`,padding:`calc(env(safe-area-inset-top,44px) + 10px) 20px 0`}}>
+                <button onClick={goMain} style={{background:"rgba(255,255,255,.06)",border:`1px solid ${BORDER}`,borderRadius:12,width:38,height:38,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",marginBottom:24}}><Icon n="back" s={16} c={WHITE}/></button>
+                <div style={{textAlign:"center",marginBottom:24}}>
+                  <div style={{fontSize:48,marginBottom:10,filter:"drop-shadow(0 0 20px rgba(255,215,0,.6))",animation:"pulse 2s ease-in-out infinite"}}>👑</div>
+                  <div style={{fontSize:28,fontWeight:900,color:"#FFD700",letterSpacing:.5,textShadow:"0 0 30px rgba(255,215,0,.4)"}}>Tables VIP</div>
+                  <div style={{fontSize:13,color:"rgba(255,215,0,.55)",marginTop:6,fontWeight:600}}>Une expérience sans limites</div>
                 </div>
               </div>
-              <div className="scroll" style={{padding:"20px"}}>
-                {[{name:"Silver",sub:"Duo VIP",emoji:"🥈",price:90,popular:false,perks:["Pour 2 personnes","Entrée VIP prioritaire","1 verre offert"]},
-                  {name:"Gold",sub:"Le classique",emoji:"🥇",price:280,popular:true,perks:["Pour 5 personnes","1 bouteille incluse","Softs inclus","Entrée prioritaire"]},
-                  {name:"Premium",sub:"Ultimate VIP",emoji:"💎",price:500,popular:false,perks:["Pour 10 personnes","2 bouteilles incluses","Softs & snacks","Entrée exclusive"]}
-                ].map((pkg)=>(
-                  <div key={pkg.name} style={{background:pkg.popular?`linear-gradient(135deg,${PINK}12,${BG2})`:BG2,borderRadius:20,marginBottom:14,border:pkg.popular?`1.5px solid ${PINK}`:`1px solid ${BORDER}`,overflow:"hidden"}}>
-                    {pkg.popular&&<div style={{background:GRAD,padding:"6px 0",textAlign:"center",fontSize:11,fontWeight:900,color:WHITE}}>⭐ LE + DEMANDÉ</div>}
-                    <div style={{padding:"18px"}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
-                        <div style={{display:"flex",alignItems:"center",gap:10}}>
-                          <span style={{fontSize:28}}>{pkg.emoji}</span>
-                          <div><div style={{fontSize:20,fontWeight:900,color:WHITE}}>{pkg.name}</div><div style={{fontSize:12,color:GRAY}}>{pkg.sub}</div></div>
+              <div className="scroll" style={{padding:"0 16px 40px"}}>
+                {[
+                  {name:"Silver",sub:"Duo VIP",emoji:"🥈",price:90,color:"#C0C0C0",glow:"rgba(192,192,192,.25)",bg:"linear-gradient(135deg,rgba(192,192,192,.08),rgba(192,192,192,.03))",perks:["Pour 2 personnes","Entrée VIP prioritaire","1 verre offert"]},
+                  {name:"Gold",sub:"Le classique",emoji:"🥇",price:280,popular:true,color:"#FFD700",glow:"rgba(255,215,0,.35)",bg:"linear-gradient(135deg,rgba(255,215,0,.14),rgba(255,180,0,.06))",perks:["Pour 5 personnes","1 bouteille incluse","Softs inclus","Entrée prioritaire"]},
+                  {name:"Premium",sub:"Ultimate VIP",emoji:"💎",price:500,color:"#A78BFA",glow:"rgba(167,139,250,.25)",bg:"linear-gradient(135deg,rgba(167,139,250,.1),rgba(123,47,255,.05))",perks:["Pour 10 personnes","2 bouteilles incluses","Softs & snacks","Entrée exclusive"]},
+                ].map((pkg,pi)=>(
+                  <div key={pkg.name} style={{borderRadius:24,marginBottom:14,border:`1.5px solid ${pkg.color}${pkg.popular?"55":"28"}`,background:pkg.bg,overflow:"hidden",animation:`evCardIn .4s ${pi*.1}s both`,boxShadow:pkg.popular?`0 0 30px ${pkg.glow}`:undefined}}>
+                    {pkg.popular&&(
+                      <div style={{background:`linear-gradient(90deg,${pkg.color}33,${pkg.color}66,${pkg.color}33)`,padding:"7px 0",textAlign:"center",fontSize:11,fontWeight:900,color:pkg.color,letterSpacing:2}}>⭐ LE PLUS DEMANDÉ</div>
+                    )}
+                    <div style={{padding:"20px"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+                        <div style={{display:"flex",alignItems:"center",gap:12}}>
+                          <div style={{width:52,height:52,borderRadius:16,background:`${pkg.color}15`,border:`1px solid ${pkg.color}30`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,boxShadow:`0 0 20px ${pkg.glow}`}}>{pkg.emoji}</div>
+                          <div>
+                            <div style={{fontSize:20,fontWeight:900,color:WHITE}}>{pkg.name}</div>
+                            <div style={{fontSize:12,color:GRAY,marginTop:2}}>{pkg.sub}</div>
+                          </div>
                         </div>
-                        <div style={{textAlign:"right"}}><div style={{fontSize:26,fontWeight:900,color:PINK}}>{pkg.price}</div><div style={{fontSize:11,color:GRAY}}>CHF</div></div>
+                        <div style={{textAlign:"right"}}>
+                          <div style={{fontSize:30,fontWeight:900,color:pkg.color,lineHeight:1,textShadow:`0 0 20px ${pkg.glow}`}}>{pkg.price}</div>
+                          <div style={{fontSize:11,color:GRAY,marginTop:2}}>CHF</div>
+                        </div>
                       </div>
-                      {pkg.perks.map(p=>(
-                        <div key={p} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-                          <div style={{width:18,height:18,borderRadius:"50%",background:`${PINK}22`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Icon n="check" s={10} c={PINK}/></div>
-                          <span style={{fontSize:13,color:GRAY}}>{p}</span>
-                        </div>
-                      ))}
-                      <div onClick={()=>showToast("📷 Contacte @nolimit_eventss sur Instagram")} style={{background:pkg.popular?GRAD:"transparent",border:pkg.popular?"none":`1.5px solid ${PINK}`,borderRadius:14,padding:"13px 0",textAlign:"center",fontWeight:900,fontSize:14,color:pkg.popular?WHITE:PINK,cursor:"pointer",marginTop:14}}>
+                      <div style={{marginBottom:18}}>
+                        {pkg.perks.map((p,i)=>(
+                          <div key={p} style={{display:"flex",alignItems:"center",gap:10,marginBottom:i<pkg.perks.length-1?10:0}}>
+                            <div style={{width:20,height:20,borderRadius:"50%",background:`${pkg.color}20`,border:`1px solid ${pkg.color}40`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={pkg.color} strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                            </div>
+                            <span style={{fontSize:13,color:"rgba(255,255,255,.8)",fontWeight:600}}>{p}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div onClick={()=>window.open("https://www.instagram.com/nolimit_eventss","_blank")} style={{padding:"14px 0",borderRadius:16,background:pkg.popular?`linear-gradient(135deg,${pkg.color},${pkg.color}bb)`:`transparent`,border:pkg.popular?"none":`1.5px solid ${pkg.color}55`,textAlign:"center",fontWeight:900,fontSize:14,color:pkg.popular?"#000":pkg.color,cursor:"pointer",letterSpacing:.5,boxShadow:pkg.popular?`0 6px 24px ${pkg.glow}`:undefined}}>
                         RÉSERVER — CHF {pkg.price}
                       </div>
                     </div>
                   </div>
                 ))}
-                <div style={{height:20}}/>
+                <div style={{background:"rgba(255,215,0,.06)",border:"1px solid rgba(255,215,0,.15)",borderRadius:16,padding:"14px 16px",textAlign:"center"}}>
+                  <div style={{fontSize:12,color:"rgba(255,215,0,.7)",fontWeight:600}}>Réservation via Instagram · <span style={{color:"#FFD700",fontWeight:800}}>@nolimit_eventss</span></div>
+                </div>
+                <div style={{height:30}}/>
               </div>
             </div>
           </div>
@@ -1779,43 +1943,65 @@ export default function App(){
   </div>
 )}
 {screen==="login"&&(
-  <div style={{position:"absolute",inset:0,background:"#0D1117",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,zIndex:100}}>
-    <img src={LOGO} alt="" style={{width:80,height:80,objectFit:"contain",marginBottom:20,filter:"drop-shadow(0 0 20px rgba(255,0,128,.6))",animation:"pulse 2s ease-in-out infinite"}}/>
-    <div style={{fontSize:24,fontWeight:900,color:"#FFFFFF",marginBottom:6,letterSpacing:1}}>Connexion</div>
-    <div style={{fontSize:13,color:"#8892A0",marginBottom:28}}>Content de te revoir !</div>
-    <input type="email" placeholder="Adresse email" value={loginEmail} onChange={e=>setLoginEmail(e.target.value)} style={{width:"100%",padding:"14px 16px",background:"#141A22",border:"1.5px solid #1E2A38",borderRadius:14,color:"#FFFFFF",fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:12,boxSizing:"border-box"}}/>
-    <input type="password" placeholder="Mot de passe" value={loginPass} onChange={e=>setLoginPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} style={{width:"100%",padding:"14px 16px",background:"#141A22",border:"1.5px solid #1E2A38",borderRadius:14,color:"#FFFFFF",fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:8,boxSizing:"border-box"}}/>
-    {loginErr&&<div style={{color:"#FF4444",fontSize:12,fontWeight:700,marginBottom:12,textAlign:"center"}}>{loginErr}</div>}
-    <div onClick={doLogin} style={{width:"100%",padding:"15px 0",borderRadius:14,background:"linear-gradient(135deg,#FF0080,#FF3399)",textAlign:"center",fontWeight:900,fontSize:15,color:"#FFFFFF",cursor:"pointer",marginBottom:12,letterSpacing:1}}>SE CONNECTER</div>
-    <div style={{fontSize:13,color:"#8892A0",marginBottom:20}}>Pas encore de compte ? <span onClick={()=>setScreen("register")} style={{color:"#FF0080",fontWeight:700,cursor:"pointer"}}>S inscrire</span></div>
+  <div style={{position:"absolute",inset:0,background:BG,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 20px",zIndex:100,overflow:"hidden"}}>
+    <LightBeams/>
+    <div style={{position:"relative",zIndex:1,width:"100%",maxWidth:380,animation:"slideUp .5s cubic-bezier(.34,1.56,.64,1) both"}}>
+      {/* Logo + titre */}
+      <div style={{textAlign:"center",marginBottom:32}}>
+        <div style={{width:80,height:80,borderRadius:"50%",background:"linear-gradient(135deg,rgba(255,0,128,.2),rgba(123,47,255,.15))",border:"1px solid rgba(255,0,128,.35)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 18px",boxShadow:"0 0 40px rgba(255,0,128,.3)"}}>
+          <img src={LOGO} alt="" style={{width:54,height:54,objectFit:"contain",filter:"drop-shadow(0 0 12px rgba(255,0,128,.8))",animation:"pulse 2s ease-in-out infinite"}}/>
+        </div>
+        <div style={{fontSize:26,fontWeight:900,color:WHITE,letterSpacing:.5,marginBottom:6}}>Connexion</div>
+        <div style={{fontSize:13,color:GRAY}}>Content de te revoir 👋</div>
+      </div>
+      {/* Carte formulaire */}
+      <div style={{background:"rgba(20,26,34,.85)",backdropFilter:"blur(16px)",border:`1px solid ${BORDER}`,borderRadius:24,padding:"24px 20px"}}>
+        <input type="email" placeholder="Adresse email" value={loginEmail} onChange={e=>setLoginEmail(e.target.value)} style={{width:"100%",padding:"14px 16px",background:BG3,border:`1.5px solid ${BORDER}`,borderRadius:14,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:12,boxSizing:"border-box",transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
+        <input type="password" placeholder="Mot de passe" value={loginPass} onChange={e=>setLoginPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} style={{width:"100%",padding:"14px 16px",background:BG3,border:`1.5px solid ${BORDER}`,borderRadius:14,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:8,boxSizing:"border-box",transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
+        {loginErr&&<div style={{color:"#FF4444",fontSize:12,fontWeight:700,marginBottom:12,textAlign:"center",padding:"8px",background:"rgba(255,68,68,.08)",borderRadius:10}}>{loginErr}</div>}
+        <div onClick={doLogin} style={{width:"100%",padding:"15px 0",borderRadius:14,background:GRAD,textAlign:"center",fontWeight:900,fontSize:15,color:WHITE,cursor:"pointer",letterSpacing:1,boxShadow:`0 6px 24px rgba(255,0,128,.35)`,marginTop:4}}>SE CONNECTER</div>
+      </div>
+      <div style={{textAlign:"center",marginTop:20,fontSize:13,color:GRAY}}>
+        Pas encore de compte ? <span onClick={()=>setScreen("register")} style={{color:PINK,fontWeight:800,cursor:"pointer"}}>S'inscrire</span>
+      </div>
+    </div>
   </div>
 )}
 {screen==="register"&&(
-  <div style={{position:"absolute",inset:0,background:"#0D1117",overflowY:"auto",zIndex:100}}>
-    <div style={{padding:"60px 24px 40px"}}>
-      <img src={LOGO} alt="" style={{width:60,height:60,objectFit:"contain",display:"block",margin:"0 auto 16px",filter:"drop-shadow(0 0 16px rgba(255,0,128,.6))"}}/>
-      <div style={{fontSize:24,fontWeight:900,color:"#FFFFFF",marginBottom:6,letterSpacing:1,textAlign:"center"}}>Créer un compte</div>
-      <div style={{fontSize:13,color:"#8892A0",marginBottom:28,textAlign:"center"}}>Rejoins la communaute No Limit !</div>
-      {regDone?(
-        <div style={{textAlign:"center",padding:"40px 0"}}>
-          <div style={{fontSize:48,marginBottom:16}}>🎉</div>
-          <div style={{fontSize:20,fontWeight:900,color:"#FFFFFF",marginBottom:8}}>Compte cree !</div>
-          <div style={{fontSize:13,color:"#8892A0",marginBottom:24}}>Verifie ton email pour confirmer ton compte.</div>
-          <div onClick={()=>setScreen("login")} style={{padding:"15px 0",borderRadius:14,background:"linear-gradient(135deg,#FF0080,#FF3399)",textAlign:"center",fontWeight:900,fontSize:15,color:"#FFFFFF",cursor:"pointer",letterSpacing:1}}>SE CONNECTER</div>
-        </div>
-      ):(
-        <div>
-          <div style={{display:"flex",gap:10,marginBottom:12}}>
-            <input type="text" placeholder="Prenom" value={regPrenom} onChange={e=>setRegPrenom(e.target.value)} style={{flex:1,padding:"14px 16px",background:"#141A22",border:"1.5px solid #1E2A38",borderRadius:14,color:"#FFFFFF",fontSize:14,outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}/>
-            <input type="text" placeholder="Nom" value={regNom} onChange={e=>setRegNom(e.target.value)} style={{flex:1,padding:"14px 16px",background:"#141A22",border:"1.5px solid #1E2A38",borderRadius:14,color:"#FFFFFF",fontSize:14,outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}/>
+  <div style={{position:"absolute",inset:0,background:BG,overflowY:"auto",zIndex:100}}>
+    <LightBeams/>
+    <div style={{position:"relative",zIndex:1,padding:"calc(env(safe-area-inset-top,44px) + 20px) 20px 40px",display:"flex",flexDirection:"column",alignItems:"center"}}>
+      <div style={{width:"100%",maxWidth:380,animation:"slideUp .5s cubic-bezier(.34,1.56,.64,1) both"}}>
+        <div style={{textAlign:"center",marginBottom:28}}>
+          <div style={{width:70,height:70,borderRadius:"50%",background:"linear-gradient(135deg,rgba(255,0,128,.2),rgba(123,47,255,.15))",border:"1px solid rgba(255,0,128,.35)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",boxShadow:"0 0 30px rgba(255,0,128,.25)"}}>
+            <img src={LOGO} alt="" style={{width:48,height:48,objectFit:"contain",filter:"drop-shadow(0 0 10px rgba(255,0,128,.8))"}}/>
           </div>
-          <input type="email" placeholder="Adresse email" value={regEmail} onChange={e=>setRegEmail(e.target.value)} style={{width:"100%",padding:"14px 16px",background:"#141A22",border:"1.5px solid #1E2A38",borderRadius:14,color:"#FFFFFF",fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:12,boxSizing:"border-box"}}/>
-          <input type="password" placeholder="Mot de passe (6 min)" value={regPass} onChange={e=>setRegPass(e.target.value)} style={{width:"100%",padding:"14px 16px",background:"#141A22",border:"1.5px solid #1E2A38",borderRadius:14,color:"#FFFFFF",fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:8,boxSizing:"border-box"}}/>
-          {regErr&&<div style={{color:"#FF4444",fontSize:12,fontWeight:700,marginBottom:12,textAlign:"center"}}>{regErr}</div>}
-          <div onClick={doRegister} style={{width:"100%",padding:"15px 0",borderRadius:14,background:"linear-gradient(135deg,#FF0080,#FF3399)",textAlign:"center",fontWeight:900,fontSize:15,color:"#FFFFFF",cursor:"pointer",marginBottom:12,letterSpacing:1}}>CREER MON COMPTE</div>
-          <div style={{fontSize:13,color:"#8892A0",textAlign:"center"}}>Deja un compte ? <span onClick={()=>setScreen("login")} style={{color:"#FF0080",fontWeight:700,cursor:"pointer"}}>Se connecter</span></div>
+          <div style={{fontSize:24,fontWeight:900,color:WHITE,letterSpacing:.5,marginBottom:6}}>Créer un compte</div>
+          <div style={{fontSize:13,color:GRAY}}>Rejoins la communauté No Limit ! 🔥</div>
         </div>
-      )}
+        {regDone?(
+          <div style={{textAlign:"center",padding:"30px 0",animation:"slideUp .4s both"}}>
+            <div style={{fontSize:52,marginBottom:16}}>🎉</div>
+            <div style={{fontSize:20,fontWeight:900,color:WHITE,marginBottom:8}}>Compte créé !</div>
+            <div style={{fontSize:13,color:GRAY,marginBottom:28,lineHeight:1.6}}>Vérifie ton email pour confirmer ton compte.</div>
+            <div onClick={()=>setScreen("login")} style={{padding:"15px 0",borderRadius:14,background:GRAD,textAlign:"center",fontWeight:900,fontSize:15,color:WHITE,cursor:"pointer",letterSpacing:1,boxShadow:`0 6px 24px rgba(255,0,128,.35)`}}>SE CONNECTER</div>
+          </div>
+        ):(
+          <div style={{background:"rgba(20,26,34,.85)",backdropFilter:"blur(16px)",border:`1px solid ${BORDER}`,borderRadius:24,padding:"24px 20px"}}>
+            <div style={{display:"flex",gap:10,marginBottom:12}}>
+              <input type="text" placeholder="Prénom" value={regPrenom} onChange={e=>setRegPrenom(e.target.value)} style={{flex:1,padding:"13px 14px",background:BG3,border:`1.5px solid ${BORDER}`,borderRadius:12,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",boxSizing:"border-box",transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
+              <input type="text" placeholder="Nom" value={regNom} onChange={e=>setRegNom(e.target.value)} style={{flex:1,padding:"13px 14px",background:BG3,border:`1.5px solid ${BORDER}`,borderRadius:12,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",boxSizing:"border-box",transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
+            </div>
+            <input type="email" placeholder="Adresse email" value={regEmail} onChange={e=>setRegEmail(e.target.value)} style={{width:"100%",padding:"13px 14px",background:BG3,border:`1.5px solid ${BORDER}`,borderRadius:12,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:12,boxSizing:"border-box",transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
+            <input type="password" placeholder="Mot de passe (6 min)" value={regPass} onChange={e=>setRegPass(e.target.value)} style={{width:"100%",padding:"13px 14px",background:BG3,border:`1.5px solid ${BORDER}`,borderRadius:12,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:8,boxSizing:"border-box",transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
+            {regErr&&<div style={{color:"#FF4444",fontSize:12,fontWeight:700,marginBottom:12,textAlign:"center",padding:"8px",background:"rgba(255,68,68,.08)",borderRadius:10}}>{regErr}</div>}
+            <div onClick={doRegister} style={{width:"100%",padding:"15px 0",borderRadius:14,background:GRAD,textAlign:"center",fontWeight:900,fontSize:15,color:WHITE,cursor:"pointer",letterSpacing:1,boxShadow:`0 6px 24px rgba(255,0,128,.35)`,marginTop:4}}>CRÉER MON COMPTE</div>
+          </div>
+        )}
+        {!regDone&&<div style={{textAlign:"center",marginTop:20,fontSize:13,color:GRAY}}>
+          Déjà un compte ? <span onClick={()=>setScreen("login")} style={{color:PINK,fontWeight:800,cursor:"pointer"}}>Se connecter</span>
+        </div>}
+      </div>
     </div>
   </div>
 )}
@@ -1865,7 +2051,8 @@ export default function App(){
   </div>
 )}
 {screen==="profil"&&(
-  <div style={{position:"absolute",inset:0,background:BG,overflowY:"auto",zIndex:100}}>
+  <div style={{position:"absolute",inset:0,background:BG,overflowY:"auto",zIndex:100,paddingBottom:90}}>
+    <LightBeams/>
     <style>{`
       @keyframes ringRotate{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
       @keyframes neonPulse{0%,100%{box-shadow:0 0 10px rgba(255,0,128,.3),0 0 30px rgba(255,0,128,.1)}50%{box-shadow:0 0 20px rgba(255,0,128,.6),0 0 60px rgba(255,0,128,.25)}}
@@ -2054,65 +2241,199 @@ export default function App(){
         </div>
       )}
     </div>
+  <NavBar current="profil" onNav={navHandler} onProfil={()=>{}} onEvents={()=>setScreen("events")} onTickets={()=>navHandler("tickets")} onGroups={()=>setScreen("groups")}/>
   </div>
 )}
 {screen==="about"&&(
-  <div style={{position:"absolute",inset:0,background:"#0D1117",overflowY:"auto",zIndex:100}}>
-    <div style={{position:"relative",height:320,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column"}}>
-      <div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,rgba(255,0,128,.15),rgba(255,51,153,.05))"}}/>
-      <div style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 60%,rgba(255,0,128,.25),transparent 70%)"}}/>
-      <img src={LOGO} alt="" style={{width:120,height:120,objectFit:"contain",position:"relative",zIndex:2,animation:"aboutPulse 3s ease-in-out infinite",filter:"drop-shadow(0 0 40px rgba(255,0,128,.8))"}}/>
-      <div style={{position:"relative",zIndex:2,textAlign:"center",marginTop:16}}>
-        <div style={{fontSize:26,fontWeight:900,color:"#FFFFFF",letterSpacing:2,textTransform:"uppercase"}}>No Limit Events</div>
-        <div style={{fontSize:13,color:"#FF0080",fontWeight:700,marginTop:4,letterSpacing:3,textTransform:"uppercase"}}>La Chaux-de-Fonds</div>
+  <div style={{position:"fixed",inset:0,background:BG,zIndex:100,overflowY:"auto"}}>
+    <LightBeams/>
+    <style>{`@keyframes aboutFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}`}</style>
+    {/* Hero */}
+    <div style={{position:"relative",height:280,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column"}}>
+      <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse at 50% 80%,rgba(255,0,128,.3),transparent 65%)"}}/>
+      <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse at 20% 20%,rgba(123,47,255,.2),transparent 60%)"}}/>
+      {[...Array(6)].map((_,i)=><div key={i} style={{position:"absolute",width:i%2?180:120,height:i%2?180:120,borderRadius:"50%",border:`1px solid rgba(255,0,128,${.04+i*.02})`,top:`${15+i*12}%`,left:`${10+i*14}%`,animation:`ringRotate ${8+i*3}s linear infinite ${i%2?"reverse":""}`,pointerEvents:"none"}}/>)}
+      <div style={{position:"absolute",bottom:0,left:0,right:0,height:100,background:`linear-gradient(transparent,${BG})`}}/>
+      {/* Bouton retour */}
+      <div onClick={()=>setScreen("main")} style={{position:"absolute",top:`calc(env(safe-area-inset-top,20px) + 10px)`,left:16,width:38,height:38,borderRadius:12,background:"rgba(13,17,23,.7)",border:`1px solid ${BORDER}`,backdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",zIndex:2}}>
+        <Icon n="back" s={16} c={WHITE}/>
       </div>
-      <div style={{position:"absolute",bottom:0,left:0,right:0,height:80,background:"linear-gradient(transparent,#0D1117)"}}/>
+      <img src={LOGO} alt="" style={{width:100,height:100,objectFit:"contain",position:"relative",zIndex:2,animation:"aboutFloat 3s ease-in-out infinite",filter:"drop-shadow(0 0 30px rgba(255,0,128,.7))"}}/>
+      <div style={{position:"relative",zIndex:2,textAlign:"center",marginTop:14}}>
+        <div style={{fontSize:24,fontWeight:900,color:WHITE,letterSpacing:1}}>No Limit Events</div>
+        <div style={{fontSize:12,color:PINK,fontWeight:700,marginTop:4,letterSpacing:3,textTransform:"uppercase"}}>La Chaux-de-Fonds · Suisse</div>
+      </div>
     </div>
-    <div style={{padding:"0 20px 40px"}}>
-      <div style={{background:"#141A22",borderRadius:20,padding:20,marginBottom:16,border:"1px solid #1E2A38"}}>
-        <div style={{fontSize:11,fontWeight:900,color:"#FF0080",letterSpacing:3,textTransform:"uppercase",marginBottom:10}}>Notre Histoire</div>
-        <div style={{fontSize:14,color:"rgba(255,255,255,.85)",lineHeight:1.7}}>Fondée en 2026 à La Chaux-de-Fonds, No Limit Events est née d une passion simple : créer des soirées inoubliables. Chaque événement est pensé pour offrir une expérience unique, où la musique, l ambiance et les gens se rejoignent pour former quelque chose d exceptionnel.</div>
-      </div>
-      <div style={{background:"#141A22",borderRadius:20,padding:20,marginBottom:16,border:"1px solid #1E2A38"}}>
-        <div style={{fontSize:11,fontWeight:900,color:"#FF0080",letterSpacing:3,textTransform:"uppercase",marginBottom:14}}>Nos Valeurs</div>
-        {[["🎉","Expériences Uniques","Chaque soirée est une nouvelle surprise, une nouvelle aventure."],["🔥","Ambiance Incomparable","Du Hip-Hop à l Afro, on crée l atmosphère qui te fait bouger."],["👑","Accès VIP","Des offres exclusives pour vivre la soirée différemment."],["❤️","Communauté","Plus qu un événement, une famille de fêtards passionnés."]].map(([emoji,title,desc])=>(
-          <div key={title} style={{display:"flex",gap:14,marginBottom:16,alignItems:"flex-start"}}>
-            <div style={{width:42,height:42,borderRadius:12,background:"rgba(255,0,128,.1)",border:"1px solid rgba(255,0,128,.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{emoji}</div>
-            <div><div style={{fontSize:13,fontWeight:800,color:"#FFFFFF",marginBottom:3}}>{title}</div><div style={{fontSize:12,color:"#8892A0",lineHeight:1.5}}>{desc}</div></div>
+
+    <div style={{padding:"0 16px 40px"}}>
+      {/* Stats */}
+      <div style={{display:"flex",gap:8,marginBottom:18,animation:"slideUp .4s both"}}>
+        {[
+          [events.length,"Soirées","🎉",PINK],
+          [events.filter(e=>!e.ended).length,"À venir","📅","#4ECDC4"],
+          [Object.values(evMedia).flat().length,"Médias","📸","#7B6CF6"],
+          ["100%","Passion","🔥","#FFD700"],
+        ].map(([val,label,ico,color])=>(
+          <div key={label} style={{flex:1,background:BG2,borderRadius:16,padding:"12px 6px",textAlign:"center",border:`1px solid rgba(255,255,255,.06)`}}>
+            <div style={{fontSize:10,marginBottom:4}}>{ico}</div>
+            <div style={{fontSize:17,fontWeight:900,color,marginBottom:2}}>{val}</div>
+            <div style={{fontSize:8,color:GRAY,fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>{label}</div>
           </div>
         ))}
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
-        {[["2026","Fondée"],["16+","Âge minimum"],["100%","Passion"]].map(([val,label])=>(
-          <div key={label} style={{background:"#141A22",borderRadius:16,padding:"16px 10px",textAlign:"center",border:"1px solid #1E2A38"}}>
-            <div style={{fontSize:22,fontWeight:900,background:"linear-gradient(135deg,#FF0080,#FF3399)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>{val}</div>
-            <div style={{fontSize:10,color:"#8892A0",fontWeight:700,marginTop:4,textTransform:"uppercase",letterSpacing:1}}>{label}</div>
+
+      {/* Histoire */}
+      <div style={{background:BG2,borderRadius:20,padding:"18px 18px",marginBottom:14,border:`1px solid ${BORDER}`,animation:"slideUp .4s .05s both"}}>
+        <div style={{fontSize:10,fontWeight:900,color:PINK,letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>Notre Histoire</div>
+        <div style={{fontSize:13,color:"rgba(255,255,255,.8)",lineHeight:1.75}}>Fondée en 2026 à La Chaux-de-Fonds, <span style={{color:WHITE,fontWeight:700}}>No Limit Events</span> est née d'une passion simple : créer des soirées inoubliables. Chaque événement est pensé pour offrir une expérience unique, où la musique, l'ambiance et les gens se rejoignent pour quelque chose d'exceptionnel.</div>
+      </div>
+
+      {/* Valeurs */}
+      <div style={{background:BG2,borderRadius:20,padding:"18px",marginBottom:14,border:`1px solid ${BORDER}`,animation:"slideUp .4s .1s both"}}>
+        <div style={{fontSize:10,fontWeight:900,color:PINK,letterSpacing:2,textTransform:"uppercase",marginBottom:14}}>Nos Valeurs</div>
+        {[
+          ["🎉","Expériences Uniques","Chaque soirée est une nouvelle surprise, une aventure.","rgba(255,0,128,.1)"],
+          ["🔥","Ambiance Incomparable","Du Hip-Hop à l'Afro, on crée l'atmosphère qui te fait bouger.","rgba(255,107,53,.1)"],
+          ["👑","Accès VIP","Des offres exclusives pour vivre la soirée autrement.","rgba(255,215,0,.1)"],
+          ["❤️","Communauté","Plus qu'un événement, une famille de passionnés.","rgba(78,205,196,.1)"],
+        ].map(([emoji,title,desc,bg],i)=>(
+          <div key={title} style={{display:"flex",gap:14,marginBottom:i<3?14:0,alignItems:"flex-start",animation:`slideUp .3s ${i*.06}s both`}}>
+            <div style={{width:44,height:44,borderRadius:14,background:bg,border:"1px solid rgba(255,255,255,.06)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{emoji}</div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:800,color:WHITE,marginBottom:3}}>{title}</div>
+              <div style={{fontSize:12,color:GRAY,lineHeight:1.55}}>{desc}</div>
+            </div>
           </div>
         ))}
       </div>
-      {aboutMedia.length>0&&(
-        <div style={{marginBottom:16}}>
-          <div style={{fontSize:11,fontWeight:900,color:"#FF0080",letterSpacing:3,textTransform:"uppercase",marginBottom:12}}>Nos Soirées</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-            {aboutMedia.map((m,i)=>(
-              <div key={i} style={{borderRadius:16,overflow:"hidden",aspectRatio:"1",background:"#141A22"}}>
-                {m.type==="video"?<video src={m.url} style={{width:"100%",height:"100%",objectFit:"cover"}} autoPlay muted loop playsInline/>:<img src={m.url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>}
+
+      {/* Galerie par soirée */}
+      {events.filter(e=>evMedia[e.id]&&evMedia[e.id].length>0).length>0&&(
+        <div style={{marginBottom:14,animation:"slideUp .4s .15s both"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+            <div style={{width:3,height:16,background:"linear-gradient(135deg,#7B6CF6,#4ECDC4)",borderRadius:4}}/>
+            <div style={{fontSize:10,fontWeight:900,color:"#7B6CF6",letterSpacing:2,textTransform:"uppercase"}}>Photos & Vidéos des soirées</div>
+          </div>
+          {events.filter(e=>evMedia[e.id]&&evMedia[e.id].length>0).map((ev,ei)=>(
+            <div key={ev.id} style={{marginBottom:14,animation:`slideUp .4s ${ei*.08}s both`}}>
+              {/* Header soirée */}
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8,padding:"0 2px"}}>
+                {ev.poster?<img src={ev.poster} alt="" style={{width:34,height:34,borderRadius:9,objectFit:"cover",flexShrink:0}}/>:<div style={{width:34,height:34,borderRadius:9,background:GRAD,flexShrink:0}}/>}
+                <div style={{flex:1}}>
+                  <div style={{fontSize:12,fontWeight:900,color:WHITE}}>{ev.title}</div>
+                  <div style={{fontSize:10,color:GRAY}}>{evMedia[ev.id].length} média{evMedia[ev.id].length>1?"s":""}</div>
+                </div>
+                <div onClick={()=>{setGalleryEv({...ev,media:evMedia[ev.id]});setGalleryIdx(0);setScreen("gallery");}} style={{background:"rgba(123,47,255,.15)",border:"1px solid rgba(123,47,255,.3)",color:"#7B6CF6",padding:"5px 12px",borderRadius:20,fontSize:10,fontWeight:800,cursor:"pointer",flexShrink:0}}>Voir tout</div>
               </div>
-            ))}
+              {/* Carrousel horizontal */}
+              <div style={{display:"flex",gap:6,overflowX:"auto",scrollbarWidth:"none",WebkitOverflowScrolling:"touch",paddingBottom:4}}>
+                {evMedia[ev.id].map((m,mi)=>(
+                  <div key={m.id||mi} onClick={()=>{setGalleryEv({...ev,media:evMedia[ev.id]});setGalleryIdx(mi);setScreen("gallery");}} style={{flexShrink:0,width:130,height:100,borderRadius:14,overflow:"hidden",background:BG3,cursor:"pointer",position:"relative"}}>
+                    {m.type==="video"?<video src={m.url} style={{width:"100%",height:"100%",objectFit:"cover"}} muted playsInline/>:<img src={m.url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>}
+                    {m.type==="video"&&<div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.4)",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{width:28,height:28,borderRadius:"50%",background:"rgba(255,255,255,.2)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center"}}><svg width="10" height="10" viewBox="0 0 24 24" fill={WHITE}><polygon points="5 3 19 12 5 21 5 3"/></svg></div></div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Galerie générale (about) */}
+      {aboutMedia.length>0&&(
+        <div style={{marginBottom:14,animation:"slideUp .4s .2s both"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <div style={{width:3,height:16,background:GRAD,borderRadius:4}}/>
+              <div style={{fontSize:10,fontWeight:900,color:PINK,letterSpacing:2,textTransform:"uppercase"}}>Galerie générale</div>
+            </div>
+            <div onClick={()=>{setGalleryEv({title:"Galerie générale",media:aboutMedia});setGalleryIdx(0);setScreen("gallery");}} style={{background:"rgba(255,0,128,.12)",border:"1px solid rgba(255,0,128,.25)",color:PINK,padding:"5px 12px",borderRadius:20,fontSize:10,fontWeight:800,cursor:"pointer"}}>{aboutMedia.length} médias</div>
+          </div>
+          {/* Grande photo featured + strip */}
+          <div style={{borderRadius:20,overflow:"hidden",background:BG2,border:`1px solid ${BORDER}`}}>
+            {/* Photo principale */}
+            <div onClick={()=>{setGalleryEv({title:"Galerie générale",media:aboutMedia});setGalleryIdx(0);setScreen("gallery");}} style={{height:200,position:"relative",cursor:"pointer"}}>
+              {aboutMedia[0].type==="video"?<video src={aboutMedia[0].url} style={{width:"100%",height:"100%",objectFit:"cover"}} muted playsInline/>:<img src={aboutMedia[0].url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>}
+              <div style={{position:"absolute",inset:0,background:"linear-gradient(transparent 50%,rgba(0,0,0,.7))"}}/>
+              <div style={{position:"absolute",bottom:12,left:14,fontSize:12,fontWeight:800,color:WHITE}}>Voir la galerie complète →</div>
+              {aboutMedia[0].type==="video"&&<div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:44,height:44,borderRadius:"50%",background:"rgba(255,255,255,.2)",backdropFilter:"blur(6px)",display:"flex",alignItems:"center",justifyContent:"center"}}><svg width="14" height="14" viewBox="0 0 24 24" fill={WHITE}><polygon points="5 3 19 12 5 21 5 3"/></svg></div>}
+            </div>
+            {/* Strip des autres */}
+            {aboutMedia.length>1&&(
+              <div style={{display:"flex",gap:3,padding:"3px",overflowX:"auto",scrollbarWidth:"none",WebkitOverflowScrolling:"touch"}}>
+                {aboutMedia.slice(1).map((m,i)=>(
+                  <div key={m.id||i} onClick={()=>{setGalleryEv({title:"Galerie générale",media:aboutMedia});setGalleryIdx(i+1);setScreen("gallery");}} style={{flexShrink:0,width:80,height:60,borderRadius:10,overflow:"hidden",background:BG3,cursor:"pointer",position:"relative"}}>
+                    {m.type==="video"?<video src={m.url} style={{width:"100%",height:"100%",objectFit:"cover"}} muted playsInline/>:<img src={m.url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>}
+                    {m.type==="video"&&<div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.3)",display:"flex",alignItems:"center",justifyContent:"center"}}><svg width="8" height="8" viewBox="0 0 24 24" fill={WHITE}><polygon points="5 3 19 12 5 21 5 3"/></svg></div>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
-      <div onClick={()=>window.open("https://www.instagram.com/nolimit_eventss","_blank")} style={{background:"linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045)",borderRadius:16,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",marginBottom:16}}>
-        <div style={{width:44,height:44,borderRadius:12,background:"rgba(255,255,255,.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>📸</div>
-        <div><div style={{fontSize:14,fontWeight:900,color:"#FFFFFF"}}>@nolimit_eventss</div><div style={{fontSize:11,color:"rgba(255,255,255,.7)",marginTop:2}}>Suis-nous sur Instagram</div></div>
-        <div style={{marginLeft:"auto",color:"rgba(255,255,255,.5)",fontSize:18}}>→</div>
+
+      {/* Site web */}
+      <div onClick={()=>window.open("https://nolimitevents.ch","_blank")} style={{borderRadius:18,padding:"14px 16px",background:BG2,border:`1px solid ${BORDER}`,display:"flex",alignItems:"center",gap:14,cursor:"pointer",marginBottom:10,animation:"slideUp .4s .22s both"}}>
+        <div style={{width:44,height:44,borderRadius:13,background:"rgba(255,0,128,.12)",border:"1px solid rgba(255,0,128,.2)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={PINK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        </div>
+        <div><div style={{fontSize:14,fontWeight:900,color:WHITE}}>nolimitevents.ch</div><div style={{fontSize:11,color:GRAY,marginTop:2}}>Notre site officiel</div></div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GRAY} strokeWidth="2.5" style={{marginLeft:"auto"}}><polyline points="9 18 15 12 9 6"/></svg>
       </div>
-      <div onClick={()=>setScreen("main")} style={{borderRadius:16,padding:"15px 0",textAlign:"center",fontWeight:900,fontSize:14,color:"#FF0080",cursor:"pointer",border:"1.5px solid #FF0080",letterSpacing:1}}>RETOUR</div>
+
+      {/* Instagram */}
+      <div onClick={()=>window.open("https://www.instagram.com/nolimit_eventss","_blank")} style={{borderRadius:18,padding:"14px 16px",background:"linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045)",display:"flex",alignItems:"center",gap:14,cursor:"pointer",marginBottom:12,boxShadow:"0 8px 24px rgba(131,58,180,.3)",animation:"slideUp .4s .25s both"}}>
+        <div style={{width:44,height:44,borderRadius:13,background:"rgba(255,255,255,.15)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={WHITE} strokeWidth="1.8" strokeLinecap="round"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+        </div>
+        <div><div style={{fontSize:14,fontWeight:900,color:WHITE}}>@nolimit_eventss</div><div style={{fontSize:11,color:"rgba(255,255,255,.75)",marginTop:2}}>Suis-nous sur Instagram</div></div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.7)" strokeWidth="2.5" style={{marginLeft:"auto"}}><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
     </div>
+  </div>
+)}
+
+{screen==="gallery"&&galleryEv&&(
+  <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.97)",zIndex:200,display:"flex",flexDirection:"column"}}>
+    {/* Header */}
+    <div style={{padding:`calc(env(safe-area-inset-top,20px) + 10px) 16px 12px`,display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
+      <div onClick={()=>setScreen("about")} style={{width:38,height:38,borderRadius:12,background:"rgba(255,255,255,.08)",border:`1px solid ${BORDER}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
+        <Icon n="back" s={16} c={WHITE}/>
+      </div>
+      <div style={{flex:1}}>
+        <div style={{fontSize:15,fontWeight:900,color:WHITE}}>{galleryEv.title}</div>
+        <div style={{fontSize:11,color:GRAY}}>{galleryEv.media?.length||0} média{(galleryEv.media?.length||0)>1?"s":""}</div>
+      </div>
+    </div>
+
+    {/* Média principal */}
+    <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 16px",position:"relative",overflow:"hidden"}}>
+      {galleryEv.media&&galleryEv.media[galleryIdx]&&(
+        galleryEv.media[galleryIdx].type==="video"
+          ?<video src={galleryEv.media[galleryIdx].url} style={{maxWidth:"100%",maxHeight:"100%",borderRadius:16,objectFit:"contain"}} controls autoPlay/>
+          :<img src={galleryEv.media[galleryIdx].url} alt="" style={{maxWidth:"100%",maxHeight:"100%",borderRadius:16,objectFit:"contain"}}/>
+      )}
+      {galleryIdx>0&&<div onClick={()=>setGalleryIdx(i=>i-1)} style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",width:40,height:40,borderRadius:"50%",background:"rgba(0,0,0,.6)",border:"1px solid rgba(255,255,255,.12)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={WHITE} strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg></div>}
+      {galleryEv.media&&galleryIdx<galleryEv.media.length-1&&<div onClick={()=>setGalleryIdx(i=>i+1)} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",width:40,height:40,borderRadius:"50%",background:"rgba(0,0,0,.6)",border:"1px solid rgba(255,255,255,.12)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={WHITE} strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>}
+      <div style={{position:"absolute",bottom:8,left:"50%",transform:"translateX(-50%)",background:"rgba(0,0,0,.5)",borderRadius:20,padding:"4px 12px",fontSize:11,color:WHITE,fontWeight:700}}>{galleryIdx+1} / {galleryEv.media?.length||0}</div>
+    </div>
+
+    {/* Miniatures */}
+    {galleryEv.media&&galleryEv.media.length>1&&(
+      <div style={{padding:"10px 12px",display:"flex",gap:6,overflowX:"auto",scrollbarWidth:"none",flexShrink:0}}>
+        {galleryEv.media.map((m,i)=>(
+          <div key={i} onClick={()=>setGalleryIdx(i)} style={{flexShrink:0,width:54,height:54,borderRadius:10,overflow:"hidden",border:i===galleryIdx?`2px solid ${PINK}`:`2px solid transparent`,cursor:"pointer",opacity:i===galleryIdx?1:.55,transition:"all .2s"}}>
+            {m.type==="video"?<video src={m.url} style={{width:"100%",height:"100%",objectFit:"cover"}} muted/>:<img src={m.url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>}
+          </div>
+        ))}
+      </div>
+    )}
   </div>
 )}
 {screen==="events"&&(
   <div style={{position:"fixed",inset:0,background:BG,zIndex:100,display:"flex",flexDirection:"column"}}>
+    <LightBeams/>
     <style>{`
       @keyframes evCardIn{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
       @keyframes heroIn{from{opacity:0;transform:scale(1.04)}to{opacity:1;transform:scale(1)}}
@@ -2299,33 +2620,22 @@ export default function App(){
       })()}
     </div>
 
-    {/* Navbar */}
-    <div style={{position:"fixed",bottom:0,left:0,right:0,background:BG2,borderTop:`1px solid ${BORDER}`,paddingTop:8,paddingBottom:"env(safe-area-inset-bottom,8px)",display:"flex",zIndex:200}}>
-      {[["home","Accueil","home"],["events","Events","calendar"],["tickets","Billets","ticket"],["agenda","Groupes","users"],["profil","Profil","users"]].map(([s,label,ico])=>(
-        <div key={s} onClick={()=>{if(s==="events"){}else if(s==="profil"){setScreen("profil");}else{setTab(s);setScreen("main");}}} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",padding:"4px 0"}}>
-          <Icon n={ico} s={20} c={s==="events"?PINK:GRAY}/>
-          <span style={{fontSize:9,fontWeight:700,color:s==="events"?PINK:GRAY}}>{label}</span>
-          {s==="events"&&<div style={{width:16,height:2.5,borderRadius:2,background:GRAD}}/>}
-        </div>
-      ))}
-    </div>
+    <NavBar current="events" onNav={navHandler} onProfil={()=>setScreen("profil")} onEvents={()=>{}} onTickets={()=>navHandler("tickets")} onGroups={()=>setScreen("groups")}/>
   </div>
 )}
 {screen==="tickets"&&(
   <div style={{position:"fixed",inset:0,background:"#0D1117",zIndex:100,display:"flex",flexDirection:"column"}}>
     <TicketsScreen tickets={tickets} events={events} user={authUser} loading={ticketsLoading}/>
-    <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#141A22",borderTop:"1px solid #1E2A38",paddingTop:8,paddingBottom:20,display:"flex",zIndex:200}}>
-      {[["home","Accueil","home"],["events","Events","calendar"],["tickets","Billets","ticket"],["agenda","Groupes","users"],["profil","Profil","users"]].map(([s,label,ico])=>(
-        <div key={s} onClick={()=>{if(s==="tickets"){}else if(s==="events"){setScreen("events");}else if(s==="agenda"){setScreen("groups");}else if(s==="profil"){setScreen("profil");}else{setTab(s);setScreen("main");}}} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",padding:"4px 0"}}>
-          <Icon n={ico} s={20} c={s==="tickets"?"#FF0080":"#8892A0"}/>
-          <span style={{fontSize:9,fontWeight:700,color:s==="tickets"?"#FF0080":"#8892A0"}}>{label}</span>
-          {s==="tickets"&&<div style={{width:16,height:2.5,borderRadius:2,background:"linear-gradient(135deg,#FF0080,#FF3399)"}}/>}
-        </div>
-      ))}
-    </div>
+    <NavBar current="tickets" onNav={navHandler} onProfil={()=>setScreen("profil")} onEvents={()=>setScreen("events")} onTickets={()=>{}} onGroups={()=>setScreen("groups")}/>
   </div>
 )}
-{screen==="groups"&&<GroupsScreen authUser={authUser} supabase={supabase}/>}
+{screen==="groups"&&(
+  <div style={{position:"fixed",inset:0,zIndex:100}}>
+    <LightBeams/>
+    <GroupsScreen authUser={authUser} supabase={supabase}/>
+    <NavBar current="agenda" onNav={navHandler} onProfil={()=>setScreen("profil")} onEvents={()=>setScreen("events")} onTickets={()=>navHandler("tickets")} onGroups={()=>{}}/>
+  </div>
+)}
 {screen==="adminLogin"&&(
           <div className="sc">
             <div style={{height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:30,background:BG,paddingTop:SAFE_TOP}}>
@@ -2363,14 +2673,16 @@ export default function App(){
                     </div>
                   </div>
                 </div>
-                {/* 4 onglets */}
-                <div style={{display:"flex",padding:"0 8px"}}>
-                  {[["bar","Stats","dashboard"],["calendar","Soirées","events"],["ticket","Billets","tickets"],["gift","Gratuits","free"]].map(([ico,label,t])=>(
-                    <div key={t} onClick={()=>setAdminTab(t)} style={{flex:1,padding:"10px 4px",textAlign:"center",borderBottom:adminTab===t?`2.5px solid ${t==="free"?GREEN:PINK}`:"2.5px solid transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4,transition:"all .2s"}}>
-                      <Icon n={ico} s={17} c={adminTab===t?(t==="free"?GREEN:PINK):GRAY}/>
-                      <span style={{fontSize:9,fontWeight:800,color:adminTab===t?(t==="free"?GREEN:PINK):GRAY,letterSpacing:.5,textTransform:"uppercase"}}>{label}</span>
-                    </div>
-                  ))}
+                {/* 5 onglets */}
+                <div style={{display:"flex",padding:"0 4px",overflowX:"auto",scrollbarWidth:"none"}}>
+                  {[["bar","Stats","dashboard"],["calendar","Soirées","events"],["ticket","Billets","tickets"],["gift","Gratuits","free"],["image","Médias","media"]].map(([ico,label,t])=>{
+                    const col=t==="free"?GREEN:t==="media"?"#7B6CF6":PINK;
+                    return(
+                    <div key={t} onClick={()=>setAdminTab(t)} style={{flex:1,padding:"10px 4px",textAlign:"center",borderBottom:adminTab===t?`2.5px solid ${col}`:"2.5px solid transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4,transition:"all .2s",minWidth:56}}>
+                      <Icon n={ico} s={17} c={adminTab===t?col:GRAY}/>
+                      <span style={{fontSize:8,fontWeight:800,color:adminTab===t?col:GRAY,letterSpacing:.3,textTransform:"uppercase",whiteSpace:"nowrap"}}>{label}</span>
+                    </div>);
+                  })}
                 </div>
               </div>
 
@@ -2499,6 +2811,99 @@ export default function App(){
                   </div>
                 )}
 
+                {/* MÉDIAS */}
+                {adminTab==="media"&&(
+                  <div>
+                    <input ref={mediaFileRef} type="file" accept="image/*,video/*" multiple style={{display:"none"}} onChange={async(e)=>{
+                      const files=Array.from(e.target.files);
+                      if(!files.length)return;
+                      setMediaUploading(true);
+                      const targetId=mediaFileRef.current?.dataset?.eventId||null;
+                      let ok=0,fail=0,lastErr="";
+                      for(const file of files){
+                        const res=await dbUploadMedia(file,targetId?Number(targetId):null);
+                        if(res&&!res.startsWith("ERR:"))ok++;
+                        else{fail++;if(res&&res.startsWith("ERR:"))lastErr=res.replace("ERR:","");}
+                      }
+                      const items=await dbLoadMedia();
+                      const map={};
+                      items.forEach(m=>{const k=m.event_id||"about";if(!map[k])map[k]=[];map[k].push(m);});
+                      setEvMedia(map);setAboutMedia(map["about"]||[]);
+                      setMediaUploading(false);
+                      e.target.value="";
+                      if(ok>0)showToast(`✅ ${ok} fichier${ok>1?"s":""} ajouté${ok>1?"s":""}!`);
+                      if(fail>0)showToast(`❌ Erreur: ${lastErr||"upload échoué"}`);
+                    }}/>
+
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                      <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase"}}>Gestion médias</div>
+                      <div onClick={()=>{if(!mediaUploading){mediaFileRef.current.dataset.eventId="";mediaFileRef.current.click();}}} style={{background:"linear-gradient(135deg,#7B2FFF,#FF0080)",color:WHITE,padding:"9px 14px",borderRadius:20,fontSize:11,fontWeight:900,cursor:mediaUploading?"not-allowed":"pointer",display:"flex",alignItems:"center",gap:6,opacity:mediaUploading?.6:1}}>
+                        {mediaUploading?<div style={{width:11,height:11,border:"2px solid rgba(255,255,255,.3)",borderTop:"2px solid #fff",borderRadius:"50%",animation:"spin .7s linear infinite"}}/>:<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={WHITE} strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>}
+                        {mediaUploading?"Upload en cours...":"+ Galerie générale"}
+                      </div>
+                    </div>
+
+                    {/* Helper reorder */}
+                    {(()=>{
+                      const reorder=async(list,from,to,setList,mapKey)=>{
+                        const arr=[...list];
+                        const[item]=arr.splice(from,1);arr.splice(to,0,item);
+                        setList(arr);
+                        await dbSavePositions(arr);
+                        if(mapKey!==undefined){setEvMedia(prev=>({...prev,[mapKey]:arr}));}
+                      };
+                      const MediaRow=({m,i,list,setList,mapKey})=>(
+                        <div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:`1px solid rgba(255,255,255,.04)`}}>
+                          <div style={{width:54,height:54,borderRadius:10,overflow:"hidden",flexShrink:0,background:BG3,position:"relative"}}>
+                            {m.type==="video"?<video src={m.url} style={{width:"100%",height:"100%",objectFit:"cover"}} muted/>:<img src={m.url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>}
+                            {m.type==="video"&&<div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.3)",display:"flex",alignItems:"center",justifyContent:"center"}}><svg width="8" height="8" viewBox="0 0 24 24" fill={WHITE}><polygon points="5 3 19 12 5 21 5 3"/></svg></div>}
+                          </div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:10,fontWeight:700,color:GRAY,textTransform:"uppercase"}}>{m.type} · #{i+1}</div>
+                          </div>
+                          <div style={{display:"flex",gap:4}}>
+                            <div onClick={()=>i>0&&reorder(list,i,i-1,setList,mapKey)} style={{width:28,height:28,borderRadius:8,background:i>0?"rgba(123,47,255,.2)":"rgba(255,255,255,.04)",border:`1px solid ${i>0?"rgba(123,47,255,.4)":BORDER}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:i>0?"pointer":"default"}}>
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={i>0?"#7B6CF6":GRAY} strokeWidth="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+                            </div>
+                            <div onClick={()=>i<list.length-1&&reorder(list,i,i+1,setList,mapKey)} style={{width:28,height:28,borderRadius:8,background:i<list.length-1?"rgba(123,47,255,.2)":"rgba(255,255,255,.04)",border:`1px solid ${i<list.length-1?"rgba(123,47,255,.4)":BORDER}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:i<list.length-1?"pointer":"default"}}>
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={i<list.length-1?"#7B6CF6":GRAY} strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                            </div>
+                            <div onClick={async()=>{if(m.id){await dbDeleteMedia(m.id);const items=await dbLoadMedia();const map={};items.forEach(x=>{const k=x.event_id||"about";if(!map[k])map[k]=[];map[k].push(x);});setEvMedia(map);setAboutMedia(map["about"]||[]);}}} style={{width:28,height:28,borderRadius:8,background:"rgba(204,0,0,.15)",border:"1px solid rgba(204,0,0,.3)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ff4444" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                      return(
+                        <div>
+                          {/* Galerie générale */}
+                          {aboutMedia.length>0&&(
+                            <div style={{marginBottom:20,background:BG2,borderRadius:16,padding:"12px 14px",border:`1px solid ${BORDER}`}}>
+                              <div style={{fontSize:10,fontWeight:900,color:"#7B6CF6",letterSpacing:1.5,textTransform:"uppercase",marginBottom:10}}>Galerie générale ({aboutMedia.length})</div>
+                              {aboutMedia.map((m,i)=><MediaRow key={m.id||i} m={m} i={i} list={aboutMedia} setList={setAboutMedia} mapKey={undefined}/>)}
+                            </div>
+                          )}
+                          {/* Par soirée */}
+                          <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:1.5,textTransform:"uppercase",marginBottom:12}}>Par soirée</div>
+                          {events.map((ev,ei)=>(
+                            <div key={ev.id} style={{background:BG2,borderRadius:16,padding:"12px 14px",marginBottom:10,border:`1px solid ${BORDER}`}}>
+                              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:(evMedia[ev.id]||[]).length>0?10:0}}>
+                                {ev.poster&&<img src={ev.poster} alt="" style={{width:34,height:34,borderRadius:9,objectFit:"cover",flexShrink:0}}/>}
+                                <div style={{flex:1,minWidth:0}}>
+                                  <div style={{fontSize:12,fontWeight:800,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</div>
+                                  <div style={{fontSize:10,color:GRAY}}>{(evMedia[ev.id]||[]).length} média{(evMedia[ev.id]||[]).length!==1?"s":""}</div>
+                                </div>
+                                <div onClick={()=>{mediaFileRef.current.dataset.eventId=String(ev.id);mediaFileRef.current.click();}} style={{background:"rgba(123,47,255,.15)",border:"1px solid rgba(123,47,255,.3)",color:"#7B6CF6",padding:"7px 12px",borderRadius:12,fontSize:10,fontWeight:800,cursor:"pointer",flexShrink:0}}>+ Ajouter</div>
+                              </div>
+                              {(evMedia[ev.id]||[]).map((m,mi)=><MediaRow key={m.id||mi} m={m} i={mi} list={evMedia[ev.id]||[]} setList={newList=>setEvMedia(prev=>({...prev,[ev.id]:newList}))} mapKey={ev.id}/>)}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
               </div>
 
               {/* Scanner, EventForm, FreeTicketForm */}
@@ -2542,47 +2947,81 @@ export default function App(){
 
         {screen==="event"&&selEv&&(
           <div className="sc">
-            <div className="scroll" style={{background:BG}}>
+            <LightBeams/>
+            <div className="scroll" style={{background:"transparent",position:"relative",zIndex:1}}>
               {/* Hero poster */}
-              <div style={{height:selEv.poster?300:180,position:"relative",overflow:"hidden"}}>
-                {selEv.poster?<img src={selEv.poster} alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",animation:"heroIn .5s both"}}/>:<div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,#FF0080,#7B2FFF)"}}/>}
-                <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(13,17,23,.3) 0%,rgba(13,17,23,.98) 100%)"}}/>
-                {/* Bouton retour */}
-                <div onClick={goMain} style={{position:"absolute",top:`calc(env(safe-area-inset-top,20px) + 10px)`,left:16,width:38,height:38,borderRadius:12,background:"rgba(13,17,23,.65)",border:"1px solid rgba(255,255,255,.12)",backdropFilter:"blur(10px)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",zIndex:2}}>
+              <div style={{height:selEv.poster?320:200,position:"relative",overflow:"hidden"}}>
+                {selEv.poster
+                  ?<img src={selEv.poster} alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",animation:"heroIn .5s both"}}/>
+                  :<div style={{position:"absolute",inset:0,background:`linear-gradient(135deg,${PINK},#7B2FFF)`}}/>
+                }
+                <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(13,17,23,.25) 0%,rgba(13,17,23,.0) 40%,rgba(13,17,23,.98) 100%)"}}/>
+                <div onClick={goMain} style={{position:"absolute",top:`calc(env(safe-area-inset-top,20px) + 10px)`,left:16,width:40,height:40,borderRadius:13,background:"rgba(13,17,23,.7)",border:"1px solid rgba(255,255,255,.12)",backdropFilter:"blur(12px)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",zIndex:2}}>
                   <Icon n="back" s={16} c={WHITE}/>
                 </div>
-                {/* Tags + titre */}
-                <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"18px 20px",zIndex:2}}>
-                  <div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap"}}>
-                    {selEv.tags&&selEv.tags.map(t=><div key={t} style={{background:"rgba(255,255,255,.12)",backdropFilter:"blur(6px)",border:"1px solid rgba(255,255,255,.15)",borderRadius:20,padding:"3px 10px",fontSize:10,fontWeight:700,color:WHITE}}>{t}</div>)}
-                    {selEv.category&&<div style={{background:"rgba(255,0,128,.25)",border:"1px solid rgba(255,0,128,.5)",borderRadius:20,padding:"3px 10px",fontSize:10,fontWeight:700,color:PINK}}>{selEv.category}</div>}
+                {/* Badge catégorie */}
+                {selEv.category&&<div style={{position:"absolute",top:`calc(env(safe-area-inset-top,20px) + 14px)`,right:16,background:"rgba(255,0,128,.25)",backdropFilter:"blur(8px)",border:"1px solid rgba(255,0,128,.4)",borderRadius:20,padding:"4px 12px",fontSize:10,fontWeight:800,color:PINK,zIndex:2}}>{selEv.category}</div>}
+                <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"20px 18px",zIndex:2}}>
+                  <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+                    {selEv.tags&&selEv.tags.map(t=><div key={t} style={{background:"rgba(255,255,255,.1)",backdropFilter:"blur(6px)",border:"1px solid rgba(255,255,255,.15)",borderRadius:20,padding:"3px 10px",fontSize:10,fontWeight:700,color:WHITE}}>{t}</div>)}
                   </div>
-                  <div style={{fontSize:26,fontWeight:900,color:WHITE,lineHeight:1.1,textShadow:"0 2px 12px rgba(0,0,0,.8)"}}>{selEv.title}</div>
+                  <div style={{fontSize:28,fontWeight:900,color:WHITE,lineHeight:1.15,textShadow:"0 2px 16px rgba(0,0,0,.9)"}}>{selEv.title}</div>
                 </div>
               </div>
 
-              <div style={{padding:"18px 18px 30px"}}>
+              <div style={{padding:"16px 16px 30px"}}>
                 {/* Infos principales */}
-                <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:18}}>
-                  {[
-                    [<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={PINK} strokeWidth="2.2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>, selEv.date, `${selEv.time} — Ouverture des portes`, PINK],
-                    [<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7B6CF6" strokeWidth="2.2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>, selEv.location, selEv.city||"La Chaux-de-Fonds", "#7B6CF6"],
-                    [<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ECDC4" strokeWidth="2.2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>, "Âge : 16+", "Pièce d'identité requise", "#4ECDC4"],
-                  ].map(([icon,l1,l2,color],i)=>(
-                    <div key={i} style={{display:"flex",gap:14,background:BG2,padding:"14px 16px",borderRadius:16,border:`1px solid ${BORDER}`,alignItems:"center",animation:`evCardIn .4s ${i*.07}s both`}}>
-                      <div style={{width:38,height:38,borderRadius:12,background:`${color}18`,border:`1px solid ${color}30`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{icon}</div>
-                      <div><div style={{fontSize:14,color:WHITE,fontWeight:700}}>{l1}</div><div style={{fontSize:11,color:GRAY,marginTop:1}}>{l2}</div></div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+                  <div style={{background:BG2,borderRadius:16,padding:"14px",border:`1px solid ${BORDER}`,animation:"evCardIn .3s both"}}>
+                    <div style={{width:32,height:32,borderRadius:10,background:"rgba(255,0,128,.12)",border:"1px solid rgba(255,0,128,.25)",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:8}}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={PINK} strokeWidth="2.2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                     </div>
-                  ))}
+                    <div style={{fontSize:13,fontWeight:800,color:WHITE,marginBottom:2}}>{selEv.date}</div>
+                    <div style={{fontSize:10,color:GRAY}}>{selEv.time}</div>
+                  </div>
+                  <div style={{background:BG2,borderRadius:16,padding:"14px",border:`1px solid ${BORDER}`,animation:"evCardIn .3s .06s both"}}>
+                    <div style={{width:32,height:32,borderRadius:10,background:"rgba(123,108,246,.12)",border:"1px solid rgba(123,108,246,.25)",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:8}}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7B6CF6" strokeWidth="2.2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                    </div>
+                    <div style={{fontSize:13,fontWeight:800,color:WHITE,marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{selEv.location}</div>
+                    <div style={{fontSize:10,color:GRAY}}>{selEv.city||"La Chaux-de-Fonds"}</div>
+                  </div>
+                  <div style={{background:BG2,borderRadius:16,padding:"14px",border:`1px solid ${BORDER}`,animation:"evCardIn .3s .12s both"}}>
+                    <div style={{width:32,height:32,borderRadius:10,background:"rgba(78,205,196,.12)",border:"1px solid rgba(78,205,196,.25)",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:8}}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4ECDC4" strokeWidth="2.2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    </div>
+                    <div style={{fontSize:13,fontWeight:800,color:WHITE,marginBottom:2}}>16+</div>
+                    <div style={{fontSize:10,color:GRAY}}>Pièce d'identité</div>
+                  </div>
+                  <div style={{background:BG2,borderRadius:16,padding:"14px",border:`1px solid ${BORDER}`,animation:"evCardIn .3s .18s both"}}>
+                    <div style={{width:32,height:32,borderRadius:10,background:"rgba(255,215,0,.1)",border:"1px solid rgba(255,215,0,.2)",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:8,fontSize:16}}>🎟️</div>
+                    <div style={{fontSize:13,fontWeight:900,color:PINK,marginBottom:2}}>CHF {selEv.price}</div>
+                    <div style={{fontSize:10,color:GRAY}}>par billet</div>
+                  </div>
                 </div>
+
+                {/* Galerie photos de l'event */}
+                {evMedia[selEv.id]&&evMedia[selEv.id].length>0&&(
+                  <div style={{marginBottom:14,animation:"evCardIn .4s .2s both"}}>
+                    <div style={{fontSize:10,fontWeight:900,color:"#7B6CF6",letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>Photos de l'événement</div>
+                    <div style={{display:"flex",gap:6,overflowX:"auto",scrollbarWidth:"none",WebkitOverflowScrolling:"touch"}}>
+                      {evMedia[selEv.id].map((m,mi)=>(
+                        <div key={m.id||mi} onClick={()=>{setGalleryEv({...selEv,media:evMedia[selEv.id]});setGalleryIdx(mi);setScreen("gallery");}} style={{flexShrink:0,width:110,height:80,borderRadius:14,overflow:"hidden",background:BG3,cursor:"pointer",position:"relative"}}>
+                          {m.type==="video"?<video src={m.url} style={{width:"100%",height:"100%",objectFit:"cover"}} muted playsInline/>:<img src={m.url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>}
+                          {m.type==="video"&&<div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.3)",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{width:28,height:28,borderRadius:"50%",background:"rgba(255,255,255,.2)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center"}}><svg width="10" height="10" viewBox="0 0 24 24" fill={WHITE}><polygon points="5 3 19 12 5 21 5 3"/></svg></div></div>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Line-up */}
                 {selEv.lineup&&selEv.lineup.length>0&&(
-                  <div style={{background:BG2,borderRadius:16,padding:"15px 16px",marginBottom:16,border:`1px solid ${BORDER}`,animation:"evCardIn .4s .2s both"}}>
-                    <div style={{fontSize:10,color:PINK,fontWeight:900,letterSpacing:2,marginBottom:12,textTransform:"uppercase"}}>Line-up</div>
+                  <div style={{background:BG2,borderRadius:16,padding:"15px 16px",marginBottom:14,border:`1px solid ${BORDER}`,animation:"evCardIn .4s .22s both"}}>
+                    <div style={{fontSize:10,color:PINK,fontWeight:900,letterSpacing:2,marginBottom:12,textTransform:"uppercase"}}>🎧 Line-up</div>
                     <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                       {selEv.lineup.map((dj,i)=>(
-                        <div key={dj} style={{padding:"8px 16px",background:BG3,borderRadius:20,fontSize:13,fontWeight:800,color:WHITE,border:`1px solid ${BORDER}`,animation:`evCardIn .3s ${i*.05}s both`}}>{dj}</div>
+                        <div key={dj} style={{padding:"7px 14px",background:`linear-gradient(135deg,${PINK}15,${BG3})`,borderRadius:20,fontSize:12,fontWeight:800,color:WHITE,border:`1px solid ${PINK}25`,animation:`evCardIn .3s ${i*.05}s both`}}>{dj}</div>
                       ))}
                     </div>
                   </div>
@@ -2590,48 +3029,48 @@ export default function App(){
 
                 {/* Dispo billets */}
                 {selEv.capacity>0&&!selEv.ended&&(
-                  <div style={{background:BG2,borderRadius:16,padding:"14px 16px",marginBottom:16,border:`1px solid ${BORDER}`,animation:"evCardIn .4s .25s both"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+                  <div style={{background:BG2,borderRadius:16,padding:"14px 16px",marginBottom:14,border:`1px solid ${BORDER}`,animation:"evCardIn .4s .25s both"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                       <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:1.5,textTransform:"uppercase"}}>Disponibilité</div>
-                      <div style={{fontSize:11,fontWeight:700,color:selEv.ticketsSold/selEv.capacity>0.8?"#FF6B6B":WHITE}}>{selEv.capacity-(selEv.ticketsSold||0)} places restantes</div>
+                      <div style={{fontSize:11,fontWeight:700,color:selEv.ticketsSold/selEv.capacity>0.8?"#FF6B6B":GREEN}}>{selEv.capacity-(selEv.ticketsSold||0)} places restantes</div>
                     </div>
-                    <div style={{height:5,borderRadius:5,background:"rgba(255,255,255,.06)",overflow:"hidden"}}>
-                      <div style={{height:"100%",borderRadius:5,background:selEv.ticketsSold/selEv.capacity>0.8?"linear-gradient(90deg,#FF4444,#FF6B6B)":GRAD,width:`${Math.min(100,Math.round((selEv.ticketsSold||0)/selEv.capacity*100))}%`,transition:"width 1.2s ease",boxShadow:`0 0 8px rgba(255,0,128,.4)`}}/>
+                    <div style={{height:6,borderRadius:6,background:"rgba(255,255,255,.06)",overflow:"hidden"}}>
+                      <div style={{height:"100%",borderRadius:6,background:selEv.ticketsSold/selEv.capacity>0.8?"linear-gradient(90deg,#FF4444,#FF6B6B)":GRAD,width:`${Math.min(100,Math.round((selEv.ticketsSold||0)/selEv.capacity*100))}%`,transition:"width 1.2s ease",boxShadow:`0 0 10px rgba(255,0,128,.4)`}}/>
                     </div>
                     <div style={{fontSize:10,color:GRAY,marginTop:6}}>{selEv.ticketsSold||0} / {selEv.capacity} billets vendus</div>
                   </div>
                 )}
 
-                {/* Quantité */}
+                {/* Quantité + achat */}
                 {!selEv.ended&&!selEv.soldOut&&(
-                  <div style={{background:BG2,borderRadius:16,padding:"16px",marginBottom:16,border:`1px solid ${BORDER}`,animation:"evCardIn .4s .3s both"}}>
+                  <div style={{background:"rgba(255,0,128,.06)",border:"1px solid rgba(255,0,128,.15)",borderRadius:20,padding:"18px",marginBottom:14,animation:"evCardIn .4s .3s both"}}>
                     <div style={{fontSize:10,color:PINK,fontWeight:900,letterSpacing:2,marginBottom:14,textTransform:"uppercase"}}>Nombre de billets</div>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <div style={{display:"flex",gap:18,alignItems:"center"}}>
-                        <button onClick={()=>changeQty(-1)} style={{width:42,height:42,borderRadius:13,border:`1px solid ${BORDER}`,background:BG3,color:WHITE,cursor:"pointer",fontSize:24,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:300}}>−</button>
-                        <span style={{fontSize:34,fontWeight:900,color:WHITE,animation:qtyAnim?"qtyBounce .3s both":"none",minWidth:44,textAlign:"center"}}>{qty}</span>
-                        <button onClick={()=>changeQty(1)} style={{width:42,height:42,borderRadius:13,border:"none",background:GRAD,color:WHITE,cursor:"pointer",fontSize:24,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 16px rgba(255,0,128,.4)"}}>+</button>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+                      <div style={{display:"flex",gap:16,alignItems:"center"}}>
+                        <button onClick={()=>changeQty(-1)} style={{width:44,height:44,borderRadius:14,border:`1px solid ${BORDER}`,background:BG3,color:WHITE,cursor:"pointer",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                        <span style={{fontSize:36,fontWeight:900,color:WHITE,animation:qtyAnim?"qtyBounce .3s both":"none",minWidth:44,textAlign:"center"}}>{qty}</span>
+                        <button onClick={()=>changeQty(1)} style={{width:44,height:44,borderRadius:14,border:"none",background:GRAD,color:WHITE,cursor:"pointer",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 16px rgba(255,0,128,.4)"}}>+</button>
                       </div>
                       <div style={{textAlign:"right"}}>
                         <div style={{fontSize:10,color:GRAY,fontWeight:700,letterSpacing:1,marginBottom:3}}>TOTAL</div>
-                        <div style={{fontSize:30,fontWeight:900,color:PINK,lineHeight:1}}>{selEv.price*qty} <span style={{fontSize:14,fontWeight:700}}>CHF</span></div>
+                        <div style={{fontSize:32,fontWeight:900,color:PINK,lineHeight:1}}>{selEv.price*qty}<span style={{fontSize:14,fontWeight:700,marginLeft:4}}>CHF</span></div>
                       </div>
+                    </div>
+                    <div onClick={()=>setScreen("payment")} style={{padding:"16px 0",borderRadius:16,background:GRAD,textAlign:"center",fontWeight:900,fontSize:15,color:WHITE,cursor:"pointer",letterSpacing:.5,boxShadow:"0 8px 28px rgba(255,0,128,.45)"}}>
+                      ACHETER — CHF {selEv.price*qty}
                     </div>
                   </div>
                 )}
 
-                {/* Boutons */}
-                <div style={{animation:"evCardIn .4s .35s both"}}>
-                  {selEv.ended?(
-                    <div style={{background:"rgba(255,255,255,.04)",border:`1px solid ${BORDER}`,borderRadius:16,padding:"16px 0",textAlign:"center",color:GRAY,fontWeight:800,fontSize:13,letterSpacing:.5}}>SOIRÉE TERMINÉE</div>
-                  ):selEv.soldOut?(
-                    <div style={{background:"rgba(255,68,68,.06)",border:"1px solid rgba(255,68,68,.25)",borderRadius:16,padding:"16px 0",textAlign:"center",color:"#FF4444",fontWeight:900,fontSize:14,letterSpacing:.5}}>COMPLET</div>
-                  ):(
-                    <div onClick={()=>setScreen("payment")} style={{padding:"16px 0",borderRadius:16,background:GRAD,textAlign:"center",fontWeight:900,fontSize:15,color:WHITE,cursor:"pointer",letterSpacing:.5,boxShadow:"0 6px 24px rgba(255,0,128,.4)",marginBottom:10}}>ACHETER DES BILLETS — CHF {selEv.price*qty}</div>
-                  )}
-                  {!selEv.ended&&<div onClick={()=>setScreen("vip")} style={{padding:"14px 0",borderRadius:16,background:"rgba(255,215,0,.06)",border:"1px solid rgba(255,215,0,.25)",textAlign:"center",fontWeight:900,fontSize:14,color:"#FFD700",cursor:"pointer",letterSpacing:.5,marginTop:10}}>RÉSERVER VIP 👑</div>}
-                </div>
-                <div style={{height:24}}/>
+                {selEv.ended&&<div style={{background:"rgba(255,255,255,.04)",border:`1px solid ${BORDER}`,borderRadius:16,padding:"16px 0",textAlign:"center",color:GRAY,fontWeight:800,fontSize:13,letterSpacing:.5,marginBottom:14}}>SOIRÉE TERMINÉE</div>}
+                {selEv.soldOut&&!selEv.ended&&<div style={{background:"rgba(255,68,68,.06)",border:"1px solid rgba(255,68,68,.25)",borderRadius:16,padding:"16px 0",textAlign:"center",color:"#FF4444",fontWeight:900,fontSize:14,letterSpacing:.5,marginBottom:14}}>COMPLET</div>}
+
+                {!selEv.ended&&(
+                  <div onClick={()=>setScreen("vip")} style={{padding:"15px 0",borderRadius:16,background:"linear-gradient(135deg,rgba(255,215,0,.1),rgba(255,180,0,.06))",border:"1px solid rgba(255,215,0,.3)",textAlign:"center",fontWeight:900,fontSize:14,color:"#FFD700",cursor:"pointer",letterSpacing:.5,boxShadow:"0 4px 20px rgba(255,215,0,.1)"}}>
+                    👑 RÉSERVER UNE TABLE VIP
+                  </div>
+                )}
+                <div style={{height:30}}/>
               </div>
             </div>
           </div>
@@ -2720,31 +3159,82 @@ export default function App(){
         )}
 
         {notifOpen&&(
-          <div style={{position:"absolute",inset:0,zIndex:200,background:"rgba(0,0,0,.6)"}} onClick={()=>setNotifOpen(false)}>
-            <div style={{position:"absolute",top:0,right:0,bottom:0,width:"85%",maxWidth:340,background:BG2,borderLeft:`1px solid ${BORDER}`,display:"flex",flexDirection:"column",paddingTop:SAFE_TOP,animation:"menuSlideRight .3s both"}} onClick={e=>e.stopPropagation()}>
-              <div style={{padding:"16px 20px",borderBottom:`1px solid ${BORDER}`,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
-                <div style={{display:"flex",alignItems:"center",gap:10}}><Icon n="bell" s={20} c={PINK}/><span style={{fontSize:16,fontWeight:900,color:WHITE}}>Notifications</span></div>
-                <button onClick={()=>setNotifOpen(false)} style={{background:"none",border:"none",color:GRAY,cursor:"pointer",fontSize:22}}>×</button>
-              </div>
-              <div style={{flex:1,overflowY:"auto",padding:"16px 20px"}}>
-                <div style={{background:`linear-gradient(135deg,${PINK}15,${BG3})`,border:`1px solid ${PINK}44`,borderRadius:16,padding:"16px",marginBottom:20}}>
-                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-                    <span style={{fontSize:22}}>🔔</span>
-                    <div><div style={{fontSize:14,fontWeight:900,color:WHITE}}>Activer les notifications</div><div style={{fontSize:11,color:GRAY}}>Sois le premier informé !</div></div>
-                  </div>
-                  <div onClick={()=>showToast("🔔 Notifications activées !")} style={{background:GRAD,color:WHITE,padding:"10px 0",borderRadius:12,textAlign:"center",fontWeight:900,fontSize:13,cursor:"pointer"}}>ACTIVER</div>
-                </div>
-                <div style={{fontSize:10,color:GRAY,fontWeight:900,letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>SOIRÉES</div>
-                {events.slice(0,3).map((ev,i)=>(
-                  <div key={i} style={{background:i===0?"rgba(255,0,128,.06)":BG3,borderRadius:14,padding:"14px",marginBottom:10,border:i===0?`1px solid ${PINK}33`:`1px solid ${BORDER}`,display:"flex",gap:12}}>
-                    <span style={{fontSize:22}}>🎉</span>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:13,fontWeight:800,color:WHITE}}>{ev.title}</div>
-                      <div style={{fontSize:11,color:GRAY,marginTop:3}}>{ev.date} • CHF {ev.price}</div>
+          <div style={{position:"fixed",inset:0,zIndex:300,backdropFilter:"blur(6px)",background:"rgba(0,0,0,.75)"}} onClick={()=>setNotifOpen(false)}>
+            <style>{`
+              @keyframes notifSlide{from{transform:translateX(110%)}to{transform:translateX(0)}}
+              @keyframes notifItemIn{from{transform:translateX(24px);opacity:0}to{transform:translateX(0);opacity:1}}
+              @keyframes bellShake{0%,100%{transform:rotate(0)}15%{transform:rotate(18deg)}30%{transform:rotate(-14deg)}45%{transform:rotate(10deg)}60%{transform:rotate(-6deg)}75%{transform:rotate(3deg)}}
+              @keyframes liveDot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.6)}}
+            `}</style>
+            <div style={{position:"absolute",top:0,right:0,bottom:0,width:"88%",maxWidth:360,display:"flex",flexDirection:"column",animation:"notifSlide .38s cubic-bezier(.22,1,.36,1) both"}} onClick={e=>e.stopPropagation()}>
+
+              {/* Header */}
+              <div style={{background:`linear-gradient(160deg,#1a0a1e,#0D1117)`,borderBottom:`1px solid rgba(255,0,128,.15)`,padding:`calc(env(safe-area-inset-top,44px) + 14px) 18px 18px`,flexShrink:0,boxShadow:"0 8px 32px rgba(0,0,0,.4)"}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+                  <div style={{display:"flex",alignItems:"center",gap:12}}>
+                    <div style={{width:44,height:44,borderRadius:15,background:"linear-gradient(135deg,rgba(255,0,128,.25),rgba(123,47,255,.2))",border:"1px solid rgba(255,0,128,.35)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 20px rgba(255,0,128,.2)"}}>
+                      <div style={{animation:"bellShake 2.5s ease-in-out 0.5s"}}><Icon n="bell" s={20} c={PINK}/></div>
+                    </div>
+                    <div>
+                      <div style={{fontSize:19,fontWeight:900,color:WHITE,letterSpacing:.3}}>Notifications</div>
+                      <div style={{display:"flex",alignItems:"center",gap:5,marginTop:2}}>
+                        <div style={{width:6,height:6,borderRadius:"50%",background:GREEN,animation:"liveDot 1.5s ease-in-out infinite"}}/>
+                        <div style={{fontSize:10,color:GRAY,fontWeight:600}}>{events.filter(e=>!e.ended).length} soirée{events.filter(e=>!e.ended).length>1?"s":""} à venir</div>
+                      </div>
                     </div>
                   </div>
-                ))}
-                <div style={{height:16}}/>
+                  <div onClick={()=>setNotifOpen(false)} style={{width:34,height:34,borderRadius:11,background:"rgba(255,255,255,.06)",border:`1px solid ${BORDER}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={GRAY} strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Corps */}
+              <div style={{flex:1,overflowY:"auto",background:"linear-gradient(180deg,#0f0a14,#0D1117)",padding:"16px 14px"}}>
+
+                {/* Bannière activer */}
+                <div style={{borderRadius:20,padding:"16px",marginBottom:18,background:"linear-gradient(135deg,rgba(255,0,128,.14),rgba(123,47,255,.1))",border:"1px solid rgba(255,0,128,.22)",position:"relative",overflow:"hidden",animation:"notifItemIn .4s .05s both"}}>
+                  <div style={{position:"absolute",top:-30,right:-30,width:100,height:100,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,0,128,.12),transparent)"}}/>
+                  <div style={{position:"absolute",bottom:-20,left:-20,width:70,height:70,borderRadius:"50%",background:"radial-gradient(circle,rgba(123,47,255,.1),transparent)"}}/>
+                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,position:"relative"}}>
+                    <div style={{fontSize:26,animation:"bellShake 2s ease-in-out 1.2s infinite"}}>🔔</div>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:900,color:WHITE}}>Ne rate aucune soirée !</div>
+                      <div style={{fontSize:11,color:"rgba(255,255,255,.6)",marginTop:2}}>Sois le premier informé des nouveautés</div>
+                    </div>
+                  </div>
+                  <div onClick={()=>showToast("🔔 Notifications activées !")} style={{background:GRAD,color:WHITE,padding:"12px 0",borderRadius:13,textAlign:"center",fontWeight:900,fontSize:12,cursor:"pointer",letterSpacing:.8,boxShadow:"0 4px 18px rgba(255,0,128,.35)",position:"relative"}}>
+                    ACTIVER LES NOTIFICATIONS
+                  </div>
+                </div>
+
+                {/* Soirées à venir */}
+                {events.filter(e=>!e.ended).length>0&&(
+                  <div style={{marginBottom:20}}>
+                    <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:12}}>
+                      <div style={{width:7,height:7,borderRadius:"50%",background:PINK,boxShadow:`0 0 8px ${PINK}`,animation:"liveDot 1.5s ease-in-out infinite"}}/>
+                      <div style={{fontSize:10,fontWeight:900,color:PINK,letterSpacing:2,textTransform:"uppercase"}}>Prochaines soirées</div>
+                    </div>
+                    {events.filter(e=>!e.ended).slice(0,4).map((ev,i)=>(
+                      <div key={i} onClick={()=>{setNotifOpen(false);setSelEv(ev);setScreen("event");}} style={{borderRadius:16,padding:"11px 13px",marginBottom:8,background:i===0?"rgba(255,0,128,.07)":BG2,border:`1px solid ${i===0?"rgba(255,0,128,.25)":BORDER}`,display:"flex",gap:11,alignItems:"center",cursor:"pointer",animation:`notifItemIn .35s ${.12+i*.07}s both`,position:"relative",overflow:"hidden"}}>
+                        {i===0&&<div style={{position:"absolute",inset:0,background:"linear-gradient(90deg,rgba(255,0,128,.03),transparent)",pointerEvents:"none"}}/>}
+                        {ev.poster
+                          ?<img src={ev.poster} alt="" style={{width:48,height:48,borderRadius:12,objectFit:"cover",flexShrink:0,boxShadow:i===0?"0 0 12px rgba(255,0,128,.3)":"none"}}/>
+                          :<div style={{width:48,height:48,borderRadius:12,background:GRAD,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>🎉</div>
+                        }
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,fontWeight:800,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</div>
+                          <div style={{fontSize:11,color:GRAY,marginTop:2}}>{ev.date} · {ev.city||ev.location}</div>
+                          <div style={{fontSize:12,fontWeight:700,color:i===0?PINK:GREEN,marginTop:3}}>CHF {ev.price}</div>
+                        </div>
+                        {i===0&&<div style={{background:GRAD,borderRadius:20,padding:"3px 9px",fontSize:9,fontWeight:900,color:WHITE,flexShrink:0,letterSpacing:.5}}>NOUVEAU</div>}
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={GRAY} strokeWidth="2.5" style={{flexShrink:0}}><polyline points="9 18 15 12 9 6"/></svg>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Instagram */}
                 <IGBtn/>
                 <div style={{height:30}}/>
               </div>
