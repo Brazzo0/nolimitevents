@@ -231,6 +231,21 @@ function TicketCard({ticket,events,onShowQR,index=0}){
   const statusColor=isValid?"#00E676":isUsed?GRAY:"#FF4444";
   const statusLabel=isValid?"✓ VALIDE":isUsed?"UTILISÉ":"ANNULÉ";
   const delay=index*0.08;
+  const [walletLoading,setWalletLoading]=React.useState(false);
+  const addToWallet=async()=>{
+    if(walletLoading)return;
+    setWalletLoading(true);
+    try{
+      const resp=await fetch(`${API_BASE}/api/generate-pass`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticketId:ticket.id,eventTitle:(ev&&ev.title)||ticket.event||"No Limit Events",eventDate:(ev&&ev.date)||ticket.date||"",eventLocation:(ev&&ev.location)||ticket.location||"",name:ticket.owner||""})});
+      if(!resp.ok)throw new Error("Erreur");
+      const blob=await resp.blob();
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");
+      a.href=url;a.download=`${ticket.id}.pkpass`;a.click();
+      setTimeout(()=>URL.revokeObjectURL(url),3000);
+    }catch(e){alert("Erreur Wallet : "+e.message);}
+    setWalletLoading(false);
+  };
   return(
     <div style={{borderRadius:24,overflow:"hidden",marginBottom:16,boxShadow:`0 8px 32px rgba(0,0,0,.4)`,animation:`slideUp .5s ${delay}s both`,position:"relative"}}>
       {/* Partie haute : affiche + infos */}
@@ -271,18 +286,26 @@ function TicketCard({ticket,events,onShowQR,index=0}){
           <div style={{fontSize:11,color:"rgba(255,255,255,.5)"}}>{ticket.owner}</div>
           {ticket.price>0&&<div style={{fontSize:12,fontWeight:900,color:WHITE,marginTop:4}}>CHF {ticket.price}</div>}
         </div>
-        <div onClick={()=>isValid&&onShowQR(ticket)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,cursor:isValid?"pointer":"default",opacity:isValid?1:.4,transition:"transform .15s",userSelect:"none"}}
-          onMouseDown={e=>{if(isValid)e.currentTarget.style.transform="scale(.94)"}}
-          onMouseUp={e=>{if(isValid)e.currentTarget.style.transform="scale(1)"}}>
-          <div style={{width:58,height:58,borderRadius:16,background:isValid?"linear-gradient(135deg,#FF0080,#FF3399)":"rgba(255,255,255,.05)",border:isValid?"none":`1px solid ${BORDER}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:isValid?"0 4px 20px rgba(255,0,128,.4)":"none"}}>
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={isValid?WHITE:GRAY} strokeWidth="2" strokeLinecap="round">
-              <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-              <line x1="14" y1="14" x2="14" y2="14"/><line x1="17" y1="14" x2="17" y2="14"/><line x1="20" y1="14" x2="20" y2="14"/>
-              <line x1="14" y1="17" x2="14" y2="17"/><line x1="17" y1="17" x2="17" y2="17"/><line x1="20" y1="17" x2="20" y2="17"/>
-              <line x1="14" y1="20" x2="14" y2="20"/><line x1="17" y1="20" x2="17" y2="20"/><line x1="20" y1="20" x2="20" y2="20"/>
-            </svg>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:8}}>
+          <div onClick={()=>isValid&&onShowQR(ticket)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,cursor:isValid?"pointer":"default",opacity:isValid?1:.4,transition:"transform .15s",userSelect:"none"}}
+            onMouseDown={e=>{if(isValid)e.currentTarget.style.transform="scale(.94)"}}
+            onMouseUp={e=>{if(isValid)e.currentTarget.style.transform="scale(1)"}}>
+            <div style={{width:58,height:58,borderRadius:16,background:isValid?"linear-gradient(135deg,#FF0080,#FF3399)":"rgba(255,255,255,.05)",border:isValid?"none":`1px solid ${BORDER}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:isValid?"0 4px 20px rgba(255,0,128,.4)":"none"}}>
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={isValid?WHITE:GRAY} strokeWidth="2" strokeLinecap="round">
+                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+                <line x1="14" y1="14" x2="14" y2="14"/><line x1="17" y1="14" x2="17" y2="14"/><line x1="20" y1="14" x2="20" y2="14"/>
+                <line x1="14" y1="17" x2="14" y2="17"/><line x1="17" y1="17" x2="17" y2="17"/><line x1="20" y1="17" x2="20" y2="17"/>
+                <line x1="14" y1="20" x2="14" y2="20"/><line x1="17" y1="20" x2="17" y2="20"/><line x1="20" y1="20" x2="20" y2="20"/>
+              </svg>
+            </div>
+            <span style={{fontSize:9,fontWeight:900,color:isValid?PINK:GRAY,letterSpacing:1,textTransform:"uppercase"}}>QR CODE</span>
           </div>
-          <span style={{fontSize:9,fontWeight:900,color:isValid?PINK:GRAY,letterSpacing:1,textTransform:"uppercase"}}>QR CODE</span>
+          {isValid&&(
+            <div onClick={addToWallet} style={{display:"flex",alignItems:"center",gap:5,background:"#000",border:"1px solid rgba(255,255,255,.2)",borderRadius:10,padding:"6px 10px",cursor:"pointer",opacity:walletLoading?.5:1}}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={WHITE} strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+              <span style={{fontSize:9,fontWeight:900,color:WHITE,letterSpacing:.5,whiteSpace:"nowrap"}}>{walletLoading?"...":"Wallet"}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
