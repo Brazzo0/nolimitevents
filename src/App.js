@@ -122,6 +122,11 @@ const dbUploadMedia=async(file,eventId=null)=>{
 };
 const dbDeleteMedia=async(id)=>{try{await supabase.from("event_media").delete().eq("id",id);}catch{}};
 
+const dbLoadProfiles=async()=>{
+  try{const{data}=await supabase.from("profiles").select("*").order("created_at",{ascending:false});return data||[];}catch{return[];}
+};
+const dbDeleteProfile=async(id)=>{try{await supabase.from("profiles").delete().eq("id",id);}catch{}};
+
 const Icon=({n,s=22,c=GRAY,fill="none",sw=2.2})=>{
   const p={width:s,height:s,viewBox:"0 0 24 24",fill,stroke:c,strokeWidth:sw,strokeLinecap:"round",strokeLinejoin:"round"};
   const icons={
@@ -1142,6 +1147,9 @@ export default function App(){
   const [showGallery,setShowGallery]=useState(false);
   const [delConfirm,setDelConfirm]=useState(null);
   const [delTicketConfirm,setDelTicketConfirm]=useState(null);
+  const [adminUsers,setAdminUsers]=useState([]);
+  const [adminUsersLoading,setAdminUsersLoading]=useState(false);
+  const [delUserConfirm,setDelUserConfirm]=useState(null);
   const [toast,setToast]=useState(null);
   const [menuOpen,setMenuOpen]=useState(false);
   const [aboutMedia,setAboutMedia]=useState([]);
@@ -1220,6 +1228,13 @@ export default function App(){
       dbLoadTickets().then(tix=>{if(tix&&tix.length>0)setTickets(tix);setTicketsLoading(false);}).catch(()=>setTicketsLoading(false));
     }
   },[screen]);
+
+  useEffect(()=>{
+    if(adminTab==="users"&&adminAuth){
+      setAdminUsersLoading(true);
+      dbLoadProfiles().then(u=>{setAdminUsers(u);setAdminUsersLoading(false);});
+    }
+  },[adminTab,adminAuth]);
 
   useEffect(()=>{
     if(screen==="splash"&&!authLoading){
@@ -1358,6 +1373,7 @@ export default function App(){
   const saveFreeTicketFn=async(t)=>{await dbSaveTicket(t);setTickets(p=>[...p,t]);setShowFreeForm(false);showToast("🎁 Billet créé !");};
   const deleteEventFn=async(id)=>{await dbDeleteEvent(id);setEvents(p=>p.filter(e=>e.id!==id));setDelConfirm(null);showToast("🗑️ Supprimé");};
   const deleteTicketFn=async(id)=>{await dbDeleteTicket(id);setTickets(p=>p.filter(t=>t.id!==id));setDelTicketConfirm(null);showToast("🗑️ Billet supprimé");};
+  const deleteUserFn=async(id)=>{await dbDeleteProfile(id);setAdminUsers(p=>p.filter(u=>u.id!==id));setDelUserConfirm(null);showToast("🗑️ Compte supprimé");};
   const toggleSoldOut=async(id)=>{const ev=events.find(e=>e.id===id);if(!ev)return;const v=!ev.soldOut;await supabase.from("events").update({sold_out:v}).eq("id",id);setEvents(p=>p.map(e=>e.id===id?{...e,soldOut:v}:e));showToast("✅ Mis à jour");};
   const toggleEnd=async(id)=>{const ev=events.find(e=>e.id===id);if(!ev)return;const ending=!ev.ended;await supabase.from("events").update({ended:ending,sold_out:ending?true:ev.soldOut}).eq("id",id);setEvents(p=>p.map(e=>e.id===id?{...e,ended:ending,soldOut:ending?true:e.soldOut}:e));showToast(ending?"✅ Terminée !":"✅ Réactivée !");};
 
@@ -1402,14 +1418,14 @@ export default function App(){
   );
 
   return(
-    <div style={{display:"flex",justifyContent:"center",background:BG,minHeight:"100vh",fontFamily:"'DM Sans','Helvetica Neue',sans-serif"}}>
+    <div style={{display:"flex",justifyContent:"center",background:BG,height:"100vh",height:"100dvh",overflow:"hidden",fontFamily:"'DM Sans','Helvetica Neue',sans-serif"}}>
       <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleFile}/>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&display=swap');
         *{box-sizing:border-box;margin:0;padding:0}
         ::-webkit-scrollbar{display:none}
-        body,html{background:${BG};margin:0;padding:0}
-        .phone{width:100%;max-width:430px;height:100vh;background:${BG};overflow:hidden;position:relative;}
+        body,html{background:${BG};margin:0;padding:0;overflow:hidden;height:100%;width:100%}
+        .phone{width:100%;max-width:430px;height:100%;height:100dvh;background:${BG};overflow:hidden;position:relative;}
         .sc{height:100%;display:flex;flex-direction:column;overflow:hidden;position:relative;}
         .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
         .inp{width:100%;padding:12px 14px;background:${BG3};border:1.5px solid ${BORDER};border-radius:12px;color:${WHITE};font-size:14px;outline:none;font-family:inherit}
@@ -2675,8 +2691,8 @@ export default function App(){
                 </div>
                 {/* 5 onglets */}
                 <div style={{display:"flex",padding:"0 4px",overflowX:"auto",scrollbarWidth:"none"}}>
-                  {[["bar","Stats","dashboard"],["calendar","Soirées","events"],["ticket","Billets","tickets"],["gift","Gratuits","free"],["image","Médias","media"]].map(([ico,label,t])=>{
-                    const col=t==="free"?GREEN:t==="media"?"#7B6CF6":PINK;
+                  {[["bar","Stats","dashboard"],["calendar","Soirées","events"],["ticket","Billets","tickets"],["gift","Gratuits","free"],["users","Membres","users"],["image","Médias","media"]].map(([ico,label,t])=>{
+                    const col=t==="free"?GREEN:t==="media"?"#7B6CF6":t==="users"?"#60A5FA":PINK;
                     return(
                     <div key={t} onClick={()=>setAdminTab(t)} style={{flex:1,padding:"10px 4px",textAlign:"center",borderBottom:adminTab===t?`2.5px solid ${col}`:"2.5px solid transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4,transition:"all .2s",minWidth:56}}>
                       <Icon n={ico} s={17} c={adminTab===t?col:GRAY}/>
@@ -2726,6 +2742,60 @@ export default function App(){
                         </div>
                       ))
                     )}
+                    {/* Graphique ventes 7 derniers jours */}
+                    {(()=>{
+                      const paidTix=tickets.filter(t=>t.type!=="free"&&t.createdAt);
+                      const days=Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(6-i));return d;});
+                      const dayData=days.map(d=>{
+                        const key=d.toISOString().slice(0,10);
+                        const dayTix=paidTix.filter(t=>t.createdAt&&t.createdAt.slice(0,10)===key);
+                        return{label:d.toLocaleDateString("fr-CH",{weekday:"short"}).slice(0,3),count:dayTix.length,rev:dayTix.reduce((s,t)=>s+(Number(t.price)||0),0)};
+                      });
+                      const maxRev=Math.max(...dayData.map(d=>d.rev),1);
+                      const totalPeriod=dayData.reduce((s,d)=>s+d.rev,0);
+                      const totalCount=dayData.reduce((s,d)=>s+d.count,0);
+                      return(
+                        <div style={{marginTop:20,marginBottom:4}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                            <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase"}}>VENTES 7 JOURS</div>
+                            <div style={{display:"flex",gap:10}}>
+                              <div style={{textAlign:"right"}}>
+                                <div style={{fontSize:16,fontWeight:900,color:PINK}}>CHF {totalPeriod}</div>
+                                <div style={{fontSize:9,color:GRAY}}>{totalCount} billet{totalCount!==1?"s":""}</div>
+                              </div>
+                            </div>
+                          </div>
+                          <div style={{background:BG2,borderRadius:16,padding:"16px 12px 10px",border:`1px solid ${BORDER}`}}>
+                            <svg viewBox="0 0 280 90" style={{width:"100%",overflow:"visible"}}>
+                              {/* Grille */}
+                              {[0,25,50,75,100].map(pct=>(
+                                <line key={pct} x1={0} y1={70*(1-pct/100)} x2={280} y2={70*(1-pct/100)} stroke={BORDER} strokeWidth={.5} strokeDasharray="3,3"/>
+                              ))}
+                              {/* Barres */}
+                              {dayData.map((d,i)=>{
+                                const barH=d.rev>0?Math.max(4,Math.round((d.rev/maxRev)*66)):2;
+                                const x=i*40+4;
+                                const y=70-barH;
+                                return(
+                                  <g key={i}>
+                                    <defs>
+                                      <linearGradient id={`bg${i}`} x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor={PINK} stopOpacity=".9"/>
+                                        <stop offset="100%" stopColor="#7B2FFF" stopOpacity=".7"/>
+                                      </linearGradient>
+                                    </defs>
+                                    <rect x={x} y={y} width={32} height={barH} rx={5} fill={d.rev>0?`url(#bg${i})`:"rgba(255,255,255,.06)"}/>
+                                    {d.count>0&&<text x={x+16} y={y-4} textAnchor="middle" fill={WHITE} fontSize={7} fontWeight="800">{d.count}</text>}
+                                    <text x={x+16} y={82} textAnchor="middle" fill={GRAY} fontSize={8} fontWeight="700">{d.label}</text>
+                                  </g>
+                                );
+                              })}
+                            </svg>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     <div style={{marginTop:24}}>
                       <div onClick={()=>{setAdminAuth(false);setAdminPass("");goMain();}} style={{padding:"14px 0",borderRadius:14,background:"rgba(255,68,68,.08)",border:"1px solid rgba(255,68,68,.25)",textAlign:"center",fontWeight:900,color:"#FF4444",cursor:"pointer",fontSize:13,letterSpacing:.5}}>SE DÉCONNECTER</div>
                     </div>
@@ -2904,12 +2974,84 @@ export default function App(){
                   </div>
                 )}
 
+                {/* Membres */}
+                {adminTab==="users"&&(
+                  <div>
+                    {/* Compteur total */}
+                    <div style={{background:"rgba(96,165,250,.06)",borderRadius:16,padding:"16px",border:"1px solid rgba(96,165,250,.2)",marginBottom:16,display:"flex",alignItems:"center",gap:14}}>
+                      <div style={{width:48,height:48,borderRadius:14,background:"rgba(96,165,250,.15)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                        <Icon n="users" s={22} c="#60A5FA"/>
+                      </div>
+                      <div>
+                        <div style={{fontSize:28,fontWeight:900,color:"#60A5FA",lineHeight:1}}>{adminUsersLoading?"…":adminUsers.length}</div>
+                        <div style={{fontSize:12,fontWeight:700,color:WHITE,marginTop:2}}>Membres inscrits</div>
+                        <div style={{fontSize:10,color:GRAY,marginTop:1}}>Comptes avec profil actif</div>
+                      </div>
+                    </div>
+
+                    <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>LISTE DES MEMBRES</div>
+
+                    {adminUsersLoading?(
+                      <div style={{textAlign:"center",padding:"30px 0",color:GRAY,fontSize:13}}>Chargement…</div>
+                    ):adminUsers.length===0?(
+                      <div style={{textAlign:"center",padding:"40px 0"}}><div style={{fontSize:40,marginBottom:12}}>👥</div><div style={{color:GRAY,fontSize:13}}>Aucun membre</div></div>
+                    ):(
+                      adminUsers.map((u,i)=>{
+                        const userTickets=tickets.filter(t=>t.email&&u.email&&t.email.toLowerCase()===u.email?.toLowerCase());
+                        const joined=u.created_at?new Date(u.created_at).toLocaleDateString("fr-CH",{day:"2-digit",month:"2-digit",year:"2-digit"}):"—";
+                        return(
+                          <div key={u.id} style={{background:BG2,borderRadius:14,padding:"12px 14px",marginBottom:8,border:`1px solid ${BORDER}`,animation:`rowSlide .3s ${i*.04}s both`}}>
+                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                              <div style={{display:"flex",alignItems:"center",gap:10,flex:1,minWidth:0}}>
+                                <div style={{width:36,height:36,borderRadius:11,background:"rgba(96,165,250,.12)",border:"1px solid rgba(96,165,250,.2)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:14,fontWeight:900,color:"#60A5FA"}}>
+                                  {(u.pseudo||"?")[0].toUpperCase()}
+                                </div>
+                                <div style={{flex:1,minWidth:0}}>
+                                  <div style={{fontSize:13,fontWeight:800,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.pseudo||<span style={{color:GRAY,fontStyle:"italic"}}>Sans pseudo</span>}</div>
+                                  <div style={{fontSize:10,color:GRAY,marginTop:1}}>Inscrit le {joined}</div>
+                                </div>
+                              </div>
+                              <div style={{display:"flex",gap:6,flexShrink:0,marginLeft:8,alignItems:"center"}}>
+                                {u.points>0&&<div style={{background:"rgba(255,179,71,.1)",borderRadius:8,padding:"3px 7px",fontSize:9,fontWeight:800,color:"#FFB347"}}>⭐ {u.points}</div>}
+                                <div onClick={()=>setDelUserConfirm(u.id)} style={{width:32,height:32,borderRadius:9,background:"rgba(255,68,68,.1)",border:"1px solid rgba(255,68,68,.2)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
+                                  <Icon n="trash" s={13} c="#FF4444"/>
+                                </div>
+                              </div>
+                            </div>
+                            {(u.instagram||u.snapchat)&&(
+                              <div style={{display:"flex",gap:6,marginTop:8}}>
+                                {u.instagram&&<div style={{background:"rgba(255,255,255,.04)",borderRadius:7,padding:"3px 8px",fontSize:9,fontWeight:700,color:GRAY}}>📸 {u.instagram}</div>}
+                                {u.snapchat&&<div style={{background:"rgba(255,255,255,.04)",borderRadius:7,padding:"3px 8px",fontSize:9,fontWeight:700,color:GRAY}}>👻 {u.snapchat}</div>}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+
               </div>
 
               {/* Scanner, EventForm, FreeTicketForm */}
               {showScanner&&<QRScanner tickets={tickets} events={events} onClose={()=>{setShowScanner(false);setAdminTab("dashboard");}}/>}
               {showEvForm&&editEv!==null&&<EventForm ev={editEv} onSave={saveEventFn} onCancel={()=>{setShowEvForm(false);setEditEv(null);setAdminTab("events");}}/>}
               {showFreeForm&&<FreeTicketForm events={events} onSave={saveFreeTicketFn} onCancel={()=>{setShowFreeForm(false);setAdminTab("free");}}/>}
+
+              {/* Confirmer suppression compte */}
+              {delUserConfirm&&(
+                <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.85)",display:"flex",alignItems:"flex-end",zIndex:400}}>
+                  <div style={{background:BG2,borderRadius:"22px 22px 0 0",padding:"20px 20px 36px",width:"100%",border:`1px solid ${BORDER}`,animation:"slideUp .3s both"}}>
+                    <div style={{width:36,height:4,background:BORDER,borderRadius:4,margin:"0 auto 18px"}}/>
+                    <div style={{fontSize:17,fontWeight:900,color:WHITE,textAlign:"center",marginBottom:6}}>Supprimer ce compte ?</div>
+                    <div style={{fontSize:13,color:GRAY,textAlign:"center",marginBottom:22}}>Le profil et les données seront supprimés.</div>
+                    <div style={{display:"flex",gap:10}}>
+                      <div onClick={()=>setDelUserConfirm(null)} style={{flex:1,padding:"14px 0",borderRadius:14,border:`1px solid ${BORDER}`,textAlign:"center",fontWeight:900,color:GRAY,cursor:"pointer",background:BG3}}>ANNULER</div>
+                      <div onClick={()=>deleteUserFn(delUserConfirm)} style={{flex:1,padding:"14px 0",borderRadius:14,background:"#CC0000",textAlign:"center",fontWeight:900,color:WHITE,cursor:"pointer"}}>SUPPRIMER</div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Confirmer suppression soirée */}
               {delConfirm&&(
