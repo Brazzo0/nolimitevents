@@ -13,7 +13,7 @@ const PINK="#FF0080",PINK2="#FF3399",GREEN="#4ECDC4";
 const WHITE="#FFFFFF",GRAY="#8892A0",BORDER="#1E2A38";
 const ADMIN_PASS="nolimit2026";
 const API_BASE="https://nolimitevents.vercel.app";
-const APP_VERSION="v2.5";
+const APP_VERSION="v2.6";
 const GRAD=`linear-gradient(135deg,${PINK},${PINK2})`;
 const SAFE_TOP="env(safe-area-inset-top, 20px)";
 const SAFE_BOT="env(safe-area-inset-bottom, 8px)";
