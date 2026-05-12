@@ -17,10 +17,10 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST' && req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { ticketId, eventTitle, eventDate, eventLocation, name } = req.body;
+    const { ticketId, eventTitle, eventDate, eventLocation, name } = req.method === 'GET' ? req.query : req.body;
 
     const certPem   = Buffer.from(process.env.PASS_CERT_B64, 'base64').toString('utf8');
     const keyPem    = Buffer.from(process.env.PASS_KEY_B64,  'base64').toString('utf8');

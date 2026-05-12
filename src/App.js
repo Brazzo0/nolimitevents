@@ -231,21 +231,6 @@ function TicketCard({ticket,events,onShowQR,index=0}){
   const statusColor=isValid?"#00E676":isUsed?GRAY:"#FF4444";
   const statusLabel=isValid?"✓ VALIDE":isUsed?"UTILISÉ":"ANNULÉ";
   const delay=index*0.08;
-  const [walletLoading,setWalletLoading]=useState(false);
-  const addToWallet=async()=>{
-    if(walletLoading)return;
-    setWalletLoading(true);
-    try{
-      const resp=await fetch(`${API_BASE}/api/generate-pass`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticketId:ticket.id,eventTitle:(ev&&ev.title)||ticket.event||"No Limit Events",eventDate:(ev&&ev.date)||ticket.date||"",eventLocation:(ev&&ev.location)||ticket.location||"",name:ticket.owner||""})});
-      if(!resp.ok)throw new Error("Erreur");
-      const blob=await resp.blob();
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement("a");
-      a.href=url;a.download=`${ticket.id}.pkpass`;a.click();
-      setTimeout(()=>URL.revokeObjectURL(url),3000);
-    }catch(e){alert("Erreur Wallet : "+e.message);}
-    setWalletLoading(false);
-  };
   return(
     <div style={{borderRadius:24,overflow:"hidden",marginBottom:16,boxShadow:`0 8px 32px rgba(0,0,0,.4)`,animation:`slideUp .5s ${delay}s both`,position:"relative"}}>
       {/* Partie haute : affiche + infos */}
@@ -300,12 +285,6 @@ function TicketCard({ticket,events,onShowQR,index=0}){
             </div>
             <span style={{fontSize:9,fontWeight:900,color:isValid?PINK:GRAY,letterSpacing:1,textTransform:"uppercase"}}>QR CODE</span>
           </div>
-          {isValid&&(
-            <div onClick={addToWallet} style={{display:"flex",alignItems:"center",gap:5,background:"#000",border:"1px solid rgba(255,255,255,.2)",borderRadius:10,padding:"6px 10px",cursor:"pointer",opacity:walletLoading?0.5:1}}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={WHITE} strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
-              <span style={{fontSize:9,fontWeight:900,color:WHITE,letterSpacing:.5,whiteSpace:"nowrap"}}>{walletLoading?"...":"Wallet"}</span>
-            </div>
-          )}
         </div>
       </div>
     </div>

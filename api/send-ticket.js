@@ -11,6 +11,7 @@ module.exports = async (req, res) => {
     const resend = new Resend(process.env.RESEND_API_KEY);
     const { email, name, eventTitle, eventDate, eventLocation, ticketId } = req.body;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(ticketId)}&bgcolor=0D1117&color=FF0080&margin=10`;
+    const walletUrl = `https://nolimitevents.vercel.app/api/generate-pass?ticketId=${encodeURIComponent(ticketId)}&eventTitle=${encodeURIComponent(eventTitle)}&eventDate=${encodeURIComponent(eventDate)}&eventLocation=${encodeURIComponent(eventLocation)}&name=${encodeURIComponent(name||'')}`;
     const prenom = (name || '').split(' ')[0] || name || 'No Limiter';
     const isFree = ticketId.includes('FREE');
 
@@ -115,9 +116,33 @@ module.exports = async (req, res) => {
       </div>
 
       <!-- Ticket ID -->
-      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px 16px;text-align:center;margin-bottom:8px;">
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px 16px;text-align:center;margin-bottom:16px;">
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:2px;text-transform:uppercase;margin-bottom:5px;">ID du billet</div>
         <div style="font-family:'Courier New',monospace;font-size:15px;font-weight:700;color:#FF0080;letter-spacing:2px;">${ticketId}</div>
+      </div>
+
+      <!-- Apple Wallet -->
+      <div style="text-align:center;margin-bottom:8px;">
+        <a href="${walletUrl}" style="display:inline-block;background:#000;border:1.5px solid rgba(255,255,255,.25);border-radius:12px;padding:10px 22px;text-decoration:none;">
+          <table style="border-collapse:collapse;display:inline-table;">
+            <tr>
+              <td style="vertical-align:middle;padding-right:8px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="2" y="7" width="20" height="14" rx="3" fill="white"/>
+                  <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" stroke="white" stroke-width="1.5" fill="none"/>
+                  <circle cx="8" cy="14" r="1.5" fill="#000"/>
+                  <rect x="11" y="13" width="7" height="1.5" rx=".75" fill="#000"/>
+                  <rect x="11" y="15.5" width="5" height="1.5" rx=".75" fill="#000"/>
+                </svg>
+              </td>
+              <td style="vertical-align:middle;">
+                <div style="font-size:9px;color:rgba(255,255,255,.5);font-weight:600;letter-spacing:1px;text-transform:uppercase;line-height:1;margin-bottom:2px;">Ajouter à</div>
+                <div style="font-size:14px;color:#fff;font-weight:800;letter-spacing:.3px;line-height:1;">Apple Wallet</div>
+              </td>
+            </tr>
+          </table>
+        </a>
+        <p style="margin:8px 0 0;font-size:10px;color:rgba(255,255,255,.2);">iPhone uniquement</p>
       </div>
 
     </div>
