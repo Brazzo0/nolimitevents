@@ -1427,7 +1427,7 @@ export default function App(){
         body,html{background:${BG};margin:0;padding:0;overflow:hidden;height:100%;width:100%}
         .phone{width:100%;max-width:430px;height:100%;height:100dvh;background:${BG};overflow:hidden;position:relative;}
         .sc{height:100%;display:flex;flex-direction:column;overflow:hidden;position:relative;}
-        .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+        .scroll{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;width:100%;max-width:100%;}
         .inp{width:100%;padding:12px 14px;background:${BG3};border:1.5px solid ${BORDER};border-radius:12px;color:${WHITE};font-size:14px;outline:none;font-family:inherit}
         .inp::placeholder{color:${GRAY}}
         @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
