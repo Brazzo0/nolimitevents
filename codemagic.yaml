@@ -16,7 +16,7 @@ workflows:
       cocoapods: default
     scripts:
       - name: Installer les dépendances
-        script: npm install
+        script: npm install --legacy-peer-deps
       - name: Build React
         script: npm run build
       - name: Sync Capacitor iOS
@@ -50,7 +50,7 @@ workflows:
       node: v18
     scripts:
       - name: Installer les dépendances
-        script: npm install
+        script: npm install --legacy-peer-deps
       - name: Build React
         script: npm run build
       - name: Sync Capacitor Android
