@@ -11,7 +11,7 @@ workflows:
         bundle_identifier: ch.nolimitevents.app
       groups:
         - apple_credentials
-      node: v18
+      node: v22
       xcode: latest
       cocoapods: default
     scripts:
@@ -47,7 +47,7 @@ workflows:
         - nolimitevents_keystore
       vars:
         PACKAGE_NAME: ch.nolimitevents.app
-      node: v18
+      node: v22
     scripts:
       - name: Installer les dépendances
         script: npm install --legacy-peer-deps
