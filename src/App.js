@@ -12,6 +12,7 @@ const BG="#0D1117",BG2="#141A22",BG3="#1C2430";
 const PINK="#FF0080",PINK2="#FF3399",GREEN="#4ECDC4";
 const WHITE="#FFFFFF",GRAY="#8892A0",BORDER="#1E2A38";
 const ADMIN_PASS="nolimit2026";
+const API_BASE="https://nolimitevents.vercel.app";
 const GRAD=`linear-gradient(135deg,${PINK},${PINK2})`;
 const SAFE_TOP="env(safe-area-inset-top, 20px)";
 const SAFE_BOT="env(safe-area-inset-bottom, 8px)";
@@ -1066,7 +1067,7 @@ function StripePayForm({amount,onSuccess}){
     if(!stripe||!elements) return;
     setLoading(true);setError(null);
     try{
-      const r=await fetch("/api/create-payment-intent",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({amount})});
+      const r=await fetch(`${API_BASE}/api/create-payment-intent`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({amount})});
       const{clientSecret}=await r.json();
       const{error:se}=await stripe.confirmCardPayment(clientSecret,{payment_method:{card:elements.getElement(CardElement)}});
       if(se){setError(se.message);setLoading(false);}else{onSuccess();}
@@ -1384,7 +1385,7 @@ export default function App(){
     setShowFreeForm(false);
     showToast("📧 Envoi du billet...");
     try{
-      const resp=await fetch("/api/send-ticket",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:t.email,name:t.owner,eventTitle:t.event,eventDate:t.date,eventLocation:t.location,ticketId:t.id})});
+      const resp=await fetch(`${API_BASE}/api/send-ticket`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:t.email,name:t.owner,eventTitle:t.event,eventDate:t.date,eventLocation:t.location,ticketId:t.id})});
       if(resp.ok){showToast("✅ Billet envoyé par mail !");}
       else{const d=await resp.json().catch(()=>({}));showToast("⚠️ Mail non envoyé : "+(d.error||resp.status));}
     }catch{showToast("⚠️ Billet créé, mail échoué (réseau)");}
@@ -1404,7 +1405,7 @@ export default function App(){
       const t={id,eventId:selEv.id,event:selEv.title,date:selEv.date.split(" ").slice(0,3).join(" "),location:selEv.location,time:selEv.time,owner:buyerName,email:buyerEmail,type:"paid",price:selEv.price,status:"valid",createdAt:new Date().toLocaleDateString("fr-CH")};
       await dbSaveTix(t);
       newTickets.push(t);
-      try{await fetch("/api/send-ticket",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:buyerEmail,name:buyerName,eventTitle:selEv.title,eventDate:selEv.date,eventLocation:selEv.location,ticketId:id})});}catch{}
+      try{await fetch(`${API_BASE}/api/send-ticket`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:buyerEmail,name:buyerName,eventTitle:selEv.title,eventDate:selEv.date,eventLocation:selEv.location,ticketId:id})});}catch{}
     }
     setTickets(p=>[...p,...newTickets]);
     await supabase.from("events").update({tickets_sold:selEv.ticketsSold+qty}).eq("id",selEv.id);
