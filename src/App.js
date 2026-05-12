@@ -627,8 +627,14 @@ function GroupsScreen({authUser,supabase}){
   const [searchLoading,setSearchLoading]=useState(false);
   const [inviteModal,setInviteModal]=useState(null);
   const [inviting,setInviting]=useState(false);
+  const [refCode,setRefCode]=useState("");
   const EMOJIS=["🔥","👑","💎","⚡","🚀","🎯","🦁","🌙","🎉","💫","🏆","❤️"];
   const GROUP_COLORS=["linear-gradient(135deg,#FF0080,#FF3399)","linear-gradient(135deg,#7B2FFF,#9B59B6)","linear-gradient(135deg,#00C853,#4ECDC4)","linear-gradient(135deg,#FF6B35,#F7931E)","linear-gradient(135deg,#0099FF,#00D4FF)","linear-gradient(135deg,#FF0080,#7B2FFF)"];
+
+  useEffect(()=>{
+    if(!authUser)return;
+    supabase.from("profiles").select("referral_code").eq("id",authUser.id).single().then(({data})=>{if(data?.referral_code)setRefCode(data.referral_code);});
+  },[authUser]);
 
   useEffect(()=>{
     if(!authUser)return;
@@ -665,8 +671,8 @@ function GroupsScreen({authUser,supabase}){
   };
 
   const copyRefLink=()=>{
-    if(!authUser)return;
-    navigator.clipboard.writeText(`https://nolimitevents.vercel.app/?ref=${authUser.id}`);
+    if(!refCode)return;
+    navigator.clipboard.writeText(refCode);
     setRefCopied(true);setTimeout(()=>setRefCopied(false),2500);
   };
 
@@ -719,7 +725,7 @@ function GroupsScreen({authUser,supabase}){
             </div>
           </div>
           <div onClick={copyRefLink} style={{padding:"10px 14px",borderRadius:12,background:refCopied?"rgba(78,205,196,.15)":"rgba(255,255,255,.07)",border:refCopied?`1px solid ${GREEN}`:`1px solid ${BORDER}`,display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",transition:"all .3s"}}>
-            <div style={{fontSize:11,color:refCopied?GREEN:GRAY,fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>nolimitevents.vercel.app/?ref=...</div>
+            <div style={{fontSize:14,color:refCopied?GREEN:PINK,fontFamily:"monospace",fontWeight:900,letterSpacing:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{refCode||"Chargement..."}</div>
             <div style={{fontSize:11,fontWeight:800,color:refCopied?GREEN:PINK,flexShrink:0,marginLeft:8,display:"flex",alignItems:"center",gap:4}}>
               {refCopied?<><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={GREEN} strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>Copié!</>:<><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={PINK} strokeWidth="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copier</>}
             </div>
@@ -1826,7 +1832,7 @@ export default function App(){
 
 
               {tab==="tickets"&&(
-                <div className="scroll" style={{padding:"20px"}}>
+                <div className="scroll" style={{padding:"20px",paddingTop:`calc(env(safe-area-inset-top,44px) + 10px)`}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
                     <div style={{fontSize:22,fontWeight:900,color:WHITE}}>Mes Billets</div>
                     <div style={{background:"rgba(255,0,128,.1)",borderRadius:20,padding:"4px 12px",fontSize:11,fontWeight:700,color:PINK}}>{myTickets.length} billet{myTickets.length>1?"s":""}</div>
