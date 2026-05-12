@@ -1370,7 +1370,16 @@ export default function App(){
     setShowEvForm(false);setEditEv(null);setAdminTab("events");showToast("✅ Sauvegardé !");
   };
 
-  const saveFreeTicketFn=async(t)=>{await dbSaveTicket(t);setTickets(p=>[...p,t]);setShowFreeForm(false);showToast("🎁 Billet créé !");};
+  const saveFreeTicketFn=async(t)=>{
+    await dbSaveTicket(t);
+    setTickets(p=>[...p,t]);
+    setShowFreeForm(false);
+    showToast("📧 Envoi du billet...");
+    try{
+      await fetch("/api/send-ticket",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:t.email,name:t.owner,eventTitle:t.event,eventDate:t.date,eventLocation:t.location,ticketId:t.id})});
+      showToast("✅ Billet envoyé par mail !");
+    }catch{showToast("⚠️ Billet créé, mail échoué");}
+  };
   const deleteEventFn=async(id)=>{await dbDeleteEvent(id);setEvents(p=>p.filter(e=>e.id!==id));setDelConfirm(null);showToast("🗑️ Supprimé");};
   const deleteTicketFn=async(id)=>{await dbDeleteTicket(id);setTickets(p=>p.filter(t=>t.id!==id));setDelTicketConfirm(null);showToast("🗑️ Billet supprimé");};
   const deleteUserFn=async(id)=>{await dbDeleteProfile(id);setAdminUsers(p=>p.filter(u=>u.id!==id));setDelUserConfirm(null);showToast("🗑️ Compte supprimé");};
