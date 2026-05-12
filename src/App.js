@@ -81,8 +81,10 @@ const dbLoadTickets=async()=>{
 
 const dbSaveTicket=async(t)=>{
   try{
-    const{error}=await supabase.from("tickets").insert({id:t.id,event_id:t.eventId,event:t.event,date:t.date,location:t.location,time:t.time,owner:t.owner,email:t.email,type:t.type,price:t.price,status:t.status,note:t.note||null});
-    return error?error.message:null;
+    const{data,error}=await supabase.from("tickets").insert({id:t.id,event_id:t.eventId,event:t.event,date:t.date,location:t.location,time:t.time,owner:t.owner,email:t.email,type:t.type,price:t.price,status:t.status,note:t.note||null}).select();
+    if(error)return error.message;
+    if(!data||data.length===0)return "Accès refusé (RLS Supabase) — connecte-toi d'abord";
+    return null;
   }catch(e){return e.message||"Erreur inconnue";}
 };
 
@@ -1316,7 +1318,7 @@ export default function App(){
   useEffect(()=>{if(authUser)loadProfil(authUser.id);},[authUser]);
   const openEv=(ev)=>{setSelEv(events.find(e=>e.id===ev.id));setQty(1);setScreen("event");};
   const changeQty=(d)=>{setQty(q=>Math.min(10,Math.max(1,q+d)));setQtyAnim(true);setTimeout(()=>setQtyAnim(false),300);};
-  const showToast=(msg)=>{setToast(msg);setTimeout(()=>setToast(null),2500);};
+  const showToast=(msg,dur=4000)=>{setToast(msg);setTimeout(()=>setToast(null),dur)};
   const navHandler=(t)=>{setTab(t);if(screen!=="main")setScreen("main");};
   useEffect(()=>{
     const handler=(e)=>{
@@ -1380,7 +1382,7 @@ export default function App(){
 
   const saveFreeTicketFn=async(t)=>{
     const dbErr=await dbSaveTicket(t);
-    if(dbErr){showToast("❌ Erreur DB : "+dbErr);return;}
+    if(dbErr){showToast("❌ "+dbErr,8000);return;}
     setTickets(p=>[...p,t]);
     setShowFreeForm(false);
     showToast("📧 Envoi du billet...");
