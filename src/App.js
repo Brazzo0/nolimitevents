@@ -633,23 +633,26 @@ function GroupsScreen({authUser,supabase}){
 
   useEffect(()=>{
     if(!authUser)return;
-    supabase.from("profiles").select("referral_code").eq("id",authUser.id).single().then(({data})=>{if(data?.referral_code)setRefCode(data.referral_code);});
-  },[authUser]);
-
-  useEffect(()=>{
-    if(!authUser)return;
     setLoadingGroups(true);
-    supabase.from("group_members").select("group_id,groups(id,name,emoji,owner_id)").eq("user_id",authUser.id).then(async({data})=>{
-      if(data){
-        const gs=data.map(d=>d.groups).filter(Boolean);
-        const withCounts=await Promise.all(gs.map(async g=>{
-          const{count}=await supabase.from("group_members").select("*",{count:"exact",head:true}).eq("group_id",g.id);
-          return{...g,member_count:count||1};
-        }));
-        setGroups(withCounts);
-      }
+    const loadAll=async()=>{
+      try{
+        const[{data:profData},{data:memberData}]=await Promise.all([
+          supabase.from("profiles").select("referral_code").eq("id",authUser.id).single(),
+          supabase.from("group_members").select("group_id,groups(id,name,emoji,owner_id)").eq("user_id",authUser.id)
+        ]);
+        if(profData?.referral_code)setRefCode(profData.referral_code);
+        if(memberData){
+          const gs=memberData.map(d=>d.groups).filter(Boolean);
+          const withCounts=await Promise.all(gs.map(async g=>{
+            const{count}=await supabase.from("group_members").select("*",{count:"exact",head:true}).eq("group_id",g.id);
+            return{...g,member_count:count||1};
+          }));
+          setGroups(withCounts);
+        }
+      }catch(e){}
       setLoadingGroups(false);
-    });
+    };
+    loadAll();
   },[authUser]);
 
   useEffect(()=>{
@@ -671,9 +674,12 @@ function GroupsScreen({authUser,supabase}){
   };
 
   const copyRefLink=()=>{
-    if(!refCode)return;
-    navigator.clipboard.writeText(refCode);
-    setRefCopied(true);setTimeout(()=>setRefCopied(false),2500);
+    const code=refCode;if(!code)return;
+    const done=()=>{setRefCopied(true);setTimeout(()=>setRefCopied(false),2500);};
+    try{
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(code).then(done).catch(()=>{const el=document.createElement("textarea");el.value=code;el.style.position="fixed";el.style.opacity="0";document.body.appendChild(el);el.focus();el.select();try{document.execCommand("copy");}catch{}document.body.removeChild(el);done();});}
+      else{const el=document.createElement("textarea");el.value=code;el.style.position="fixed";el.style.opacity="0";document.body.appendChild(el);el.focus();el.select();try{document.execCommand("copy");}catch{}document.body.removeChild(el);done();}
+    }catch{}
   };
 
   const createGroup=async()=>{
