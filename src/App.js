@@ -79,7 +79,10 @@ const dbLoadTickets=async()=>{
 };
 
 const dbSaveTicket=async(t)=>{
-  try{await supabase.from("tickets").insert({id:t.id,event_id:t.eventId,event:t.event,date:t.date,location:t.location,time:t.time,owner:t.owner,email:t.email,type:t.type,price:t.price,status:t.status,note:t.note||null});}catch{}
+  try{
+    const{error}=await supabase.from("tickets").insert({id:t.id,event_id:t.eventId,event:t.event,date:t.date,location:t.location,time:t.time,owner:t.owner,email:t.email,type:t.type,price:t.price,status:t.status,note:t.note||null});
+    return error?error.message:null;
+  }catch(e){return e.message||"Erreur inconnue";}
 };
 
 const dbDeleteTicket=async(id)=>{try{await supabase.from("tickets").delete().eq("id",id);}catch{}};
@@ -1230,9 +1233,13 @@ export default function App(){
   },[screen]);
 
   useEffect(()=>{
-    if(adminTab==="users"&&adminAuth){
+    if(!adminAuth)return;
+    if(adminTab==="users"){
       setAdminUsersLoading(true);
       dbLoadProfiles().then(u=>{setAdminUsers(u);setAdminUsersLoading(false);});
+    }
+    if(adminTab==="free"||adminTab==="tickets"){
+      dbLoadTickets().then(tix=>{if(tix&&tix.length>=0)setTickets(tix);});
     }
   },[adminTab,adminAuth]);
 
@@ -1371,14 +1378,16 @@ export default function App(){
   };
 
   const saveFreeTicketFn=async(t)=>{
-    await dbSaveTicket(t);
+    const dbErr=await dbSaveTicket(t);
+    if(dbErr){showToast("❌ Erreur DB : "+dbErr);return;}
     setTickets(p=>[...p,t]);
     setShowFreeForm(false);
     showToast("📧 Envoi du billet...");
     try{
-      await fetch("/api/send-ticket",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:t.email,name:t.owner,eventTitle:t.event,eventDate:t.date,eventLocation:t.location,ticketId:t.id})});
-      showToast("✅ Billet envoyé par mail !");
-    }catch{showToast("⚠️ Billet créé, mail échoué");}
+      const resp=await fetch("/api/send-ticket",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:t.email,name:t.owner,eventTitle:t.event,eventDate:t.date,eventLocation:t.location,ticketId:t.id})});
+      if(resp.ok){showToast("✅ Billet envoyé par mail !");}
+      else{const d=await resp.json().catch(()=>({}));showToast("⚠️ Mail non envoyé : "+(d.error||resp.status));}
+    }catch{showToast("⚠️ Billet créé, mail échoué (réseau)");}
   };
   const deleteEventFn=async(id)=>{await dbDeleteEvent(id);setEvents(p=>p.filter(e=>e.id!==id));setDelConfirm(null);showToast("🗑️ Supprimé");};
   const deleteTicketFn=async(id)=>{await dbDeleteTicket(id);setTickets(p=>p.filter(t=>t.id!==id));setDelTicketConfirm(null);showToast("🗑️ Billet supprimé");};
