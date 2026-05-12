@@ -231,7 +231,7 @@ function TicketCard({ticket,events,onShowQR,index=0}){
   const statusColor=isValid?"#00E676":isUsed?GRAY:"#FF4444";
   const statusLabel=isValid?"✓ VALIDE":isUsed?"UTILISÉ":"ANNULÉ";
   const delay=index*0.08;
-  const [walletLoading,setWalletLoading]=React.useState(false);
+  const [walletLoading,setWalletLoading]=useState(false);
   const addToWallet=async()=>{
     if(walletLoading)return;
     setWalletLoading(true);
@@ -301,7 +301,7 @@ function TicketCard({ticket,events,onShowQR,index=0}){
             <span style={{fontSize:9,fontWeight:900,color:isValid?PINK:GRAY,letterSpacing:1,textTransform:"uppercase"}}>QR CODE</span>
           </div>
           {isValid&&(
-            <div onClick={addToWallet} style={{display:"flex",alignItems:"center",gap:5,background:"#000",border:"1px solid rgba(255,255,255,.2)",borderRadius:10,padding:"6px 10px",cursor:"pointer",opacity:walletLoading?.5:1}}>
+            <div onClick={addToWallet} style={{display:"flex",alignItems:"center",gap:5,background:"#000",border:"1px solid rgba(255,255,255,.2)",borderRadius:10,padding:"6px 10px",cursor:"pointer",opacity:walletLoading?0.5:1}}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={WHITE} strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
               <span style={{fontSize:9,fontWeight:900,color:WHITE,letterSpacing:.5,whiteSpace:"nowrap"}}>{walletLoading?"...":"Wallet"}</span>
             </div>
