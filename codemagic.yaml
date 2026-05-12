@@ -13,7 +13,6 @@ workflows:
         - apple_credentials
       node: v22
       xcode: latest
-      cocoapods: default
     scripts:
       - name: Installer les dépendances
         script: npm install --legacy-peer-deps
@@ -21,10 +20,6 @@ workflows:
         script: npm run build
       - name: Sync Capacitor iOS
         script: npx cap sync ios
-      - name: CocoaPods
-        script: |
-          cd ios/App
-          pod install
       - name: Build IPA
         script: |
           xcode-project build-ipa \
