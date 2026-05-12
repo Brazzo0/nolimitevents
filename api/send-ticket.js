@@ -6,70 +6,153 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({error: 'Method not allowed'});
-  
+
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
     const { email, name, eventTitle, eventDate, eventLocation, ticketId } = req.body;
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${ticketId}&bgcolor=ffffff&color=000000`;
-    const prenom = name.split(' ')[0] || name;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(ticketId)}&bgcolor=0D1117&color=FF0080&margin=10`;
+    const prenom = (name || '').split(' ')[0] || name || 'No Limiter';
+    const isFree = ticketId.includes('FREE');
 
     await resend.emails.send({
       from: 'No Limit Events <info@nolimitevents.ch>',
       to: email,
-      subject: `Ton billet - ${eventTitle}`,
+      subject: `🎟️ Ton billet – ${eventTitle}`,
       html: `<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ton Billet - ${eventTitle}</title>
+<title>Ton Billet – ${eventTitle}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+  @keyframes pulse {
+    0%,100%{box-shadow:0 0 0 0 rgba(255,0,128,.5);}
+    50%{box-shadow:0 0 0 12px rgba(255,0,128,0);}
+  }
+  @keyframes shimmer {
+    0%{background-position:200% center;}
+    100%{background-position:-200% center;}
+  }
+  @keyframes fadeIn {
+    from{opacity:0;transform:translateY(16px);}
+    to{opacity:1;transform:translateY(0);}
+  }
+  .ticket-wrap{animation:fadeIn .8s ease both;}
+  .qr-glow{animation:pulse 2.5s ease-in-out infinite;}
+  .hero-title{
+    background:linear-gradient(90deg,#FF0080,#FF66B3,#FF0080);
+    background-size:200% auto;
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    background-clip:text;
+    animation:shimmer 3s linear infinite;
+  }
+</style>
 </head>
-<body style="font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background-color:#121212;color:#FFFFFF;margin:0;padding:20px;display:flex;justify-content:center;align-items:center;min-height:100vh;">
-  <div style="background-color:#1E1E1E;width:100%;max-width:350px;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.5);margin:0 auto;">
-    
-    <div style="background-color:#FF10F0;padding:20px;text-align:center;">
-      <h1 style="font-size:24px;font-weight:800;text-transform:uppercase;color:#000000;margin:0;letter-spacing:2px;">${eventTitle}</h1>
+<body style="margin:0;padding:0;background-color:#080C12;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;">
+
+<div style="padding:32px 16px;min-height:100vh;background:radial-gradient(ellipse at 50% 0%,rgba(255,0,128,.12) 0%,#080C12 60%);">
+<div class="ticket-wrap" style="max-width:420px;margin:0 auto;">
+
+  <!-- Header brand -->
+  <div style="text-align:center;margin-bottom:28px;">
+    <div style="display:inline-block;background:linear-gradient(135deg,#FF0080,#FF3399);border-radius:14px;padding:10px 20px;margin-bottom:12px;">
+      <span style="font-size:13px;font-weight:900;color:#fff;letter-spacing:3px;text-transform:uppercase;">NO LIMIT EVENTS</span>
+    </div>
+    <p style="margin:0;font-size:13px;color:rgba(255,255,255,.35);letter-spacing:.5px;">La soirée sans limites</p>
+  </div>
+
+  <!-- Main ticket card -->
+  <div style="background:linear-gradient(160deg,#141A22 0%,#0D1117 100%);border-radius:24px;overflow:hidden;border:1px solid rgba(255,0,128,.2);box-shadow:0 24px 64px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.04);">
+
+    <!-- Hero top -->
+    <div style="background:linear-gradient(135deg,#FF0080 0%,#B3005B 50%,#7B2FFF 100%);padding:32px 24px 28px;position:relative;overflow:hidden;">
+      <div style="position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.07);"></div>
+      <div style="position:absolute;bottom:-20px;left:-20px;width:100px;height:100px;border-radius:50%;background:rgba(0,0,0,.15);"></div>
+      ${isFree ? `<div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:4px 14px;font-size:10px;font-weight:900;color:#fff;letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;backdrop-filter:blur(8px);">BILLET GRATUIT</div>` : ''}
+      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Accès confirmé</div>
+      <h1 style="margin:0;font-size:26px;font-weight:900;color:#fff;line-height:1.2;letter-spacing:-.3px;">${eventTitle}</h1>
     </div>
 
-    <div style="padding:25px;">
-      
-      <div style="text-align:center;margin-bottom:30px;">
-        <h2 style="font-size:18px;font-weight:600;color:#AAAAAA;margin:0 0 5px 0;">C'est confirmé, ${prenom} !</h2>
-        <p style="font-size:14px;color:#888888;margin:0;">Ton accès pour la soirée sans limites.</p>
+    <!-- Divider perforé -->
+    <div style="position:relative;height:24px;background:#0D1117;">
+      <div style="position:absolute;left:-12px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:#080C12;"></div>
+      <div style="position:absolute;right:-12px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:#080C12;"></div>
+      <div style="border-top:2px dashed rgba(255,0,128,.25);position:absolute;top:50%;left:20px;right:20px;transform:translateY(-50%);"></div>
+    </div>
+
+    <!-- Infos billet -->
+    <div style="padding:24px 24px 0;">
+
+      <!-- Salutation -->
+      <div style="margin-bottom:22px;">
+        <p style="margin:0;font-size:16px;font-weight:700;color:#fff;">Hey ${prenom} 👋</p>
+        <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,.45);line-height:1.5;">Ton billet est confirmé. Présente ce QR code à l'entrée.</p>
       </div>
 
-      <div style="border-top:1px solid #333333;border-bottom:1px solid #333333;padding:15px 0;display:flex;justify-content:space-between;margin-bottom:30px;">
-        <div style="flex:1;text-align:left;">
-          <strong style="display:block;font-size:12px;color:#FF10F0;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">Quand</strong>
-          <span style="font-size:16px;font-weight:600;">${eventDate}</span>
-        </div>
-        <div style="flex:1;text-align:right;">
-          <strong style="display:block;font-size:12px;color:#FF10F0;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">Où</strong>
-          <span style="font-size:16px;font-weight:600;">${eventLocation}<br>La Chaux-de-Fonds</span>
+      <!-- Date + Lieu -->
+      <table style="width:100%;border-collapse:collapse;margin-bottom:22px;">
+        <tr>
+          <td style="width:50%;padding:0 8px 0 0;vertical-align:top;">
+            <div style="background:rgba(255,0,128,.07);border:1px solid rgba(255,0,128,.2);border-radius:14px;padding:14px 16px;">
+              <div style="font-size:10px;font-weight:700;color:#FF0080;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;">📅 Date</div>
+              <div style="font-size:14px;font-weight:800;color:#fff;line-height:1.3;">${eventDate}</div>
+            </div>
+          </td>
+          <td style="width:50%;padding:0 0 0 8px;vertical-align:top;">
+            <div style="background:rgba(123,47,255,.07);border:1px solid rgba(123,47,255,.2);border-radius:14px;padding:14px 16px;">
+              <div style="font-size:10px;font-weight:700;color:#9B6CF6;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;">📍 Lieu</div>
+              <div style="font-size:14px;font-weight:800;color:#fff;line-height:1.3;">${eventLocation}</div>
+            </div>
+          </td>
+        </tr>
+      </table>
+
+      <!-- QR Code -->
+      <div style="text-align:center;margin-bottom:22px;">
+        <div class="qr-glow" style="display:inline-block;background:#0D1117;border-radius:20px;padding:16px;border:2px solid rgba(255,0,128,.4);box-shadow:0 0 32px rgba(255,0,128,.2);">
+          <img src="${qrUrl}" alt="QR Code" width="180" height="180" style="display:block;border-radius:10px;"/>
         </div>
       </div>
 
-      <div style="text-align:center;background-color:#FFFFFF;padding:15px;border-radius:8px;margin-bottom:15px;display:inline-block;position:relative;left:50%;transform:translateX(-50%);">
-        <img src="${qrUrl}" alt="QR Code" width="150" height="150" style="display:block;"/>
-      </div>
-      
-      <div style="text-align:center;">
-        <p style="font-family:'Courier New',Courier,monospace;font-size:14px;color:#AAAAAA;margin-top:10px;">ID: ${ticketId}</p>
-        <p style="font-size:14px;color:#AAAAAA;margin:5px 0 0 0;">Présente ce code à l'entrée</p>
+      <!-- Ticket ID -->
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px 16px;text-align:center;margin-bottom:8px;">
+        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:2px;text-transform:uppercase;margin-bottom:5px;">ID du billet</div>
+        <div style="font-family:'Courier New',monospace;font-size:15px;font-weight:700;color:#FF0080;letter-spacing:2px;">${ticketId}</div>
       </div>
 
     </div>
 
-    <div style="padding:15px 25px 25px 25px;font-size:12px;color:#666666;text-align:center;border-top:1px solid #333333;">
-      <p style="margin:0;">Billet non remboursable • Pièce d'identité requise</p>
-      <p style="margin-top:5px;">No Limit Events © 2026</p>
+    <!-- Divider perforé bas -->
+    <div style="position:relative;height:24px;background:#0D1117;margin-top:20px;">
+      <div style="position:absolute;left:-12px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:#080C12;"></div>
+      <div style="position:absolute;right:-12px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:#080C12;"></div>
+      <div style="border-top:2px dashed rgba(255,255,255,.08);position:absolute;top:50%;left:20px;right:20px;transform:translateY(-50%);"></div>
+    </div>
+
+    <!-- Footer card -->
+    <div style="padding:16px 24px 24px;text-align:center;">
+      <p style="margin:0;font-size:11px;color:rgba(255,255,255,.25);line-height:1.8;">
+        Billet non remboursable · Pièce d'identité requise · 16+<br>
+        <span style="color:rgba(255,0,128,.4);">No Limit Events © 2026</span>
+      </p>
     </div>
 
   </div>
+
+  <!-- Bottom tagline -->
+  <div style="text-align:center;margin-top:24px;">
+    <p style="margin:0;font-size:12px;color:rgba(255,255,255,.2);">Des questions ? <a href="mailto:info@nolimitevents.ch" style="color:rgba(255,0,128,.6);text-decoration:none;">info@nolimitevents.ch</a></p>
+  </div>
+
+</div>
+</div>
+
 </body>
 </html>`
     });
-    
+
     res.status(200).json({success: true});
   } catch(err) {
     res.status(500).json({error: err.message});
