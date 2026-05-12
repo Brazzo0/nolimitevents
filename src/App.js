@@ -1316,17 +1316,13 @@ export default function App(){
     else{
       const code="NLE"+Math.random().toString(36).substring(2,8).toUpperCase();
       const pendingRef=localStorage.getItem("nle_pendingRef");
-      let newDiscount=0;
       if(pendingRef){
-        const{data:ref}=await supabase.from("profiles").select("id,discount_20").eq("referral_code",pendingRef).single();
-        if(ref){
-          await supabase.from("profiles").update({discount_20:(ref.discount_20||0)+1}).eq("id",ref.id);
-          newDiscount=1;
-        }
+        const{data:ref}=await supabase.from("profiles").select("id,points").eq("referral_code",pendingRef).single();
+        if(ref)await supabase.from("profiles").update({points:(ref.points||0)+50}).eq("id",ref.id);
         localStorage.removeItem("nle_pendingRef");
       }
-      await supabase.from("profiles").insert({id:uid,pseudo:null,instagram:"",snapchat:"",points:0,referral_code:code,discount_20:newDiscount});
-      setProfil({pseudo:"",instagram:"",snapchat:"",points:0,referral_code:code,discount_20:newDiscount});
+      await supabase.from("profiles").insert({id:uid,pseudo:null,instagram:"",snapchat:"",points:0,referral_code:code});
+      setProfil({pseudo:"",instagram:"",snapchat:"",points:0,referral_code:code});
     }
   };
   const saveProfil=async()=>{
@@ -1431,8 +1427,8 @@ export default function App(){
 
   const addPaidTicket=async(buyerEmail="jean@example.ch",buyerName="Client")=>{
     if(!selEv) return;
-    const hasDisc=(profil?.discount_20||0)>0;
-    const unitPrice=hasDisc?Math.round(selEv.price*0.8*100)/100:selEv.price;
+    const hasDisc=(profil?.points||0)>=1000;
+    const unitPrice=hasDisc?Math.round(selEv.price*0.7*100)/100:selEv.price;
     const newTickets=[];
     for(let i=0;i<qty;i++){
       await new Promise(r=>setTimeout(r,50));
@@ -1446,9 +1442,9 @@ export default function App(){
     await supabase.from("events").update({tickets_sold:selEv.ticketsSold+qty}).eq("id",selEv.id);
     setEvents(p=>p.map(e=>e.id===selEv.id?{...e,ticketsSold:e.ticketsSold+qty}:e));
     if(hasDisc&&authUser){
-      const nd=Math.max(0,(profil.discount_20||0)-1);
-      await supabase.from("profiles").update({discount_20:nd}).eq("id",authUser.id);
-      setProfil(p=>({...p,discount_20:nd}));
+      const nd=Math.max(0,(profil.points||0)-1000);
+      await supabase.from("profiles").update({points:nd}).eq("id",authUser.id);
+      setProfil(p=>({...p,points:nd}));
     }
   };
 
@@ -2227,16 +2223,7 @@ export default function App(){
           {/* Parrainage */}
           <div style={{background:"linear-gradient(135deg,rgba(255,0,128,.07),rgba(123,47,255,.05))",borderRadius:20,padding:"16px",marginBottom:14,border:`1px solid rgba(255,0,128,.2)`}}>
             <div style={{fontSize:11,fontWeight:900,color:PINK,letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>Parrainage</div>
-            {(profil?.discount_20||0)>0&&(
-              <div style={{background:"rgba(0,230,118,.08)",border:"1px solid rgba(0,230,118,.3)",borderRadius:12,padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
-                <span style={{fontSize:18}}>🎁</span>
-                <div>
-                  <div style={{fontSize:13,fontWeight:900,color:"#00E676"}}>-20% disponible !</div>
-                  <div style={{fontSize:11,color:GRAY}}>S'applique automatiquement à ton prochain achat</div>
-                </div>
-              </div>
-            )}
-            <div style={{fontSize:12,color:GRAY,marginBottom:10,lineHeight:1.5}}>Partage ton code. Chaque ami qui s'inscrit avec lui vous offre <span style={{color:WHITE,fontWeight:800}}>-20%</span> à tous les deux sur la prochaine soirée.</div>
+            <div style={{fontSize:12,color:GRAY,marginBottom:10,lineHeight:1.5}}>Partage ton code à tes amis. Chaque inscription te rapporte <span style={{color:WHITE,fontWeight:800}}>+50 points</span>. À <span style={{color:"#FFD700",fontWeight:800}}>1000 points</span> tu reçois <span style={{color:WHITE,fontWeight:800}}>-30%</span> sur ta prochaine soirée.</div>
             {profil?.referral_code?(
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <div style={{flex:1,background:BG3,borderRadius:12,padding:"12px 14px",fontFamily:"monospace",fontSize:15,fontWeight:900,color:PINK,letterSpacing:2,border:`1px solid rgba(255,0,128,.3)`}}>{profil.referral_code}</div>
@@ -3351,14 +3338,14 @@ export default function App(){
                       <input placeholder={ph} className="inp"/>
                     </div>
                   ))}
-                  {(()=>{const hasD=(profil?.discount_20||0)>0;const base=(selEv?.price||0)*qty;const disc=hasD?Math.round(base*0.2*100)/100:0;const total=Math.round((base-disc+2.90)*100)/100;return(
-                  <div style={{background:BG2,borderRadius:14,padding:16,marginBottom:20,border:`1px solid ${hasD?"rgba(0,230,118,.3)":BORDER}`,marginTop:16}}>
+                  {(()=>{const hasD=(profil?.points||0)>=1000;const base=(selEv?.price||0)*qty;const disc=hasD?Math.round(base*0.3*100)/100:0;const total=Math.round((base-disc+2.90)*100)/100;return(
+                  <div style={{background:BG2,borderRadius:14,padding:16,marginBottom:20,border:`1px solid ${hasD?"rgba(255,215,0,.3)":BORDER}`,marginTop:16}}>
                     <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WHITE,fontWeight:700,marginBottom:8}}><span>{selEv?.title} × {qty}</span><span>CHF {base}</span></div>
-                    {hasD&&<div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#00E676",fontWeight:800,marginBottom:8}}><span>🎁 Réduction parrainage -20%</span><span>- CHF {disc}</span></div>}
+                    {hasD&&<div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#FFD700",fontWeight:800,marginBottom:8}}><span>🏆 Réduction Gold -30%</span><span>- CHF {disc}</span></div>}
                     <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:GRAY}}><span>Frais</span><span>CHF 2.90</span></div>
                     <div style={{borderTop:`1px solid ${BORDER}`,marginTop:10,paddingTop:10,display:"flex",justifyContent:"space-between"}}>
                       <span style={{fontSize:14,fontWeight:900,color:WHITE}}>TOTAL</span>
-                      <span style={{fontSize:20,fontWeight:900,color:hasD?"#00E676":PINK}}>CHF {total}</span>
+                      <span style={{fontSize:20,fontWeight:900,color:hasD?"#FFD700":PINK}}>CHF {total}</span>
                     </div>
                   </div>
                   );})()}
@@ -3386,7 +3373,7 @@ export default function App(){
                     </div>
                   )}
                   <div style={{height:20}}/>
-                  {(()=>{const hasD=(profil?.discount_20||0)>0;const base=(selEv?.price||0)*qty;const disc=hasD?Math.round(base*0.2*100)/100:0;const total=Math.round((base-disc+2.90)*100)/100;return(<Btn onClick={()=>{setPayStep(2);addPaidTicket();}}>PAYER CHF {total}</Btn>);})()}
+                  {(()=>{const hasD=(profil?.points||0)>=1000;const base=(selEv?.price||0)*qty;const disc=hasD?Math.round(base*0.3*100)/100:0;const total=Math.round((base-disc+2.90)*100)/100;return(<Btn onClick={()=>{setPayStep(2);addPaidTicket();}}>PAYER CHF {total}</Btn>);})()}
                 </div>
               )}
               {payStep===2&&(
