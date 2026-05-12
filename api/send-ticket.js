@@ -57,10 +57,8 @@ module.exports = async (req, res) => {
 
   <!-- Header brand -->
   <div style="text-align:center;margin-bottom:28px;">
-    <div style="display:inline-block;background:linear-gradient(135deg,#FF0080,#FF3399);border-radius:14px;padding:10px 20px;margin-bottom:12px;">
-      <span style="font-size:13px;font-weight:900;color:#fff;letter-spacing:3px;text-transform:uppercase;">NO LIMIT EVENTS</span>
-    </div>
-    <p style="margin:0;font-size:13px;color:rgba(255,255,255,.35);letter-spacing:.5px;">La soirée sans limites</p>
+    <img src="https://nolimitevents.vercel.app/logo512.png" alt="No Limit Events" width="110" height="110" style="display:block;margin:0 auto 16px;border-radius:28px;box-shadow:0 0 40px rgba(255,0,128,.35),0 8px 24px rgba(0,0,0,.5);"/>
+    <p style="margin:0;font-size:12px;color:rgba(255,255,255,.3);letter-spacing:1.5px;text-transform:uppercase;">La soirée sans limites</p>
   </div>
 
   <!-- Main ticket card -->
