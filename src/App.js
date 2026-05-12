@@ -13,6 +13,7 @@ const PINK="#FF0080",PINK2="#FF3399",GREEN="#4ECDC4";
 const WHITE="#FFFFFF",GRAY="#8892A0",BORDER="#1E2A38";
 const ADMIN_PASS="nolimit2026";
 const API_BASE="https://nolimitevents.vercel.app";
+const APP_VERSION="v2.5";
 const GRAD=`linear-gradient(135deg,${PINK},${PINK2})`;
 const SAFE_TOP="env(safe-area-inset-top, 20px)";
 const SAFE_BOT="env(safe-area-inset-bottom, 8px)";
@@ -362,21 +363,38 @@ function EventForm({ev,onSave,onCancel}){
 
 function FreeTicketForm({events,onSave,onCancel}){
   const [f,setF]=useState({eventId:"",ownerName:"",ownerEmail:"",note:""});
+  const [saving,setSaving]=useState(false);
+  const [err,setErr]=useState("");
+  const [mailStatus,setMailStatus]=useState("");
   const upd=(k)=>(e)=>setF(p=>({...p,[k]:e.target.value}));
-  const save=()=>{
-    if(!f.eventId||!f.ownerName||!f.ownerEmail) return;
+  const save=async()=>{
+    if(!f.eventId||!f.ownerName||!f.ownerEmail){setErr("Remplis tous les champs obligatoires");return;}
     const ev=events.find(e=>e.id===+f.eventId);
-    if(!ev) return;
-    onSave({id:`NLE-FREE-${Date.now().toString().slice(-6)}`,eventId:+f.eventId,event:ev.title,date:ev.date.split(" ").slice(0,3).join(" "),location:ev.location,time:ev.time,owner:f.ownerName,email:f.ownerEmail,type:"free",price:0,status:"valid",createdAt:new Date().toLocaleDateString("fr-CH"),note:f.note});
+    if(!ev){setErr("Événement introuvable");return;}
+    setSaving(true);setErr("");setMailStatus("");
+    const ticket={id:`NLE-FREE-${Date.now().toString().slice(-6)}`,eventId:+f.eventId,event:ev.title,date:ev.date.split(" ").slice(0,3).join(" "),location:ev.location,time:ev.time,owner:f.ownerName,email:f.ownerEmail,type:"free",price:0,status:"valid",createdAt:new Date().toLocaleDateString("fr-CH"),note:f.note};
+    const dbErr=await onSave(ticket);
+    if(dbErr){setErr("❌ Erreur sauvegarde : "+dbErr);setSaving(false);return;}
+    setMailStatus("📧 Billet sauvegardé, envoi du mail...");
+    try{
+      const resp=await fetch(`${API_BASE}/api/send-ticket`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:ticket.email,name:ticket.owner,eventTitle:ticket.event,eventDate:ticket.date,eventLocation:ticket.location,ticketId:ticket.id})});
+      if(resp.ok){setMailStatus("✅ Mail envoyé à "+ticket.email+" !");}
+      else{const d=await resp.json().catch(()=>({}));setMailStatus("⚠️ Billet OK mais mail échoué : "+(d.error||resp.status));}
+    }catch(e){setMailStatus("⚠️ Billet OK, mail échoué (réseau) : "+e.message);}
+    setSaving(false);
   };
   return(
     <div style={{position:"absolute",inset:0,background:BG,zIndex:200,display:"flex",flexDirection:"column",paddingTop:SAFE_TOP,animation:"slideIn .3s both"}}>
       <div style={{padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:`1px solid ${BORDER}`,background:BG2,flexShrink:0}}>
         <button onClick={onCancel} style={{background:"none",border:"none",color:GREEN,cursor:"pointer",display:"flex"}}><Icon n="back" s={22} c={GREEN}/></button>
         <span style={{fontSize:15,fontWeight:900,color:WHITE}}>Billet Gratuit</span>
-        <div onClick={save} style={{background:`linear-gradient(135deg,${GREEN},#38B2AC)`,color:BG,padding:"8px 18px",borderRadius:20,fontSize:12,fontWeight:900,cursor:"pointer"}}>CRÉER</div>
+        <div onClick={saving?null:save} style={{background:saving?"rgba(78,205,196,.3)":`linear-gradient(135deg,${GREEN},#38B2AC)`,color:BG,padding:"8px 18px",borderRadius:20,fontSize:12,fontWeight:900,cursor:saving?"default":"pointer",opacity:saving?.6:1}}>
+          {saving?"...":"CRÉER"}
+        </div>
       </div>
       <div style={{flex:1,overflowY:"auto",padding:"20px"}}>
+        {err&&<div style={{background:"rgba(255,68,68,.12)",border:"1px solid rgba(255,68,68,.4)",borderRadius:12,padding:"12px 14px",marginBottom:14,fontSize:13,fontWeight:700,color:"#FF4444"}}>{err}</div>}
+        {mailStatus&&<div style={{background:mailStatus.startsWith("✅")?"rgba(78,205,196,.1)":"rgba(255,179,71,.1)",border:`1px solid ${mailStatus.startsWith("✅")?"rgba(78,205,196,.4)":"rgba(255,179,71,.4)"}`,borderRadius:12,padding:"12px 14px",marginBottom:14,fontSize:13,fontWeight:700,color:mailStatus.startsWith("✅")?GREEN:"#FFB347"}}>{mailStatus}</div>}
         <div style={{marginBottom:14}}>
           <label style={{...LBL_S,color:GREEN}}>Événement</label>
           {events.filter(e=>!e.ended).map(ev=>(
@@ -390,7 +408,8 @@ function FreeTicketForm({events,onSave,onCancel}){
         <div style={{marginBottom:14}}><label style={{...LBL_S,color:GREEN}}>Nom</label><input style={INP_S} placeholder="DJ NOXX / Staff..." value={f.ownerName} onChange={upd("ownerName")}/></div>
         <div style={{marginBottom:14}}><label style={{...LBL_S,color:GREEN}}>Email</label><input style={INP_S} type="email" placeholder="collab@example.ch" value={f.ownerEmail} onChange={upd("ownerEmail")}/></div>
         <div style={{marginBottom:20}}><label style={{...LBL_S,color:GREEN}}>Note</label><input style={INP_S} placeholder="DJ, Staff, Photo..." value={f.note} onChange={upd("note")}/></div>
-        <div onClick={save} style={{background:`linear-gradient(135deg,${GREEN},#38B2AC)`,color:BG,padding:"16px 0",borderRadius:14,textAlign:"center",fontWeight:900,fontSize:14,cursor:"pointer",textTransform:"uppercase"}}>CRÉER LE BILLET</div>
+        {!mailStatus.startsWith("✅")&&<div onClick={saving?null:save} style={{background:saving?"rgba(78,205,196,.2)":`linear-gradient(135deg,${GREEN},#38B2AC)`,color:BG,padding:"16px 0",borderRadius:14,textAlign:"center",fontWeight:900,fontSize:14,cursor:saving?"default":"pointer",textTransform:"uppercase",opacity:saving?.6:1}}>{saving?"ENVOI EN COURS...":"CRÉER LE BILLET"}</div>}
+        {mailStatus.startsWith("✅")&&<div onClick={onCancel} style={{background:`linear-gradient(135deg,${GREEN},#38B2AC)`,color:BG,padding:"16px 0",borderRadius:14,textAlign:"center",fontWeight:900,fontSize:14,cursor:"pointer",textTransform:"uppercase"}}>FERMER</div>}
       </div>
     </div>
   );
@@ -1382,15 +1401,8 @@ export default function App(){
 
   const saveFreeTicketFn=async(t)=>{
     const dbErr=await dbSaveTicket(t);
-    if(dbErr){showToast("❌ "+dbErr,8000);return;}
-    setTickets(p=>[...p,t]);
-    setShowFreeForm(false);
-    showToast("📧 Envoi du billet...");
-    try{
-      const resp=await fetch(`${API_BASE}/api/send-ticket`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:t.email,name:t.owner,eventTitle:t.event,eventDate:t.date,eventLocation:t.location,ticketId:t.id})});
-      if(resp.ok){showToast("✅ Billet envoyé par mail !");}
-      else{const d=await resp.json().catch(()=>({}));showToast("⚠️ Mail non envoyé : "+(d.error||resp.status));}
-    }catch{showToast("⚠️ Billet créé, mail échoué (réseau)");}
+    if(!dbErr){setTickets(p=>[...p,t]);}
+    return dbErr;
   };
   const deleteEventFn=async(id)=>{await dbDeleteEvent(id);setEvents(p=>p.filter(e=>e.id!==id));setDelConfirm(null);showToast("🗑️ Supprimé");};
   const deleteTicketFn=async(id)=>{await dbDeleteTicket(id);setTickets(p=>p.filter(t=>t.id!==id));setDelTicketConfirm(null);showToast("🗑️ Billet supprimé");};
@@ -2699,7 +2711,10 @@ export default function App(){
                     <div style={{width:34,height:34,borderRadius:10,background:GRAD,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={WHITE} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                     </div>
-                    <span style={{fontSize:16,fontWeight:900,color:WHITE}}>Panel Admin</span>
+                    <div>
+                      <span style={{fontSize:16,fontWeight:900,color:WHITE}}>Panel Admin</span>
+                      <span style={{fontSize:9,color:GRAY,marginLeft:6}}>{APP_VERSION}</span>
+                    </div>
                   </div>
                   <div style={{display:"flex",gap:8}}>
                     <div onClick={()=>setShowScanner(true)} style={{width:36,height:36,borderRadius:10,background:BG3,border:`1px solid ${BORDER}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
