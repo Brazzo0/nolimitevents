@@ -1829,7 +1829,7 @@ export default function App(){
                         <div style={{marginBottom:24}}>
                           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
                             <div style={{width:3,height:18,background:GRAD,borderRadius:4}}/>
-                            <div style={{fontSize:11,fontWeight:900,color:PINK,letterSpacing:2,textTransform:"uppercase"}}>A Venir</div>
+                            <div style={{fontSize:11,fontWeight:900,color:PINK,letterSpacing:2,textTransform:"uppercase"}}>À Venir</div>
                             <div style={{background:"rgba(255,0,128,.15)",borderRadius:20,padding:"2px 10px",fontSize:10,fontWeight:700,color:PINK}}>{myTickets.filter(t=>t.status==="valid"||t.status==="upcoming").length}</div>
                           </div>
                           {myTickets.filter(t=>t.status==="valid"||t.status==="upcoming").map((t,i)=><TicketCard key={t.id} ticket={t} events={events} onShowQR={setQrTicket} index={i}/>)}
@@ -1961,7 +1961,7 @@ export default function App(){
             <img src={LOGO} alt="" style={{width:70,height:70,objectFit:"contain"}}/>
           </div>
           <div style={{fontSize:28,fontWeight:900,color:"#FFFFFF",marginBottom:12,lineHeight:1.2}}>Bienvenue sur No Limit Events</div>
-          <div style={{fontSize:15,color:"rgba(255,255,255,.5)",lineHeight:1.6}}>Chaque soiree est une nouvelle surprise. Decouvre les meilleurs evenements pres de chez toi.</div>
+          <div style={{fontSize:15,color:"rgba(255,255,255,.5)",lineHeight:1.6}}>Chaque soirée est une nouvelle surprise. Découvre les meilleurs événements près de chez toi.</div>
         </div>
       )}
       {onbStep===1&&(
@@ -1969,8 +1969,8 @@ export default function App(){
           <div style={{width:100,height:100,borderRadius:28,background:"linear-gradient(135deg,#FF0080,#FF3399)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 32px",boxShadow:"0 0 60px rgba(255,0,128,.5)"}}>
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/></svg>
           </div>
-          <div style={{fontSize:28,fontWeight:900,color:"#FFFFFF",marginBottom:12,lineHeight:1.2}}>Vos billets, simplifies</div>
-          <div style={{fontSize:15,color:"rgba(255,255,255,.5)",lineHeight:1.6}}>QR code securise, achat en 2 clics, acces VIP exclusifs. Tout dans ta poche.</div>
+          <div style={{fontSize:28,fontWeight:900,color:"#FFFFFF",marginBottom:12,lineHeight:1.2}}>Vos billets, simplifiés</div>
+          <div style={{fontSize:15,color:"rgba(255,255,255,.5)",lineHeight:1.6}}>QR code sécurisé, achat en 2 clics, accès VIP exclusifs. Tout dans ta poche.</div>
         </div>
       )}
       {onbStep===2&&(
@@ -1978,8 +1978,8 @@ export default function App(){
           <div style={{width:100,height:100,borderRadius:28,background:"linear-gradient(135deg,#FF0080,#FF3399)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 32px",boxShadow:"0 0 60px rgba(255,0,128,.5)"}}>
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </div>
-          <div style={{fontSize:28,fontWeight:900,color:"#FFFFFF",marginBottom:12,lineHeight:1.2}}>Partagez l experience</div>
-          <div style={{fontSize:15,color:"rgba(255,255,255,.5)",lineHeight:1.6}}>Rejoins la communaute No Limit. Retrouve tes amis, partage tes soirees et vis l experience a fond.</div>
+          <div style={{fontSize:28,fontWeight:900,color:"#FFFFFF",marginBottom:12,lineHeight:1.2}}>Partagez l'expérience</div>
+          <div style={{fontSize:15,color:"rgba(255,255,255,.5)",lineHeight:1.6}}>Rejoins la communauté No Limit. Retrouve tes amis, partage tes soirées et vis l'expérience à fond.</div>
         </div>
       )}
     </div>
