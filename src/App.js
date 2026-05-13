@@ -2695,41 +2695,30 @@ export default function App(){
               </div>
             )}
 
-            {/* Events terminés */}
+            {/* Events terminés — carrousel */}
             {ended.length>0&&(
-              <div>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+              <div style={{marginBottom:8}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
                   <div style={{width:3,height:16,background:"rgba(255,255,255,.12)",borderRadius:4}}/>
                   <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase"}}>Soirées passées</div>
                   <div style={{marginLeft:"auto",fontSize:10,fontWeight:700,color:GRAY}}>{ended.length} soirée{ended.length>1?"s":""}</div>
                 </div>
-                {ended.map((ev,i)=>(
-                  <div key={ev.id} style={{borderRadius:20,overflow:"hidden",marginBottom:14,border:`1px solid rgba(255,255,255,.08)`,animation:`evCardIn .4s ${i*.06}s both`,position:"relative"}}>
-                    {/* Affiche pleine hauteur */}
-                    {ev.poster?(
-                      <div style={{position:"relative",width:"100%",paddingTop:"56%"}}>
-                        <img src={ev.poster} alt={ev.title} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>
-                        <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,.1) 0%,rgba(13,17,23,.85) 100%)"}}/>
-                        <div style={{position:"absolute",top:12,right:12,background:"rgba(0,0,0,.7)",border:"1px solid rgba(255,255,255,.15)",borderRadius:20,padding:"4px 12px",fontSize:9,fontWeight:900,color:"rgba(255,255,255,.7)",letterSpacing:1}}>TERMINÉE</div>
-                        <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"14px 16px"}}>
-                          <div style={{fontSize:17,fontWeight:900,color:WHITE,marginBottom:4}}>{ev.title}</div>
-                          <div style={{display:"flex",gap:12}}>
-                            <span style={{fontSize:11,color:"rgba(255,255,255,.55)"}}>{ev.date}</span>
-                            {ev.location&&<span style={{fontSize:11,color:"rgba(255,255,255,.4)"}}>· {ev.location}</span>}
-                          </div>
-                        </div>
+                <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:8,scrollbarWidth:"none",msOverflowStyle:"none",WebkitOverflowScrolling:"touch"}}>
+                  {ended.map((ev,i)=>(
+                    <div key={ev.id} style={{flexShrink:0,width:140,height:140,borderRadius:16,overflow:"hidden",position:"relative",border:"1px solid rgba(255,255,255,.08)",animation:`evCardIn .4s ${i*.06}s both`}}>
+                      {ev.poster
+                        ?<img src={ev.poster} alt={ev.title} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                        :<div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#1C2430,#141A22)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:36}}>🎉</div>
+                      }
+                      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,.15) 0%,rgba(0,0,0,.75) 100%)"}}/>
+                      <div style={{position:"absolute",top:8,right:8,background:"rgba(0,0,0,.65)",border:"1px solid rgba(255,255,255,.12)",borderRadius:20,padding:"3px 8px",fontSize:8,fontWeight:900,color:"rgba(255,255,255,.6)",letterSpacing:.5}}>TERMINÉE</div>
+                      <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"8px 10px"}}>
+                        <div style={{fontSize:11,fontWeight:900,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",lineHeight:1.3}}>{ev.title}</div>
+                        <div style={{fontSize:9,color:"rgba(255,255,255,.5)",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.date}</div>
                       </div>
-                    ):(
-                      <div style={{background:BG2,padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                        <div>
-                          <div style={{fontSize:15,fontWeight:900,color:"rgba(255,255,255,.5)",marginBottom:3}}>{ev.title}</div>
-                          <div style={{fontSize:11,color:"rgba(255,255,255,.3)"}}>{ev.date}</div>
-                        </div>
-                        <div style={{background:"rgba(255,255,255,.06)",border:"1px solid rgba(255,255,255,.08)",borderRadius:20,padding:"4px 12px",fontSize:9,fontWeight:900,color:GRAY,letterSpacing:.5}}>TERMINÉE</div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
