@@ -2705,7 +2705,7 @@ export default function App(){
                 </div>
                 <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:8,scrollbarWidth:"none",msOverflowStyle:"none",WebkitOverflowScrolling:"touch"}}>
                   {ended.map((ev,i)=>(
-                    <div key={ev.id} style={{flexShrink:0,width:140,height:140,borderRadius:16,overflow:"hidden",position:"relative",border:"1px solid rgba(255,255,255,.08)",animation:`evCardIn .4s ${i*.06}s both`}}>
+                    <div key={ev.id} style={{flexShrink:0,width:140,height:175,borderRadius:16,overflow:"hidden",position:"relative",border:"1px solid rgba(255,255,255,.08)",animation:`evCardIn .4s ${i*.06}s both`}}>
                       {ev.poster
                         ?<img src={ev.poster} alt={ev.title} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
                         :<div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#1C2430,#141A22)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:36}}>🎉</div>
