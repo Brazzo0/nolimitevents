@@ -2711,7 +2711,7 @@ export default function App(){
                         :<div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#1C2430,#141A22)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:36}}>🎉</div>
                       }
                       <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,.15) 0%,rgba(0,0,0,.75) 100%)"}}/>
-                      <div style={{position:"absolute",top:8,right:8,background:"rgba(0,0,0,.65)",border:"1px solid rgba(255,255,255,.12)",borderRadius:20,padding:"3px 8px",fontSize:8,fontWeight:900,color:"rgba(255,255,255,.6)",letterSpacing:.5}}>TERMINÉE</div>
+                      <div style={{position:"absolute",top:8,right:8,background:"rgba(255,0,128,.2)",border:`1px solid ${PINK}`,borderRadius:20,padding:"3px 8px",fontSize:8,fontWeight:900,color:PINK,letterSpacing:.5}}>TERMINÉE</div>
                       <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"8px 10px"}}>
                         <div style={{fontSize:11,fontWeight:900,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",lineHeight:1.3}}>{ev.title}</div>
                         <div style={{fontSize:9,color:"rgba(255,255,255,.5)",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.date}</div>
