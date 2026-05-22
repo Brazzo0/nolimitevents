@@ -1165,7 +1165,7 @@ function NativePayButton({amount,clientSecret,onSuccess,pendingData}){
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState(null);
   const [applePayOk,setApplePayOk]=useState(false);
-  useEffect(()=>{StripeNative.isApplePayAvailable().then(()=>setApplePayOk(true)).catch(()=>setApplePayOk(false));},[]);
+  useEffect(()=>{StripeNative.isApplePayAvailable().then(()=>setApplePayOk(true)).catch((e)=>{setApplePayOk(false);setError("DEBUG: "+(e?.message||JSON.stringify(e)));});},[]);
   const savePending=()=>{if(pendingData)localStorage.setItem("nle_pending_ticket",JSON.stringify(pendingData));};
   const clearPending=()=>localStorage.removeItem("nle_pending_ticket");
   const payApple=async()=>{
