@@ -31,16 +31,7 @@ workflows:
       - name: Supprimer les anciens profils
         script: rm -rf ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision || true
       - name: Installer le profil de provisionnement
-        script: |
-          python3 -c "
-import base64, os, pathlib
-data = os.environ['CM_PROVISIONING_PROFILE']
-decoded = base64.b64decode(data)
-path = pathlib.Path.home() / 'Library/MobileDevice/Provisioning Profiles/NoLimitEvents_AppStore.mobileprovision'
-path.parent.mkdir(parents=True, exist_ok=True)
-path.write_bytes(decoded)
-print('Profile écrit:', len(decoded), 'octets')
-"
+        script: python3 -c "import base64,os,pathlib; data=os.environ['CM_PROVISIONING_PROFILE']; decoded=base64.b64decode(data); path=pathlib.Path.home()/'Library/MobileDevice/Provisioning Profiles/NoLimitEvents_AppStore.mobileprovision'; path.parent.mkdir(parents=True,exist_ok=True); path.write_bytes(decoded)"
       - name: Configurer le code signing
         script: xcode-project use-profiles
       - name: Build IPA
