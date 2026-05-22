@@ -1173,6 +1173,7 @@ function NativePayButton({amount,clientSecret,onSuccess,pendingData}){
         merchantDisplayName:"No Limit Events",
         countryCode:"CH",
         currency:"chf",
+        enableApplePay:true,
         applePayMerchantId:"merchant.ch.nolimitevents.app",
         returnURL:"nolimitevents://",
       });
