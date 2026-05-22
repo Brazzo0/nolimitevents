@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+  <meta property="og:title" content="Galerie Photos – No Limit Events"/>
+  <meta property="og:description" content="Revivez vos meilleurs moments 📸"/>
+  <meta property="og:image" content="https://app.nolimitevents.ch/logo512.png"/>
+  <title>Galerie Photos – No Limit Events</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+
+    @keyframes logoIn {
+      0%  { transform: scale(0.3) rotate(-15deg); opacity:0; filter:blur(20px); }
+      60% { transform: scale(1.15) rotate(3deg);  opacity:1; filter:blur(0); }
+      80% { transform: scale(0.95) rotate(-1deg); }
+      100%{ transform: scale(1) rotate(0deg); opacity:1; }
+    }
+    @keyframes glowPulse {
+      0%,100%{ box-shadow:0 0 30px rgba(255,0,128,.5),0 0 60px rgba(255,0,128,.2); }
+      50%    { box-shadow:0 0 60px rgba(255,0,128,.9),0 0 100px rgba(255,0,128,.4); }
+    }
+    @keyframes fadeUp {
+      from{ opacity:0; transform:translateY(20px); }
+      to  { opacity:1; transform:translateY(0); }
+    }
+    @keyframes shimmer {
+      0%  { background-position:200% center; }
+      100%{ background-position:-200% center; }
+    }
+    @keyframes snakeMove {
+      from{ stroke-dashoffset:240; }
+      to  { stroke-dashoffset:-2360; }
+    }
+    @keyframes spin {
+      to{ transform:rotate(360deg); }
+    }
+    @keyframes skeletonPulse {
+      0%,100%{ opacity:.4; }
+      50%    { opacity:.15; }
+    }
+    @keyframes photoIn {
+      from{ opacity:0; transform:scale(.95); }
+      to  { opacity:1; transform:scale(1); }
+    }
+    @keyframes lightboxIn {
+      from{ opacity:0; }
+      to  { opacity:1; }
+    }
+
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+
+    body {
+      min-height:100vh;
+      background:#080C12;
+      font-family:'Inter',-apple-system,sans-serif;
+      overflow-x:hidden;
+    }
+
+    .bg-glow {
+      position:fixed; inset:0; pointer-events:none; z-index:0;
+      background:radial-gradient(ellipse at 50% -10%,rgba(255,0,128,.18) 0%,transparent 60%);
+    }
+
+    .snake-svg {
+      position:fixed; inset:0; width:100%; height:100%;
+      pointer-events:none; z-index:0;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      position:relative; z-index:1;
+      text-align:center;
+      padding:40px 20px 24px;
+    }
+
+    .logo-wrap {
+      width:90px; height:90px; border-radius:50%;
+      background:linear-gradient(135deg,rgba(255,0,128,.25),rgba(123,47,255,.2));
+      border:2px solid rgba(255,0,128,.5);
+      display:flex; align-items:center; justify-content:center;
+      margin:0 auto 20px; overflow:hidden;
+      animation:logoIn .9s cubic-bezier(.34,1.56,.64,1) both, glowPulse 3s ease-in-out 1s infinite;
+    }
+    .logo-wrap img { width:100%; height:100%; object-fit:cover; }
+
+    .brand {
+      font-size:12px; font-weight:700; color:rgba(255,255,255,.3);
+      letter-spacing:3px; text-transform:uppercase;
+      margin-bottom:8px; animation:fadeUp .5s .3s both;
+    }
+    .headline {
+      font-size:26px; font-weight:900; line-height:1.2; margin-bottom:8px;
+      background:linear-gradient(90deg,#FF0080,#FF99CC,#FF0080);
+      background-size:200% auto;
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      background-clip:text;
+      animation:fadeUp .5s .4s both, shimmer 3s linear 1s infinite;
+    }
+    .sub {
+      font-size:14px; color:rgba(255,255,255,.4); line-height:1.5;
+      animation:fadeUp .5s .5s both;
+    }
+
+    /* ── COUNTER ── */
+    .counter {
+      display:inline-block;
+      margin-top:12px;
+      background:rgba(255,0,128,.1);
+      border:1px solid rgba(255,0,128,.25);
+      border-radius:99px;
+      padding:5px 14px;
+      font-size:12px; font-weight:700; color:#FF0080;
+      animation:fadeUp .5s .6s both;
+    }
+
+    /* ── GRID ── */
+    .grid-wrap {
+      position:relative; z-index:1;
+      padding:4px 10px 40px;
+    }
+
+    .grid {
+      columns:2;
+      column-gap:8px;
+    }
+
+    .photo-item {
+      break-inside:avoid;
+      margin-bottom:8px;
+      border-radius:14px;
+      overflow:hidden;
+      cursor:pointer;
+      position:relative;
+      animation:photoIn .4s ease both;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .photo-item img {
+      width:100%; display:block;
+      border-radius:14px;
+      transition:transform .3s;
+    }
+
+    .photo-item:active img { transform:scale(.97); }
+
+    .photo-overlay {
+      position:absolute; inset:0;
+      background:linear-gradient(to top,rgba(0,0,0,.5) 0%,transparent 50%);
+      border-radius:14px;
+      opacity:0; transition:opacity .2s;
+      display:flex; align-items:flex-end; justify-content:center;
+      padding-bottom:10px;
+    }
+    .photo-item:hover .photo-overlay,
+    .photo-item:active .photo-overlay { opacity:1; }
+
+    /* ── SKELETON ── */
+    .skeleton {
+      background:rgba(255,255,255,.07);
+      border-radius:14px;
+      animation:skeletonPulse 1.2s ease-in-out infinite;
+    }
+
+    /* ── LOADING SPINNER ── */
+    .spinner-wrap {
+      position:relative; z-index:1;
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      padding:60px 20px;
+      gap:16px;
+    }
+    .spinner {
+      width:40px; height:40px;
+      border:3px solid rgba(255,0,128,.2);
+      border-top-color:#FF0080;
+      border-radius:50%;
+      animation:spin .8s linear infinite;
+    }
+    .spinner-text { font-size:13px; color:rgba(255,255,255,.3); }
+
+    /* ── EMPTY STATE ── */
+    .empty {
+      position:relative; z-index:1;
+      text-align:center; padding:60px 20px;
+      animation:fadeUp .5s both;
+    }
+    .empty .icon { font-size:48px; margin-bottom:16px; }
+    .empty .title { font-size:18px; font-weight:900; color:#fff; margin-bottom:8px; }
+    .empty .desc { font-size:13px; color:rgba(255,255,255,.35); line-height:1.6; }
+
+    /* ── LIGHTBOX ── */
+    .lightbox {
+      position:fixed; inset:0; z-index:1000;
+      background:rgba(0,0,0,.95);
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      animation:lightboxIn .25s ease;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .lb-top {
+      position:absolute; top:0; left:0; right:0;
+      padding:16px 16px 0;
+      display:flex; justify-content:space-between; align-items:center;
+      z-index:10;
+    }
+
+    .lb-counter {
+      font-size:12px; font-weight:700; color:rgba(255,255,255,.4);
+      letter-spacing:1px;
+    }
+
+    .lb-close {
+      width:38px; height:38px; border-radius:50%;
+      background:rgba(255,255,255,.1);
+      border:none; color:#fff; font-size:20px;
+      cursor:pointer; display:flex; align-items:center; justify-content:center;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .lb-img-wrap {
+      width:100%; max-width:500px;
+      padding:60px 12px 80px;
+      display:flex; align-items:center; justify-content:center;
+    }
+
+    .lb-img-wrap img {
+      max-width:100%; max-height:calc(100vh - 160px);
+      border-radius:16px;
+      object-fit:contain;
+      box-shadow:0 0 60px rgba(0,0,0,.8);
+    }
+
+    .lb-nav {
+      position:absolute; top:50%; transform:translateY(-50%);
+      width:44px; height:44px; border-radius:50%;
+      background:rgba(255,255,255,.1);
+      border:none; color:#fff; font-size:20px;
+      cursor:pointer; display:flex; align-items:center; justify-content:center;
+      -webkit-tap-highlight-color:transparent;
+    }
+    .lb-nav.prev { left:8px; }
+    .lb-nav.next { right:8px; }
+    .lb-nav:active { background:rgba(255,0,128,.3); }
+
+    .lb-bottom {
+      position:absolute; bottom:0; left:0; right:0;
+      padding:16px; display:flex; gap:10px;
+      background:linear-gradient(to top,rgba(0,0,0,.7),transparent);
+    }
+
+    .lb-btn {
+      flex:1; padding:13px;
+      border-radius:13px; border:none;
+      font-size:13px; font-weight:900;
+      letter-spacing:.5px; cursor:pointer;
+      font-family:inherit;
+      -webkit-tap-highlight-color:transparent;
+    }
+    .lb-btn.download {
+      background:linear-gradient(135deg,#FF0080,#FF3399);
+      color:#fff;
+      box-shadow:0 4px 20px rgba(255,0,128,.4);
+    }
+    .lb-btn.share {
+      background:rgba(255,255,255,.1);
+      color:#fff;
+    }
+
+    /* ── FOOTER ── */
+    .footer {
+      position:relative; z-index:1;
+      text-align:center;
+      padding:0 20px 32px;
+      animation:fadeUp .5s .8s both;
+    }
+    .footer a {
+      color:rgba(255,0,128,.5); text-decoration:none;
+      font-size:12px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="bg-glow"></div>
+
+  <svg class="snake-svg" viewBox="0 0 400 850" preserveAspectRatio="none">
+    <path d="M 30 -15 C 30 50,370 100,370 165 C 370 230,30 280,30 345 C 30 410,370 460,370 525 C 370 590,30 640,30 705 C 30 770,370 820,370 885 C 370 940,200 970,200 970"
+      fill="none" stroke="#FF0080" stroke-width="2.5" stroke-dasharray="220 2500" stroke-linecap="round" opacity="0.6"
+      style="animation:snakeMove 8.8s 0s linear infinite; filter:drop-shadow(0 0 6px #FF0080)"/>
+    <path d="M 30 -15 C 30 50,370 100,370 165 C 370 230,30 280,30 345 C 30 410,370 460,370 525 C 370 590,30 640,30 705 C 30 770,370 820,370 885 C 370 940,200 970,200 970"
+      fill="none" stroke="#FF0080" stroke-width="2.5" stroke-dasharray="220 2500" stroke-linecap="round" opacity="0.6"
+      style="animation:snakeMove 8.8s 4.4s linear infinite; filter:drop-shadow(0 0 6px #FF0080)"/>
+  </svg>
+
+  <!-- Header -->
+  <div class="header">
+    <div style="position:relative;display:inline-block;margin-bottom:20px;">
+      <div class="logo-wrap">
+        <img src="/logo_transparent.png" alt="No Limit Events"/>
+      </div>
+    </div>
+    <div class="brand">No Limit Events</div>
+    <div class="headline">Nos Soirées<br/>en Photos 📸</div>
+    <div class="sub">Revivez vos meilleurs moments</div>
+    <div class="counter" id="counter" style="display:none"></div>
+  </div>
+
+  <!-- Content -->
+  <div id="loading" class="spinner-wrap">
+    <div class="spinner"></div>
+    <div class="spinner-text">Chargement des photos...</div>
+  </div>
+
+  <div id="empty" class="empty" style="display:none">
+    <div class="icon">📸</div>
+    <div class="title">Les photos arrivent bientôt !</div>
+    <div class="desc">Reviens après la soirée pour<br/>retrouver tes meilleurs moments.</div>
+  </div>
+
+  <div class="grid-wrap" id="gridWrap" style="display:none">
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="footer">
+    <a href="https://nolimitevents.ch">nolimitevents.ch</a>
+  </div>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" style="display:none">
+    <div class="lb-top">
+      <div class="lb-counter" id="lbCounter"></div>
+      <button class="lb-close" onclick="closeLightbox()">✕</button>
+    </div>
+    <button class="lb-nav prev" id="lbPrev" onclick="navLightbox(-1)">‹</button>
+    <div class="lb-img-wrap">
+      <img id="lbImg" src="" alt="Photo"/>
+    </div>
+    <button class="lb-nav next" id="lbNext" onclick="navLightbox(1)">›</button>
+    <div class="lb-bottom">
+      <button class="lb-btn download" onclick="downloadCurrent()">⬇ Télécharger</button>
+      <button class="lb-btn share" onclick="shareCurrent()" id="shareBtn">↗ Partager</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script>
+    const { createClient } = supabase;
+    const sb = createClient(
+      'https://eypfrylitsaplkqpyxsh.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5cGZyeWxpdHNhcGxrcXB5eHNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4Mzg3MTMsImV4cCI6MjA5MzQxNDcxM30.Mo5cYeMahhmNwwHQId4Jc26BVgCSGAGiWapRWIHOK8s'
+    );
+
+    const BUCKET = 'photos-soirees';
+    let photos = [];
+    let currentIndex = 0;
+
+    // Touch/swipe support for lightbox
+    let touchStartX = 0;
+    document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+    document.addEventListener('touchend', e => {
+      if (document.getElementById('lightbox').style.display === 'none') return;
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      if (Math.abs(dx) > 50) navLightbox(dx < 0 ? 1 : -1);
+    });
+
+    async function loadPhotos() {
+      try {
+        const { data, error } = await sb.storage.from(BUCKET).list('', {
+          limit: 500,
+          sortBy: { column: 'created_at', order: 'desc' }
+        });
+
+        document.getElementById('loading').style.display = 'none';
+
+        const files = (data || []).filter(f => f.name && /\.(jpg|jpeg|png|webp|gif|heic)$/i.test(f.name));
+
+        if (error || files.length === 0) {
+          document.getElementById('empty').style.display = 'block';
+          return;
+        }
+
+        photos = files.map(f => ({
+          name: f.name,
+          url: sb.storage.from(BUCKET).getPublicUrl(f.name).data.publicUrl
+        }));
+
+        const counter = document.getElementById('counter');
+        counter.textContent = photos.length + ' photo' + (photos.length > 1 ? 's' : '');
+        counter.style.display = 'inline-block';
+
+        const grid = document.getElementById('grid');
+        document.getElementById('gridWrap').style.display = 'block';
+
+        photos.forEach((photo, i) => {
+          const item = document.createElement('div');
+          item.className = 'photo-item';
+          item.style.animationDelay = Math.min(i * 0.05, 0.5) + 's';
+          item.innerHTML = `
+            <img src="${photo.url}" alt="Photo ${i+1}" loading="lazy"/>
+            <div class="photo-overlay"></div>
+          `;
+          item.addEventListener('click', () => openLightbox(i));
+          grid.appendChild(item);
+        });
+
+      } catch (e) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('empty').style.display = 'block';
+      }
+    }
+
+    function openLightbox(index) {
+      currentIndex = index;
+      updateLightbox();
+      document.getElementById('lightbox').style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeLightbox() {
+      document.getElementById('lightbox').style.display = 'none';
+      document.body.style.overflow = '';
+    }
+
+    function navLightbox(dir) {
+      currentIndex = (currentIndex + dir + photos.length) % photos.length;
+      updateLightbox();
+    }
+
+    function updateLightbox() {
+      const photo = photos[currentIndex];
+      document.getElementById('lbImg').src = photo.url;
+      document.getElementById('lbCounter').textContent = (currentIndex + 1) + ' / ' + photos.length;
+      document.getElementById('lbPrev').style.display = photos.length > 1 ? 'flex' : 'none';
+      document.getElementById('lbNext').style.display = photos.length > 1 ? 'flex' : 'none';
+    }
+
+    async function downloadCurrent() {
+      const photo = photos[currentIndex];
+      try {
+        const res = await fetch(photo.url);
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = photo.name;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      } catch {
+        window.open(photo.url, '_blank');
+      }
+    }
+
+    async function shareCurrent() {
+      const photo = photos[currentIndex];
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: 'No Limit Events 📸', url: photo.url });
+        } catch {}
+      } else {
+        window.open(photo.url, '_blank');
+      }
+    }
+
+    // Close lightbox on background click
+    document.getElementById('lightbox').addEventListener('click', function(e) {
+      if (e.target === this) closeLightbox();
+    });
+
+    loadPhotos();
+  </script>
+</body>
+</html>

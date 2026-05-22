@@ -1,0 +1,14 @@
+{
+  "outputDirectory": "build",
+  "routes": [
+    { "src": "/gallery.html",        "dest": "/gallery.html" },
+    { "src": "/confirm.html",        "dest": "/confirm.html" },
+    { "src": "/reset-password.html", "dest": "/reset-password.html" },
+    { "src": "/scanner.html",        "dest": "/scanner.html" },
+    { "src": "/privacy.html",        "dest": "/privacy.html" },
+    { "src": "/links.html",          "dest": "/links.html" },
+    { "src": "/billetterie.html",    "dest": "/billetterie.html" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
+}

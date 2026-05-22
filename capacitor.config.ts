@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'No Limit Events',
   webDir: 'build',
   server: {
-    url: 'https://nolimitevents.vercel.app',
+    url: 'https://app.nolimitevents.ch',
     cleartext: false
   }
 };

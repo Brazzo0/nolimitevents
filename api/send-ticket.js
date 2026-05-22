@@ -11,7 +11,7 @@ module.exports = async (req, res) => {
     const resend = new Resend(process.env.RESEND_API_KEY);
     const { email, name, eventTitle, eventDate, eventLocation, ticketId } = req.body;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(ticketId)}&bgcolor=0D1117&color=FF0080&margin=10`;
-    const walletUrl = `https://nolimitevents.vercel.app/api/generate-pass?ticketId=${encodeURIComponent(ticketId)}&eventTitle=${encodeURIComponent(eventTitle)}&eventDate=${encodeURIComponent(eventDate)}&eventLocation=${encodeURIComponent(eventLocation)}&name=${encodeURIComponent(name||'')}`;
+    const walletUrl = `https://app.nolimitevents.ch/api/generate-pass?ticketId=${encodeURIComponent(ticketId)}&eventTitle=${encodeURIComponent(eventTitle)}&eventDate=${encodeURIComponent(eventDate)}&eventLocation=${encodeURIComponent(eventLocation)}&name=${encodeURIComponent(name||'')}`;
     const prenom = (name || '').split(' ')[0] || name || 'No Limiter';
     const isFree = ticketId.includes('FREE');
 
@@ -58,7 +58,7 @@ module.exports = async (req, res) => {
 
   <!-- Header brand -->
   <div style="text-align:center;margin-bottom:28px;">
-    <img src="https://nolimitevents.vercel.app/logo512.png" alt="No Limit Events" width="110" height="110" style="display:block;margin:0 auto 16px;border-radius:28px;box-shadow:0 0 40px rgba(255,0,128,.35),0 8px 24px rgba(0,0,0,.5);"/>
+    <img src="https://app.nolimitevents.ch/logo512.png" alt="No Limit Events" width="110" height="110" style="display:block;margin:0 auto 16px;border-radius:28px;box-shadow:0 0 40px rgba(255,0,128,.35),0 8px 24px rgba(0,0,0,.5);"/>
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,.3);letter-spacing:1.5px;text-transform:uppercase;">La soirée sans limites</p>
   </div>
 

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+  <title>Email confirmé – No Limit Events</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+
+    @keyframes logoIn {
+      0%  { transform: scale(0.3) rotate(-15deg); opacity: 0; filter: blur(20px); }
+      60% { transform: scale(1.15) rotate(3deg);  opacity: 1; filter: blur(0); }
+      80% { transform: scale(0.95) rotate(-1deg); }
+      100%{ transform: scale(1) rotate(0deg);     opacity: 1; }
+    }
+    @keyframes glowPulse {
+      0%,100%{ box-shadow: 0 0 30px rgba(255,0,128,.5), 0 0 60px rgba(255,0,128,.2); }
+      50%    { box-shadow: 0 0 60px rgba(255,0,128,.9), 0 0 100px rgba(255,0,128,.4); }
+    }
+    @keyframes fadeUp {
+      from{ opacity:0; transform:translateY(24px); }
+      to  { opacity:1; transform:translateY(0); }
+    }
+    @keyframes shimmer {
+      0%  { background-position: 200% center; }
+      100%{ background-position: -200% center; }
+    }
+    @keyframes checkIn {
+      0%  { transform: scale(0); opacity:0; }
+      60% { transform: scale(1.3); }
+      100%{ transform: scale(1); opacity:1; }
+    }
+    @keyframes snakeMove {
+      from{ stroke-dashoffset: 240; }
+      to  { stroke-dashoffset: -2360; }
+    }
+    @keyframes confetti {
+      0%  { transform:translateY(-10px) rotate(0deg);   opacity:1; }
+      100%{ transform:translateY(110vh) rotate(720deg); opacity:0; }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin:0; padding:0; }
+
+    body {
+      min-height: 100vh;
+      background: #080C12;
+      font-family: 'Inter', -apple-system, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+      overflow-y: auto;
+      position: relative;
+    }
+
+    .bg-glow {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background: radial-gradient(ellipse at 50% -10%, rgba(255,0,128,.18) 0%, transparent 60%);
+    }
+
+    .snake-svg {
+      position: fixed; inset: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 0;
+    }
+
+    .card {
+      position: relative; z-index: 1;
+      width: 100%; max-width: 400px;
+      margin: 20px;
+      margin-bottom: 48px;
+      text-align: center;
+    }
+
+    .logo-wrap {
+      width: 110px; height: 110px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(255,0,128,.25), rgba(123,47,255,.2));
+      border: 2px solid rgba(255,0,128,.5);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 24px;
+      overflow: hidden;
+      animation: logoIn .9s cubic-bezier(.34,1.56,.64,1) both, glowPulse 3s ease-in-out 1s infinite;
+    }
+
+    .logo-wrap img {
+      width: 100%; height: 100%; object-fit: cover;
+      filter: drop-shadow(0 0 16px rgba(255,0,128,.9));
+    }
+
+    .check-badge {
+      position: absolute; bottom: -4px; right: -4px;
+      width: 34px; height: 34px; border-radius: 50%;
+      background: linear-gradient(135deg,#00E676,#00BCD4);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px;
+      box-shadow: 0 0 14px rgba(0,230,118,.6);
+      animation: checkIn .5s .9s cubic-bezier(.34,1.56,.64,1) both;
+    }
+
+    .title {
+      font-size: 13px; font-weight: 700;
+      color: rgba(255,255,255,.3);
+      letter-spacing: 3px; text-transform: uppercase;
+      margin-bottom: 10px;
+      animation: fadeUp .5s .3s both;
+    }
+
+    .headline {
+      font-size: 30px; font-weight: 900;
+      line-height: 1.2; margin-bottom: 10px;
+      background: linear-gradient(90deg, #FF0080, #FF99CC, #FF0080);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: fadeUp .5s .4s both, shimmer 3s linear 1s infinite;
+    }
+
+    .sub {
+      font-size: 15px; color: rgba(255,255,255,.55);
+      line-height: 1.6; margin-bottom: 32px;
+      animation: fadeUp .5s .5s both;
+    }
+
+    .info-box {
+      background: rgba(0,230,118,.07);
+      border: 1px solid rgba(0,230,118,.25);
+      border-radius: 18px; padding: 18px 20px;
+      margin-bottom: 28px;
+      animation: fadeUp .5s .6s both;
+    }
+    .info-box .icon { font-size: 28px; margin-bottom: 8px; }
+    .info-box .label {
+      font-size: 14px; font-weight: 900; color: #00E676; margin-bottom: 4px;
+    }
+    .info-box .desc {
+      font-size: 12px; color: rgba(255,255,255,.45); line-height: 1.6;
+    }
+
+    .btn {
+      display: block; width: 100%;
+      padding: 17px 0;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #FF0080, #FF3399);
+      color: #fff; font-size: 16px; font-weight: 900;
+      letter-spacing: 1px; text-decoration: none; text-align: center;
+      box-shadow: 0 8px 32px rgba(255,0,128,.45);
+      animation: fadeUp .5s .7s both;
+      border: none; cursor: pointer; font-family: inherit;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .hint {
+      margin-top: 14px; font-size: 12px;
+      color: rgba(255,255,255,.2);
+      animation: fadeUp .5s .8s both;
+    }
+
+    .confetti-piece {
+      position: fixed; width: 8px; height: 8px; border-radius: 2px;
+      pointer-events: none; z-index: 999;
+      animation: confetti 3s ease-in forwards;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="bg-glow"></div>
+
+  <!-- Serpent néon -->
+  <svg class="snake-svg" viewBox="0 0 400 850" preserveAspectRatio="none">
+    <path d="M 30 -15 C 30 50,370 100,370 165 C 370 230,30 280,30 345 C 30 410,370 460,370 525 C 370 590,30 640,30 705 C 30 770,370 820,370 885 C 370 940,200 970,200 970"
+      fill="none" stroke="#FF0080" stroke-width="2.5" stroke-dasharray="220 2500" stroke-linecap="round" opacity="0.8"
+      style="animation:snakeMove 8.8s 0s linear infinite; filter:drop-shadow(0 0 6px #FF0080) drop-shadow(0 0 14px rgba(255,0,128,.5))"/>
+    <path d="M 30 -15 C 30 50,370 100,370 165 C 370 230,30 280,30 345 C 30 410,370 460,370 525 C 370 590,30 640,30 705 C 30 770,370 820,370 885 C 370 940,200 970,200 970"
+      fill="none" stroke="#FF0080" stroke-width="2.5" stroke-dasharray="220 2500" stroke-linecap="round" opacity="0.8"
+      style="animation:snakeMove 8.8s 4.4s linear infinite; filter:drop-shadow(0 0 6px #FF0080)"/>
+  </svg>
+
+  <div class="card">
+
+    <!-- Logo -->
+    <div style="position:relative;display:inline-block;margin-bottom:24px;">
+      <div class="logo-wrap">
+        <img src="/logo_transparent.png" alt="No Limit Events"/>
+      </div>
+      <div class="check-badge">✅</div>
+    </div>
+
+    <div class="title">No Limit Events</div>
+    <div class="headline">Bienvenue dans<br/>la team No Limit ! 🎉</div>
+    <div class="sub">Ton email a été confirmé avec succès.<br/>Tu peux maintenant te connecter à l'app.</div>
+
+    <div class="info-box">
+      <div class="icon">✅</div>
+      <div class="label">Compte activé !</div>
+      <div class="desc">Retourne dans l'app No Limit Events et connecte-toi pour accéder à toutes nos soirées.</div>
+    </div>
+
+    <button class="btn" onclick="openApp()">OUVRIR L'APP 🚀</button>
+    <div class="hint">Si l'app ne s'ouvre pas, cherche "No Limit Events" sur l'App Store</div>
+
+  </div>
+
+  <script>
+    // Confettis
+    const colors = ['#FF0080','#FF3399','#FFD700','#00E676','#7B2FFF','#ffffff'];
+    for(let i = 0; i < 40; i++){
+      setTimeout(()=>{
+        const el = document.createElement('div');
+        el.className = 'confetti-piece';
+        el.style.left = Math.random()*100 + 'vw';
+        el.style.top = '-10px';
+        el.style.background = colors[Math.floor(Math.random()*colors.length)];
+        el.style.animationDelay = Math.random()*2 + 's';
+        el.style.transform = 'rotate('+Math.random()*360+'deg)';
+        document.body.appendChild(el);
+        setTimeout(()=>el.remove(), 4000);
+      }, i * 80);
+    }
+
+    function openApp(){
+      window.location.href = 'https://apps.apple.com/ch/app/no-limit-events/id6768564892';
+    }
+  </script>
+
+</body>
+</html>

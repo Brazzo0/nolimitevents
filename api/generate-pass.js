@@ -22,11 +22,17 @@ module.exports = async (req, res) => {
   try {
     const { ticketId, eventTitle, eventDate, eventLocation, name } = req.method === 'GET' ? req.query : req.body;
 
-    const certPem   = Buffer.from(process.env.PASS_CERT_B64, 'base64').toString('utf8');
-    const keyPem    = Buffer.from(process.env.PASS_KEY_B64,  'base64').toString('utf8');
-    const wwdrPem   = Buffer.from(process.env.WWDR_CERT_B64, 'base64').toString('utf8');
+    if (!process.env.PASS_CERT_B64) return res.status(500).json({ error: 'PASS_CERT_B64 manquant dans Vercel env vars' });
+    if (!process.env.PASS_KEY_B64)  return res.status(500).json({ error: 'PASS_KEY_B64 manquant dans Vercel env vars' });
+    if (!process.env.WWDR_CERT_B64) return res.status(500).json({ error: 'WWDR_CERT_B64 manquant dans Vercel env vars' });
 
-    const iconBuf = await fetchBuffer('https://nolimitevents.vercel.app/logo512.png');
+    const clean = b64 => Buffer.from(b64, 'base64').toString('utf8').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+    const certPem = clean(process.env.PASS_CERT_B64);
+    const keyPem  = clean(process.env.PASS_KEY_B64);
+    const wwdrPem = clean(process.env.WWDR_CERT_B64);
+    const passphrase = process.env.PASS_KEY_PASSPHRASE || '';
+
+    const iconBuf = await fetchBuffer('https://app.nolimitevents.ch/logo_transparent.png');
 
     const passJson = {
       formatVersion: 1,
@@ -68,22 +74,22 @@ module.exports = async (req, res) => {
       }
     };
 
-    const pass = await PKPass.from({
-      model: {
-        'pass.json':    Buffer.from(JSON.stringify(passJson)),
-        'icon.png':     iconBuf,
-        'icon@2x.png':  iconBuf,
-        'logo.png':     iconBuf,
-        'logo@2x.png':  iconBuf,
+    const pass = new PKPass(
+      {
+        'pass.json':   Buffer.from(JSON.stringify(passJson)),
+        'icon.png':    iconBuf,
+        'icon@2x.png': iconBuf,
+        'logo.png':    iconBuf,
+        'logo@2x.png': iconBuf,
       },
-      certificates: {
+      {
         wwdr:       wwdrPem,
         signerCert: certPem,
-        signerKey:  keyPem,
+        signerKey:  passphrase ? { keyFile: keyPem, passphrase } : keyPem,
       }
-    }, { serialNumber: ticketId });
+    );
 
-    const buf = pass.getAsBuffer();
+    const buf = await pass.getAsBuffer();
 
     res.setHeader('Content-Type', 'application/vnd.apple.pkpass');
     res.setHeader('Content-Disposition', `attachment; filename="${ticketId}.pkpass"`);

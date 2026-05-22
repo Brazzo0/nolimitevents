@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+  <meta property="og:title" content="No Limit Events"/>
+  <meta property="og:description" content="La soirée sans limites 🎉"/>
+  <meta property="og:image" content="https://app.nolimitevents.ch/logo512.png"/>
+  <title>No Limit Events – Liens</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #121212;
+      font-family: -apple-system, 'SF Pro Display', BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .sheet {
+      width: 100%;
+      max-width: 500px;
+      background: #121212;
+      border-radius: 14px 14px 0 0;
+      padding: 12px 0 32px;
+    }
+
+    /* Barre de glissement Instagram */
+    .drag-bar {
+      width: 36px; height: 4px;
+      background: rgba(255,255,255,.25);
+      border-radius: 99px;
+      margin: 0 auto 16px;
+    }
+
+    /* Titre "Liens" */
+    .sheet-title {
+      text-align: center;
+      font-size: 17px;
+      font-weight: 600;
+      color: #ffffff;
+      letter-spacing: .2px;
+      margin-bottom: 20px;
+    }
+
+    /* Liste des boutons */
+    .links {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 0 16px;
+    }
+
+    /* Bouton générique */
+    .btn {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      text-decoration: none;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: opacity .15s, transform .1s;
+    }
+    .btn:active { opacity: .8; transform: scale(.98); }
+
+    /* Premier bouton : fuchsia flashy */
+    .btn-primary {
+      background: linear-gradient(135deg, #FF0080, #FF3399);
+      box-shadow: 0 4px 20px rgba(255, 0, 128, .4);
+    }
+
+    /* Autres boutons : gris Instagram */
+    .btn-secondary {
+      background: #2c2c2e;
+    }
+
+    /* Icône carré arrondi */
+    .btn-icon {
+      width: 56px; height: 56px;
+      border-radius: 14px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .btn-icon img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      object-position: center;
+    }
+
+    /* Texte */
+    .btn-text { flex: 1; }
+    .btn-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: .3px;
+      text-transform: uppercase;
+    }
+    .btn-sub {
+      font-size: 12px;
+      margin-top: 2px;
+      color: rgba(255,255,255,.5);
+    }
+    .btn-primary .btn-sub { color: rgba(255,255,255,.65); }
+
+    /* Flèche droite */
+    .btn-arrow {
+      color: rgba(255,255,255,.35);
+      font-size: 20px;
+      font-weight: 300;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="sheet">
+
+    <div class="drag-bar"></div>
+    <div class="sheet-title">Liens</div>
+
+    <div class="links">
+
+      <!-- MON SITE -->
+      <a href="https://nolimitevents.ch" target="_blank" class="btn btn-primary">
+        <div class="btn-icon">
+          <img src="https://eypfrylitsaplkqpyxsh.supabase.co/storage/v1/object/public/assets/globe.png" alt="Site"/>
+        </div>
+        <div class="btn-text">
+          <div class="btn-title">No Limit Events</div>
+          <div class="btn-sub">La Soirée Sans Limites</div>
+        </div>
+        <div class="btn-arrow">›</div>
+      </a>
+
+      <!-- APPLICATION -->
+      <a href="https://apps.apple.com/ch/app/no-limit-events/id6768564892" target="_blank" class="btn btn-secondary">
+        <div class="btn-icon">
+          <img src="https://eypfrylitsaplkqpyxsh.supabase.co/storage/v1/object/public/assets/appstore.png" alt="App"/>
+        </div>
+        <div class="btn-text">
+          <div class="btn-title">Application</div>
+          <div class="btn-sub">Disponible sur l'App Store</div>
+        </div>
+        <div class="btn-arrow">›</div>
+      </a>
+
+      <!-- BILLETTERIE -->
+      <a href="https://app.nolimitevents.ch/billetterie.html" target="_blank" class="btn btn-secondary">
+        <div class="btn-icon">
+          <img src="https://eypfrylitsaplkqpyxsh.supabase.co/storage/v1/object/public/assets/ticket.png" alt="Billets"/>
+        </div>
+        <div class="btn-text">
+          <div class="btn-title">Billetterie 🎟️</div>
+          <div class="btn-sub">Achète tes billets en ligne</div>
+        </div>
+        <div class="btn-arrow">›</div>
+      </a>
+
+      <!-- PHOTOS -->
+      <a href="https://app.nolimitevents.ch/gallery.html" target="_blank" class="btn btn-secondary">
+        <div class="btn-icon">
+          <img src="https://eypfrylitsaplkqpyxsh.supabase.co/storage/v1/object/public/assets/camera.png" alt="Photos"/>
+        </div>
+        <div class="btn-text">
+          <div class="btn-title">Photos 📸</div>
+          <div class="btn-sub">Revivez nos soirées</div>
+        </div>
+        <div class="btn-arrow">›</div>
+      </a>
+
+    </div>
+
+  </div>
+
+</body>
+</html>

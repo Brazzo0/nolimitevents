@@ -8,11 +8,11 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({error: 'Method not allowed'});
   try {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    const {amount, currency='chf', eventTitle, paymentMethod='card'} = req.body;
+    const {amount, currency='chf', eventTitle} = req.body;
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100),
       currency,
-      payment_method_types: paymentMethod==='twint' ? ['twint'] : ['card'],
+      automatic_payment_methods: { enabled: true },
       metadata: {eventTitle}
     });
     res.status(200).json({clientSecret: paymentIntent.client_secret});

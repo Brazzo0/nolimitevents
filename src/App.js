@@ -4,7 +4,9 @@ import ROSEBG from "./rosefond.jpg";
 import { createClient } from "@supabase/supabase-js";
 import { QRCodeSVG } from "qrcode.react";
 import { loadStripe } from "@stripe/stripe-js";
-import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { Stripe as StripeNative } from '@capacitor-community/stripe';
+import { Capacitor } from '@capacitor/core';
 const supabase=createClient("https://eypfrylitsaplkqpyxsh.supabase.co","eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5cGZyeWxpdHNhcGxrcXB5eHNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4Mzg3MTMsImV4cCI6MjA5MzQxNDcxM30.Mo5cYeMahhmNwwHQId4Jc26BVgCSGAGiWapRWIHOK8s");
 const stripePromise=loadStripe("pk_live_51TTVaDFUXKzLhWzmPzssbExHX18VMOToe84YxYDRBSJOte5YQVUAYyyPs4abetTYlnf3FUZCRyST5jC7ZfQGLdWp00MVOLOkKj");
 
@@ -12,7 +14,7 @@ const BG="#0D1117",BG2="#141A22",BG3="#1C2430";
 const PINK="#FF0080",PINK2="#FF3399",GREEN="#4ECDC4";
 const WHITE="#FFFFFF",GRAY="#8892A0",BORDER="#1E2A38";
 const ADMIN_PASS="nolimit2026";
-const API_BASE="https://nolimitevents.vercel.app";
+const API_BASE="https://app.nolimitevents.ch";
 const APP_VERSION="v2.6";
 const GRAD=`linear-gradient(135deg,${PINK},${PINK2})`;
 const SAFE_TOP="env(safe-area-inset-top, 20px)";
@@ -25,10 +27,10 @@ const initialTickets=[];
 const dbLoad=async()=>{
   try{const{data}=await supabase.from("events").select("*").order("created_at",{ascending:false});
   if(!data||!data.length) return null;
-  return data.map(e=>({id:e.id,title:e.title,date:e.date,time:e.time,location:e.location,city:e.city,price:e.price,category:e.category,poster:e.poster||null,tags:e.tags||[],lineup:e.lineup||[],soldOut:e.sold_out||false,ended:e.ended||false,ticketsSold:e.tickets_sold||0,capacity:e.capacity||200}));}catch{return null;}
+  return data.map(e=>({id:e.id,title:e.title,date:e.date,time:e.time,location:e.location,city:e.city,price:e.price,category:e.category,poster:e.poster||null,tags:e.tags||[],lineup:e.lineup||[],soldOut:e.sold_out||false,ended:e.ended||false,ticketsSold:e.tickets_sold||0,capacity:e.capacity||200,published:e.published||false,phase1Price:e.phase1_price||0,phase2Price:e.phase2_price||0,phase3Price:e.phase3_price||0,activePhase:e.active_phase||1,phase1Capacity:e.phase1_capacity||0,phase2Capacity:e.phase2_capacity||0,phase3Capacity:e.phase3_capacity||0,phase1Sold:e.phase1_sold||0,phase2Sold:e.phase2_sold||0,phase3Sold:e.phase3_sold||0}));}catch{return null;}
 };
 const dbSave=async(ev)=>{
-  try{const row={title:ev.title,date:ev.date,time:ev.time,location:ev.location,city:ev.city,price:ev.price,category:ev.category,poster:ev.poster||null,tags:ev.tags||[],lineup:ev.lineup||[],sold_out:ev.soldOut||false,ended:ev.ended||false,tickets_sold:ev.ticketsSold||0,capacity:ev.capacity||200};
+  try{const row={title:ev.title,date:ev.date,time:ev.time,location:ev.location,city:ev.city,price:ev.price,category:ev.category,poster:ev.poster||null,tags:ev.tags||[],lineup:ev.lineup||[],sold_out:ev.soldOut||false,ended:ev.ended||false,tickets_sold:ev.ticketsSold||0,capacity:ev.capacity||200,published:ev.published||false,phase1_price:ev.phase1Price||0,phase2_price:ev.phase2Price||0,phase3_price:ev.phase3Price||0,active_phase:ev.activePhase||1,phase1_capacity:ev.phase1Capacity||0,phase2_capacity:ev.phase2Capacity||0,phase3_capacity:ev.phase3Capacity||0,phase1_sold:ev.phase1Sold||0,phase2_sold:ev.phase2Sold||0,phase3_sold:ev.phase3Sold||0};
   if(ev.id&&Number.isInteger(ev.id)&&ev.id<2000000000){await supabase.from("events").update(row).eq("id",ev.id);return ev.id;}
   const{data}=await supabase.from("events").insert(row).select().single();return data?.id||ev.id;}catch{return ev.id;}
 };
@@ -47,16 +49,18 @@ const dbLoadEvents=async()=>{
   try{
     const{data,error}=await supabase.from("events").select("*").order("created_at",{ascending:false});
     if(error||!data||data.length===0) return null;
-    return data.map(e=>({id:e.id,title:e.title,date:e.date,time:e.time,location:e.location,city:e.city,price:e.price,category:e.category,poster:e.poster||null,tags:e.tags||[],lineup:e.lineup||[],soldOut:e.sold_out||false,ended:e.ended||false,ticketsSold:e.tickets_sold||0,capacity:e.capacity||200}));
+    return data.map(e=>({id:e.id,title:e.title,date:e.date,time:e.time,location:e.location,city:e.city,price:e.price,category:e.category,poster:e.poster||null,tags:e.tags||[],lineup:e.lineup||[],soldOut:e.sold_out||false,ended:e.ended||false,ticketsSold:e.tickets_sold||0,capacity:e.capacity||200,published:e.published||false,phase1Price:e.phase1_price||0,phase2Price:e.phase2_price||0,phase3Price:e.phase3_price||0,activePhase:e.active_phase||1,phase1Capacity:e.phase1_capacity||0,phase2Capacity:e.phase2_capacity||0,phase3Capacity:e.phase3_capacity||0,phase1Sold:e.phase1_sold||0,phase2Sold:e.phase2_sold||0,phase3Sold:e.phase3_sold||0}));
   }catch{return null;}
 };
 
 const dbSaveEvent=async(ev)=>{
   try{
-    const row={title:ev.title,date:ev.date,time:ev.time,location:ev.location,city:ev.city,price:ev.price,category:ev.category,poster:ev.poster||null,tags:ev.tags||[],lineup:ev.lineup||[],sold_out:ev.soldOut||false,ended:ev.ended||false,tickets_sold:ev.ticketsSold||0,capacity:ev.capacity||200};
-    if(ev.id&&Number.isInteger(ev.id)&&ev.id<2000000000){await supabase.from("events").update(row).eq("id",ev.id);return ev.id;}
-    const{data}=await supabase.from("events").insert(row).select().single();
-    return data?.id||ev.id;
+    const base={title:ev.title,date:ev.date,time:ev.time,location:ev.location,city:ev.city,price:ev.price,category:ev.category,poster:ev.poster||null,tags:ev.tags||[],lineup:ev.lineup||[],sold_out:ev.soldOut||false,ended:ev.ended||false,tickets_sold:ev.ticketsSold||0,capacity:ev.capacity||200,published:ev.published||false,phase1_price:ev.phase1Price||0,phase2_price:ev.phase2Price||0,phase3_price:ev.phase3Price||0,active_phase:ev.activePhase||1};
+    let savedId=ev.id;
+    if(ev.id&&Number.isInteger(ev.id)&&ev.id<2000000000){await supabase.from("events").update(base).eq("id",ev.id);}
+    else{const{data}=await supabase.from("events").insert(base).select().single();savedId=data?.id||ev.id;}
+    try{await supabase.from("events").update({phase1_capacity:ev.phase1Capacity||0,phase2_capacity:ev.phase2Capacity||0,phase3_capacity:ev.phase3Capacity||0,phase1_sold:ev.phase1Sold||0,phase2_sold:ev.phase2Sold||0,phase3_sold:ev.phase3Sold||0}).eq("id",savedId);}catch{}
+    return savedId;
   }catch{return ev.id;}
 };
 
@@ -77,13 +81,13 @@ const dbLoadTickets=async()=>{
   try{
     const{data}=await supabase.from("tickets").select("*");
     if(!data||data.length===0) return null;
-    return data.map(t=>({id:t.id,eventId:t.event_id,event:t.event,date:t.date,location:t.location,time:t.time,owner:t.owner,email:t.email,type:t.type,price:t.price,status:t.status,note:t.note,createdAt:t.created_at}));
+    return data.map(t=>({id:t.id,eventId:t.event_id,event:t.event,date:t.date,location:t.location,time:t.time,owner:t.owner,email:t.email,type:t.type,price:t.price,status:t.status,note:t.note,createdAt:t.created_at,source:t.source||"app"}));
   }catch{return null;}
 };
 
 const dbSaveTicket=async(t)=>{
   try{
-    const{data,error}=await supabase.from("tickets").insert({id:t.id,event_id:t.eventId,event:t.event,date:t.date,location:t.location,time:t.time,owner:t.owner,email:t.email,type:t.type,price:t.price,status:t.status,note:t.note||null}).select();
+    const{data,error}=await supabase.from("tickets").insert({id:t.id,event_id:t.eventId,event:t.event,date:t.date,location:t.location,time:t.time,owner:t.owner,email:t.email,type:t.type,price:t.price,status:t.status,note:t.note||null,source:t.source||"app"}).select();
     if(error)return error.message;
     if(!data||data.length===0)return "Accès refusé (RLS Supabase) — connecte-toi d'abord";
     return null;
@@ -239,7 +243,6 @@ function TicketCard({ticket,events,onShowQR,index=0}){
         <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(13,17,23,0) 0%,rgba(13,17,23,.85) 100%)"}}/>
         {/* Badge statut */}
         <div style={{position:"absolute",top:12,right:12,background:`${statusColor}18`,border:`1px solid ${statusColor}55`,color:statusColor,fontSize:9,fontWeight:900,padding:"4px 10px",borderRadius:20,letterSpacing:1,backdropFilter:"blur(6px)"}}>{statusLabel}</div>
-        {isFree&&<div style={{position:"absolute",top:12,left:12,background:"rgba(78,205,196,.15)",border:`1px solid ${GREEN}55`,color:GREEN,fontSize:9,fontWeight:900,padding:"4px 10px",borderRadius:20,letterSpacing:1}}>GRATUIT</div>}
         <div style={{position:"relative",zIndex:1,padding:"16px 16px 14px",display:"flex",gap:14,alignItems:"flex-end"}}>
           <div style={{width:64,height:78,borderRadius:14,overflow:"hidden",flexShrink:0,border:`1.5px solid rgba(255,255,255,.1)`,boxShadow:"0 4px 16px rgba(0,0,0,.5)"}}>
             {ev?.poster?<img src={ev.poster} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#FF0080,#7B2FFF)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26}}>🎉</div>}
@@ -313,12 +316,15 @@ const CATS=["Hip-Hop","Electronic","Festival","VIP","Afro","Latino","House","Tec
 
 function EventForm({ev,onSave,onCancel}){
   const isNew=!ev.id;
-  const [f,setF]=useState(ev.id?{...ev,lineup:Array.isArray(ev.lineup)?ev.lineup.join(", "):ev.lineup||"",tags:Array.isArray(ev.tags)?ev.tags.join(", "):ev.tags||""}:{title:"",date:"",time:"22:00",location:"Eden Night Club",city:"La Chaux-de-Fonds",price:"",category:"",poster:null,tags:"",soldOut:false,ended:false,lineup:"",capacity:200,ticketsSold:0});
+  const [f,setF]=useState(ev.id?{...ev,lineup:Array.isArray(ev.lineup)?ev.lineup.join(", "):ev.lineup||"",tags:Array.isArray(ev.tags)?ev.tags.join(", "):ev.tags||""}:{title:"",date:"",time:"22:00",location:"Eden Night Club",city:"La Chaux-de-Fonds",price:"",phase1Price:"",phase2Price:"",phase3Price:"",activePhase:1,phase1Capacity:"",phase2Capacity:"",phase3Capacity:"",category:"",poster:null,tags:"",soldOut:false,ended:false,lineup:"",capacity:200,ticketsSold:0,published:false});
   const fRef=useRef();
   const upd=(k)=>(e)=>setF(p=>({...p,[k]:e.target.value}));
   const save=()=>{
-    if(!f.title||!f.date||!f.price) return;
-    onSave({...f,price:+f.price,capacity:+f.capacity||200,ticketsSold:+f.ticketsSold||0,lineup:(f.lineup||"").split(",").map(x=>x.trim()).filter(Boolean),tags:(f.tags||"").split(",").map(x=>x.trim()).filter(Boolean)});
+    if(!f.title||!f.date||!f.phase1Price) return;
+    const p1=+f.phase1Price||0,p2=+f.phase2Price||0,p3=+f.phase3Price||0;
+    const activeP=f.activePhase||1;
+    const currentPrice=activeP===1?p1:activeP===2?p2:p3;
+    onSave({...f,price:currentPrice,phase1Price:p1,phase2Price:p2,phase3Price:p3,activePhase:activeP,phase1Capacity:+f.phase1Capacity||0,phase2Capacity:+f.phase2Capacity||0,phase3Capacity:+f.phase3Capacity||0,capacity:+f.capacity||200,ticketsSold:+f.ticketsSold||0,lineup:(f.lineup||"").split(",").map(x=>x.trim()).filter(Boolean),tags:(f.tags||"").split(",").map(x=>x.trim()).filter(Boolean)});
   };
   const pickPoster=(e)=>{
     const file=e.target.files[0];
@@ -335,7 +341,7 @@ function EventForm({ev,onSave,onCancel}){
         <span style={{fontSize:15,fontWeight:900,color:WHITE}}>{isNew?"Nouvel événement":"Modifier"}</span>
         <div onClick={save} style={{background:GRAD,color:WHITE,padding:"8px 18px",borderRadius:20,fontSize:12,fontWeight:900,cursor:"pointer"}}>SAUVEGARDER</div>
       </div>
-      <div style={{flex:1,overflowY:"auto",padding:"16px 20px 30px"}}>
+      <div style={{flex:1,overflowY:"auto",overflowX:"hidden",padding:"16px 20px 30px"}}>
         <input ref={fRef} type="file" accept="image/*" style={{display:"none"}} onChange={pickPoster}/>
         <div onClick={()=>fRef.current.click()} style={{border:`2px dashed ${BORDER}`,borderRadius:16,padding:16,textAlign:"center",cursor:"pointer",background:BG2,marginBottom:16,minHeight:90,display:"flex",alignItems:"center",justifyContent:"center"}}>
           {f.poster?<img src={f.poster} alt="" style={{width:"100%",height:110,objectFit:"cover",borderRadius:10}}/>
@@ -345,11 +351,42 @@ function EventForm({ev,onSave,onCancel}){
         <div style={{marginBottom:14}}><label style={LBL_S}>Date</label><input style={INP_S} placeholder="SAM 15 NOV 2026" value={f.date||""} onChange={upd("date")}/></div>
         <div style={{display:"flex",gap:10,marginBottom:14}}>
           <div style={{flex:1}}><label style={LBL_S}>Heure</label><input style={INP_S} placeholder="22:00" value={f.time||""} onChange={upd("time")}/></div>
-          <div style={{flex:1}}><label style={LBL_S}>Prix CHF</label><input style={INP_S} type="number" placeholder="25" value={f.price||""} onChange={upd("price")}/></div>
+          <div style={{flex:1}}><label style={LBL_S}>Capacité</label><input style={INP_S} type="number" placeholder="200" value={f.capacity||""} onChange={upd("capacity")}/></div>
+        </div>
+        <div style={{background:"rgba(255,0,128,.06)",border:"1px solid rgba(255,0,128,.2)",borderRadius:16,padding:"14px",marginBottom:14}}>
+          <div style={{fontSize:10,fontWeight:900,color:PINK,letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>🎟️ Prix par phase</div>
+          <div style={{display:"flex",gap:8,marginBottom:14}}>
+            {[{ph:1,label:"Early"},{ph:2,label:"Regular"},{ph:3,label:"Last"}].map(({ph,label})=>{
+              const price=ph===1?+f.phase1Price||0:ph===2?+f.phase2Price||0:+f.phase3Price||0;
+              const cap=ph===1?+f.phase1Capacity||0:ph===2?+f.phase2Capacity||0:+f.phase3Capacity||0;
+              const isActive=f.activePhase===ph;
+              return(
+                <div key={ph} onClick={()=>setF(p=>({...p,activePhase:ph}))} style={{flex:1,padding:"10px 6px",borderRadius:12,textAlign:"center",cursor:"pointer",background:isActive?GRAD:"rgba(255,255,255,.05)",border:isActive?"none":"1px solid rgba(255,255,255,.1)"}}>
+                  <div style={{fontSize:9,fontWeight:900,letterSpacing:1,color:isActive?WHITE:GRAY,marginBottom:4}}>PHASE {ph}</div>
+                  <div style={{fontSize:13,fontWeight:900,color:isActive?WHITE:price?WHITE:GRAY}}>{price?`CHF ${price}`:"—"}</div>
+                  <div style={{fontSize:9,color:isActive?"rgba(255,255,255,.7)":GRAY,marginTop:2}}>{cap?`${cap} billets`:"∞"}</div>
+                </div>
+              );
+            })}
+          </div>
+          {[{ph:1,priceKey:"phase1Price",capKey:"phase1Capacity",label:"Early Bird"},{ph:2,priceKey:"phase2Price",capKey:"phase2Capacity",label:"Regular"},{ph:3,priceKey:"phase3Price",capKey:"phase3Capacity",label:"Last Call"}].filter(x=>x.ph===f.activePhase).map(({ph,priceKey,capKey,label})=>(
+            <div key={ph}>
+              <div style={{display:"flex",gap:10,marginBottom:0}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:10,fontWeight:700,color:GRAY,letterSpacing:1,marginBottom:6}}>PRIX CHF</div>
+                  <input style={{...INP_S,marginBottom:0,border:"1.5px solid #FF0080"}} type="number" step="0.01" min="0" placeholder="Ex: 12.50" value={f[priceKey]||""} onChange={upd(priceKey)}/>
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:10,fontWeight:700,color:GRAY,letterSpacing:1,marginBottom:6}}>NB BILLETS</div>
+                  <input style={{...INP_S,marginBottom:0}} type="number" step="1" min="0" placeholder="Illimité" value={f[capKey]||""} onChange={upd(capKey)}/>
+                </div>
+              </div>
+              <div style={{fontSize:10,color:GRAY,marginTop:10,textAlign:"center",opacity:.7}}>Phase {ph} · {label} · Laisse "Nb billets" vide = illimité</div>
+            </div>
+          ))}
         </div>
         <div style={{marginBottom:14}}><label style={LBL_S}>Lieu</label><input style={INP_S} placeholder="Eden Night Club" value={f.location||""} onChange={upd("location")}/></div>
         <div style={{marginBottom:14}}><label style={LBL_S}>Ville</label><input style={INP_S} placeholder="La Chaux-de-Fonds" value={f.city||""} onChange={upd("city")}/></div>
-        <div style={{marginBottom:14}}><label style={LBL_S}>Capacité</label><input style={INP_S} type="number" placeholder="200" value={f.capacity||""} onChange={upd("capacity")}/></div>
         <div style={{marginBottom:14}}>
           <label style={LBL_S}>Catégorie</label>
           <input style={INP_S} placeholder="Hip-Hop..." value={f.category||""} onChange={upd("category")}/>
@@ -366,7 +403,7 @@ function EventForm({ev,onSave,onCancel}){
 }
 
 function FreeTicketForm({events,onSave,onCancel}){
-  const [f,setF]=useState({eventId:"",ownerName:"",ownerEmail:"",note:""});
+  const [f,setF]=useState({eventId:"",ownerName:"",ownerEmail:"",note:"",quantity:1});
   const [saving,setSaving]=useState(false);
   const [err,setErr]=useState("");
   const [mailStatus,setMailStatus]=useState("");
@@ -375,16 +412,24 @@ function FreeTicketForm({events,onSave,onCancel}){
     if(!f.eventId||!f.ownerName||!f.ownerEmail){setErr("Remplis tous les champs obligatoires");return;}
     const ev=events.find(e=>e.id===+f.eventId);
     if(!ev){setErr("Événement introuvable");return;}
+    const qty=Math.max(1,Math.min(20,parseInt(f.quantity)||1));
     setSaving(true);setErr("");setMailStatus("");
-    const ticket={id:`NLE-FREE-${Date.now().toString().slice(-6)}`,eventId:+f.eventId,event:ev.title,date:ev.date.split(" ").slice(0,3).join(" "),location:ev.location,time:ev.time,owner:f.ownerName,email:f.ownerEmail,type:"free",price:0,status:"valid",createdAt:new Date().toLocaleDateString("fr-CH"),note:f.note};
-    const dbErr=await onSave(ticket);
-    if(dbErr){setErr("❌ Erreur sauvegarde : "+dbErr);setSaving(false);return;}
-    setMailStatus("📧 Billet sauvegardé, envoi du mail...");
+    const tickets=Array.from({length:qty},(_,i)=>({
+      id:`NLE-FREE-${Date.now().toString().slice(-6)}-${i+1}`,
+      eventId:+f.eventId,event:ev.title,date:ev.date.split(" ").slice(0,3).join(" "),
+      location:ev.location,time:ev.time,owner:f.ownerName,email:f.ownerEmail,
+      type:"free",price:0,status:"valid",createdAt:new Date().toLocaleDateString("fr-CH"),note:f.note
+    }));
+    for(const ticket of tickets){
+      const dbErr=await onSave(ticket);
+      if(dbErr){setErr("❌ Erreur sauvegarde : "+dbErr);setSaving(false);return;}
+    }
+    setMailStatus("📧 Billets sauvegardés, envoi du mail...");
     try{
-      const resp=await fetch(`${API_BASE}/api/send-ticket`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:ticket.email,name:ticket.owner,eventTitle:ticket.event,eventDate:ticket.date,eventLocation:ticket.location,ticketId:ticket.id})});
-      if(resp.ok){setMailStatus("✅ Mail envoyé à "+ticket.email+" !");}
-      else{const d=await resp.json().catch(()=>({}));setMailStatus("⚠️ Billet OK mais mail échoué : "+(d.error||resp.status));}
-    }catch(e){setMailStatus("⚠️ Billet OK, mail échoué (réseau) : "+e.message);}
+      const resp=await fetch(`${API_BASE}/api/send-ticket`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:tickets[0].email,name:tickets[0].owner,eventTitle:tickets[0].event,eventDate:tickets[0].date,eventLocation:tickets[0].location,ticketId:tickets.map(t=>t.id).join(", "),quantity:qty})});
+      if(resp.ok){setMailStatus(`✅ ${qty} billet${qty>1?"s":""} envoyé${qty>1?"s":""} à ${tickets[0].email} !`);}
+      else{const d=await resp.json().catch(()=>({}));setMailStatus("⚠️ Billets OK mais mail échoué : "+(d.error||resp.status));}
+    }catch(e){setMailStatus("⚠️ Billets OK, mail échoué (réseau) : "+e.message);}
     setSaving(false);
   };
   return(
@@ -396,7 +441,7 @@ function FreeTicketForm({events,onSave,onCancel}){
           {saving?"...":"CRÉER"}
         </div>
       </div>
-      <div style={{flex:1,overflowY:"auto",padding:"20px"}}>
+      <div style={{flex:1,overflowY:"auto",overflowX:"hidden",padding:"20px"}}>
         {err&&<div style={{background:"rgba(255,68,68,.12)",border:"1px solid rgba(255,68,68,.4)",borderRadius:12,padding:"12px 14px",marginBottom:14,fontSize:13,fontWeight:700,color:"#FF4444"}}>{err}</div>}
         {mailStatus&&<div style={{background:mailStatus.startsWith("✅")?"rgba(78,205,196,.1)":"rgba(255,179,71,.1)",border:`1px solid ${mailStatus.startsWith("✅")?"rgba(78,205,196,.4)":"rgba(255,179,71,.4)"}`,borderRadius:12,padding:"12px 14px",marginBottom:14,fontSize:13,fontWeight:700,color:mailStatus.startsWith("✅")?GREEN:"#FFB347"}}>{mailStatus}</div>}
         <div style={{marginBottom:14}}>
@@ -411,6 +456,14 @@ function FreeTicketForm({events,onSave,onCancel}){
         </div>
         <div style={{marginBottom:14}}><label style={{...LBL_S,color:GREEN}}>Nom</label><input style={INP_S} placeholder="DJ NOXX / Staff..." value={f.ownerName} onChange={upd("ownerName")}/></div>
         <div style={{marginBottom:14}}><label style={{...LBL_S,color:GREEN}}>Email</label><input style={INP_S} type="email" placeholder="collab@example.ch" value={f.ownerEmail} onChange={upd("ownerEmail")}/></div>
+        <div style={{marginBottom:14}}>
+          <label style={{...LBL_S,color:GREEN}}>Nombre de billets</label>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <div onClick={()=>setF(p=>({...p,quantity:Math.max(1,parseInt(p.quantity||1)-1)}))} style={{width:40,height:40,borderRadius:10,background:"rgba(78,205,196,.15)",border:`1px solid ${GREEN}44`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:20,color:GREEN,fontWeight:900,flexShrink:0}}>−</div>
+            <input style={{...INP_S,textAlign:"center",fontWeight:900,fontSize:18,color:GREEN,flex:1}} type="number" min="1" max="20" value={f.quantity} onChange={e=>setF(p=>({...p,quantity:Math.max(1,Math.min(20,parseInt(e.target.value)||1))}))}/>
+            <div onClick={()=>setF(p=>({...p,quantity:Math.min(20,parseInt(p.quantity||1)+1)}))} style={{width:40,height:40,borderRadius:10,background:"rgba(78,205,196,.15)",border:`1px solid ${GREEN}44`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:20,color:GREEN,fontWeight:900,flexShrink:0}}>+</div>
+          </div>
+        </div>
         <div style={{marginBottom:20}}><label style={{...LBL_S,color:GREEN}}>Note</label><input style={INP_S} placeholder="DJ, Staff, Photo..." value={f.note} onChange={upd("note")}/></div>
         {!mailStatus.startsWith("✅")&&<div onClick={saving?null:save} style={{background:saving?"rgba(78,205,196,.2)":`linear-gradient(135deg,${GREEN},#38B2AC)`,color:BG,padding:"16px 0",borderRadius:14,textAlign:"center",fontWeight:900,fontSize:14,cursor:saving?"default":"pointer",textTransform:"uppercase",opacity:saving?.6:1}}>{saving?"ENVOI EN COURS...":"CRÉER LE BILLET"}</div>}
         {mailStatus.startsWith("✅")&&<div onClick={onCancel} style={{background:`linear-gradient(135deg,${GREEN},#38B2AC)`,color:BG,padding:"16px 0",borderRadius:14,textAlign:"center",fontWeight:900,fontSize:14,cursor:"pointer",textTransform:"uppercase"}}>FERMER</div>}
@@ -524,7 +577,7 @@ function TicketsScreen({tickets,events,user,loading}){
     </div>
   );
   return(
-    <div style={{flex:1,display:"flex",flexDirection:"column",overflowY:"auto",background:BG}}>
+    <div style={{flex:1,display:"flex",flexDirection:"column",overflowY:"auto",overflowX:"hidden",background:BG}}>
       <style>{`
         @keyframes fadeSlideUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
       `}</style>
@@ -721,7 +774,7 @@ function GroupsScreen({authUser,supabase}){
       </div>
 
       {/* Contenu */}
-      <div style={{flex:1,overflowY:"auto",padding:"4px 16px 90px"}}>
+      <div style={{flex:1,overflowY:"auto",overflowX:"hidden",padding:"4px 16px 90px"}}>
 
         {/* Carte parrainage */}
         <div style={{background:"linear-gradient(135deg,rgba(123,47,255,.2),rgba(255,0,128,.15))",borderRadius:18,padding:"14px 16px",marginBottom:14,border:"1px solid rgba(123,47,255,.3)"}}>
@@ -954,7 +1007,7 @@ function NavBar({current,onNav,onProfil,onEvents,onTickets,onGroups}){
   );
 }
 
-function AdminEventRow({ev,onEdit,onToggle,onDelete,onUpload,onEnd,index}){
+function AdminEventRow({ev,onEdit,onToggle,onDelete,onUpload,onEnd,onPublish,onPhase,index}){
   const pct=Math.round((ev.ticketsSold/ev.capacity)*100);
   return(
     <div style={{background:ev.ended?"rgba(255,255,255,.03)":BG2,borderRadius:18,marginBottom:12,overflow:"hidden",border:ev.ended?"1px solid rgba(255,255,255,.1)":`1px solid ${BORDER}`,opacity:ev.ended?.6:1}}>
@@ -964,17 +1017,28 @@ function AdminEventRow({ev,onEdit,onToggle,onDelete,onUpload,onEnd,index}){
         <div style={{flex:1,minWidth:0}}>
           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
             <div style={{fontSize:13,fontWeight:800,color:WHITE,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</div>
-            
+            {!ev.published&&<div style={{background:"rgba(123,47,255,.2)",border:"1px solid rgba(123,47,255,.4)",borderRadius:8,padding:"2px 7px",fontSize:9,fontWeight:900,color:"#7B2FFF",letterSpacing:.5,flexShrink:0}}>BROUILLON</div>}
+            {ev.published&&<div style={{background:"rgba(0,230,118,.12)",border:"1px solid rgba(0,230,118,.3)",borderRadius:8,padding:"2px 7px",fontSize:9,fontWeight:900,color:GREEN,letterSpacing:.5,flexShrink:0}}>PUBLIÉ</div>}
           </div>
           <div style={{fontSize:11,color:GRAY}}>{ev.date} • CHF {ev.price}</div>
           <div style={{height:4,background:BG3,borderRadius:4,overflow:"hidden",marginTop:6}}><div style={{height:"100%",width:`${pct}%`,background:GRAD}}/></div>
           <div style={{fontSize:10,color:GRAY,marginTop:3}}>{ev.ticketsSold}/{ev.capacity} • {pct}%</div>
+          {(ev.phase1Price||ev.phase2Price||ev.phase3Price)>0&&(
+            <div style={{display:"flex",gap:4,marginTop:6}}>
+              {[1,2,3].map(ph=>{const price=ph===1?ev.phase1Price:ph===2?ev.phase2Price:ev.phase3Price;const cap=ph===1?ev.phase1Capacity:ph===2?ev.phase2Capacity:ev.phase3Capacity;const sold=ph===1?ev.phase1Sold:ph===2?ev.phase2Sold:ev.phase3Sold;if(!price)return null;const full=cap>0&&sold>=cap;return(
+                <div key={ph} onClick={()=>!full&&onPhase&&onPhase(ev.id,ph)} style={{padding:"3px 8px",borderRadius:8,fontSize:9,fontWeight:900,cursor:full?"default":"pointer",background:ev.activePhase===ph?"rgba(255,0,128,.25)":full?"rgba(255,68,68,.1)":"rgba(255,255,255,.06)",border:ev.activePhase===ph?"1px solid rgba(255,0,128,.5)":full?"1px solid rgba(255,68,68,.3)":"1px solid rgba(255,255,255,.1)",color:ev.activePhase===ph?PINK:full?"#FF4444":GRAY}}>
+                  P{ph} CHF {price}{cap>0?` · ${sold}/${cap}`:""}{full?" 🔒":""}
+                </div>
+              );})}
+            </div>
+          )}
         </div>
       </div>
       <div style={{display:"flex",borderTop:`1px solid ${BORDER}`}}>
         {[
           [<Icon n="edit" s={13} c={GRAY}/>,"Modifier",()=>onEdit(ev),GRAY],
           [<Icon n="image" s={13} c={GRAY}/>,"Affiche",()=>onUpload(ev.id),GRAY],
+          [ev.published?<Icon n="check" s={13} c={GREEN}/>:<Icon n="block" s={13} c="#7B2FFF"/>,ev.published?"Publié":"Publier",()=>onPublish(ev.id),ev.published?GREEN:"#7B2FFF"],
           [ev.soldOut?<Icon n="check" s={13} c={GREEN}/>:<Icon n="block" s={13} c={PINK}/>,ev.soldOut?"Réactiver":"Sold Out",()=>onToggle(ev.id),ev.soldOut?GREEN:PINK],
           [ev.ended?<Icon n="check" s={13} c={GREEN}/>:<Icon n="block" s={13} c="#FF8C00"/>,ev.ended?"Réactiver":"Terminer",()=>onEnd(ev.id),ev.ended?GREEN:"#FF8C00"],
           [<Icon n="trash" s={13} c="#FF4444"/>,"Suppr.",()=>onDelete(ev.id),"#FF4444"],
@@ -1097,7 +1161,44 @@ function AdminGallery(){
   );
 }
 
-function StripePayForm({amount,onSuccess}){
+function NativePayButton({amount,clientSecret,onSuccess,pendingData}){
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState(null);
+  const pay=async()=>{
+    setLoading(true);setError(null);
+    try{
+      if(pendingData)localStorage.setItem("nle_pending_ticket",JSON.stringify(pendingData));
+      await StripeNative.createPaymentSheet({
+        paymentIntentClientSecret:clientSecret,
+        merchantDisplayName:"No Limit Events",
+        countryCode:"CH",
+        currency:"chf",
+      });
+      const{paymentResult}=await StripeNative.presentPaymentSheet();
+      if(paymentResult==="paymentSheetCompleted"){
+        localStorage.removeItem("nle_pending_ticket");
+        onSuccess();
+      }else{
+        localStorage.removeItem("nle_pending_ticket");
+        setError("Paiement annulé");
+      }
+    }catch(e){
+      localStorage.removeItem("nle_pending_ticket");
+      setError("Erreur de paiement");
+    }
+    setLoading(false);
+  };
+  return(
+    <div style={{marginTop:14}}>
+      {error&&<div style={{color:"#FF4444",fontSize:12,marginBottom:10}}>{error}</div>}
+      <div onClick={pay} style={{background:"linear-gradient(135deg,#FF0080,#FF3399)",color:"#FFFFFF",padding:"15px 0",borderRadius:14,textAlign:"center",fontWeight:900,fontSize:14,cursor:"pointer",opacity:loading?0.7:1,textTransform:"uppercase"}}>
+        {loading?"TRAITEMENT...":"PAYER CHF "+amount}
+      </div>
+    </div>
+  );
+}
+
+function StripePayForm({amount,onSuccess,pendingData}){
   const stripe=useStripe();
   const elements=useElements();
   const [loading,setLoading]=useState(false);
@@ -1106,16 +1207,16 @@ function StripePayForm({amount,onSuccess}){
     if(!stripe||!elements) return;
     setLoading(true);setError(null);
     try{
-      const r=await fetch(`${API_BASE}/api/create-payment-intent`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({amount})});
-      const{clientSecret}=await r.json();
-      const{error:se}=await stripe.confirmCardPayment(clientSecret,{payment_method:{card:elements.getElement(CardElement)}});
-      if(se){setError(se.message);setLoading(false);}else{onSuccess();}
-    }catch{setError("Erreur de paiement");setLoading(false);}
+      if(pendingData)localStorage.setItem("nle_pending_ticket",JSON.stringify(pendingData));
+      const{error:se}=await stripe.confirmPayment({elements,confirmParams:{return_url:window.location.origin+"/"},redirect:"if_required"});
+      if(se){localStorage.removeItem("nle_pending_ticket");setError(se.message);setLoading(false);}
+      else{localStorage.removeItem("nle_pending_ticket");onSuccess();}
+    }catch{localStorage.removeItem("nle_pending_ticket");setError("Erreur de paiement");setLoading(false);}
   };
   return(
     <div style={{marginTop:14}}>
       <div style={{background:"#1C2430",border:"1.5px solid #1E2A38",borderRadius:12,padding:"14px",marginBottom:14}}>
-        <CardElement options={{hidePostalCode:true,style:{base:{fontSize:"16px",color:"#FFFFFF","::placeholder":{color:"#8892A0"}},invalid:{color:"#FF4444"}}}}/>
+        <PaymentElement options={{layout:"tabs"}}/>
       </div>
       {error&&<div style={{color:"#FF4444",fontSize:12,marginBottom:10}}>{error}</div>}
       <div onClick={pay} style={{background:"linear-gradient(135deg,#FF0080,#FF3399)",color:"#FFFFFF",padding:"15px 0",borderRadius:14,textAlign:"center",fontWeight:900,fontSize:14,cursor:"pointer",opacity:loading?0.7:1,textTransform:"uppercase"}}>
@@ -1132,7 +1233,7 @@ function QRScanner({tickets,events,onClose}){
         <span style={{fontSize:15,fontWeight:900,color:"#FFFFFF"}}>Scanner QR</span>
         <button onClick={onClose} style={{background:"rgba(255,255,255,.15)",border:"none",color:"#FFFFFF",fontSize:18,cursor:"pointer",width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
       </div>
-      <div style={{flex:1,overflowY:"auto",padding:20}}>
+      <div style={{flex:1,overflowY:"auto",overflowX:"hidden",padding:20}}>
         <div style={{fontSize:14,color:"#8892A0",marginBottom:16,textAlign:"center"}}>Sélectionne la soirée à scanner</div>
         {events.filter(e=>!e.ended).map(ev=>(
           <div key={ev.id} onClick={()=>window.open("/scanner.html?event_id="+ev.id+"&title="+encodeURIComponent(ev.title),"_blank")} style={{background:"#141A22",border:"1.5px solid #1E2A38",borderRadius:16,padding:16,marginBottom:12,display:"flex",alignItems:"center",gap:12,cursor:"pointer"}}>
@@ -1158,16 +1259,22 @@ export default function App(){
   const [onbDone,setOnbDone]=useState(false);
   const [authUser,setAuthUser]=useState(null);
   const [authLoading,setAuthLoading]=useState(true);
-  const [loginEmail,setLoginEmail]=useState("");
+  const [loginEmail,setLoginEmail]=useState(localStorage.getItem("nle_saved_email")||"");
   const [loginPass,setLoginPass]=useState("");
   const [loginErr,setLoginErr]=useState("");
   const [regPrenom,setRegPrenom]=useState("");
   const [regNom,setRegNom]=useState("");
   const [regEmail,setRegEmail]=useState("");
   const [regPass,setRegPass]=useState("");
+  const [regPassConfirm,setRegPassConfirm]=useState("");
+  const [forgotScreen,setForgotScreen]=useState(false);
+  const [forgotEmail,setForgotEmail]=useState("");
+  const [forgotSent,setForgotSent]=useState(false);
+  const [forgotErr,setForgotErr]=useState("");
   const [regRefCode,setRegRefCode]=useState("");
   const [regErr,setRegErr]=useState("");
   const [regDone,setRegDone]=useState(false);
+  const [showEmailConfirm,setShowEmailConfirm]=useState(false);
   const [tab,setTab]=useState("home");
   const [events,setEvents]=useState(initialEvents);
   const [tickets,setTickets]=useState([]);
@@ -1179,6 +1286,8 @@ export default function App(){
   const [payStep,setPayStep]=useState(0);
   const [payMethod,setPayMethod]=useState("card");
   const [buyerInfo,setBuyerInfo]=useState({prenom:"",nom:"",email:"",tel:""});
+  const [payClientSecret,setPayClientSecret]=useState(null);
+  const [twintSuccess,setTwintSuccess]=useState(false);
   const [qtyAnim,setQtyAnim]=useState(false);
   const [adminAuth,setAdminAuth]=useState(false);
   const [adminPass,setAdminPass]=useState("");
@@ -1248,6 +1357,63 @@ export default function App(){
   },[]);
 
   useEffect(()=>{
+    const h=window.location.hash;
+    if(h&&(h.includes('type=signup')||h.includes('type=email_change'))){
+      setShowEmailConfirm(true);
+      window.history.replaceState(null,'',window.location.pathname);
+    }
+  },[]);
+
+  useEffect(()=>{
+    const p=new URLSearchParams(window.location.search);
+    const status=p.get("redirect_status");
+    if(status==="succeeded"){
+      const pending=JSON.parse(localStorage.getItem("nle_pending_ticket")||"null");
+      if(pending){
+        localStorage.removeItem("nle_pending_ticket");
+        setTwintSuccess(true);
+        (async()=>{
+          const newTs=[];
+          for(let i=0;i<(pending.qty||1);i++){
+            await new Promise(r=>setTimeout(r,50));
+            const id="NLE-"+Date.now().toString().slice(-6)+"-"+(i+1);
+            const t={id,eventId:pending.eventId,event:pending.event,date:pending.date,location:pending.location,time:pending.time,owner:pending.buyerName,email:pending.buyerEmail,type:"paid",price:pending.unitPrice,status:"valid"};
+            await dbSaveTix(t);newTs.push(t);
+            try{await fetch(`${API_BASE}/api/send-ticket`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:pending.buyerEmail,name:pending.buyerName,eventTitle:pending.event,eventDate:pending.date,eventLocation:pending.location,ticketId:id})});}catch{}
+          }
+          setTickets(prev=>[...prev,...newTs]);
+          try{
+            const{data:evData}=await supabase.from("events").select("*").eq("id",pending.eventId).single();
+            if(evData){
+              const ap=evData.active_phase||1;
+              const newSold=(evData.tickets_sold||0)+(pending.qty||1);
+              const newPhaseSold=(evData[`phase${ap}_sold`]||0)+(pending.qty||1);
+              const phaseCap=evData[`phase${ap}_capacity`]||0;
+              await supabase.from("events").update({tickets_sold:newSold,[`phase${ap}_sold`]:newPhaseSold}).eq("id",pending.eventId);
+              if(phaseCap>0&&newPhaseSold>=phaseCap&&ap<3){const np=ap+1;const npr=evData[`phase${np}_price`]||0;if(npr)await supabase.from("events").update({active_phase:np,price:npr}).eq("id",pending.eventId);}
+            }
+          }catch{}
+        })();
+      }
+      window.history.replaceState(null,"",window.location.pathname);
+    }
+  },[]);
+
+  useEffect(()=>{
+    if(payStep!==1||!selEv)return;
+    const hasD=(profil?.points||0)>=1000;
+    const base=(selEv.price||0)*qty;
+    const amount=hasD?Math.round(base*0.7*100)/100:base;
+    setPayClientSecret(null);
+    fetch(`${API_BASE}/api/create-payment-intent`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({amount})})
+      .then(r=>r.json()).then(({clientSecret})=>{if(clientSecret)setPayClientSecret(clientSecret);}).catch(()=>{});
+  },[payStep,selEv?.id,qty]);
+
+  useEffect(()=>{
+    if(screen==="main"&&twintSuccess){setTwintSuccess(false);showToast("✅ Paiement réussi ! Ton billet est dans Billets 🎟️",5000);setTab("tickets");}
+  },[screen,twintSuccess]);
+
+  useEffect(()=>{
     const sub=supabase.channel("nle").on("postgres_changes",{event:"*",schema:"public",table:"events"},()=>{
       dbLoadEvents().then(evs=>{if(evs&&evs.length>0)setEvents(evs);});
     }).subscribe();
@@ -1275,9 +1441,15 @@ export default function App(){
 
   useEffect(()=>{
     if(!adminAuth)return;
+    setAdminUsersLoading(true);
+    dbLoadProfiles().then(u=>{setAdminUsers(u||[]);setAdminUsersLoading(false);});
+  },[adminAuth]);
+
+  useEffect(()=>{
+    if(!adminAuth)return;
     if(adminTab==="users"){
       setAdminUsersLoading(true);
-      dbLoadProfiles().then(u=>{setAdminUsers(u);setAdminUsersLoading(false);});
+      dbLoadProfiles().then(u=>{setAdminUsers(u||[]);setAdminUsersLoading(false);});
     }
     if(adminTab==="free"||adminTab==="tickets"){
       dbLoadTickets().then(tix=>{if(tix&&tix.length>=0)setTickets(tix);});
@@ -1296,9 +1468,33 @@ export default function App(){
   },[screen,authUser,authLoading]);
 
   const goMain=()=>{if(!authUser){setScreen("login");return;}setSelEv(null);setPayStep(0);setScreen("main");};
+
   useEffect(()=>{
-    supabase.auth.getSession().then(({data:{session}})=>{
-      setAuthUser(session?.user||null);
+    if(!authUser)return;
+    const ch=supabase.channel(`kick:${authUser.id}`)
+      .on('broadcast',{event:'kicked'},async()=>{
+        await supabase.auth.signOut();
+        setAuthUser(null);setProfil(null);
+        setScreen("login");
+        showToast("⛔ Ton compte a été supprimé.",6000);
+      })
+      .subscribe();
+    return()=>supabase.removeChannel(ch);
+  },[authUser]);
+
+  useEffect(()=>{
+    supabase.auth.getSession().then(async({data:{session}})=>{
+      if(session){
+        const{data:{user},error}=await supabase.auth.getUser();
+        if(error||!user){
+          await supabase.auth.signOut();
+          setAuthUser(null);
+        } else {
+          setAuthUser(user);
+        }
+      } else {
+        setAuthUser(null);
+      }
       setAuthLoading(false);
     });
     const{data:{subscription}}=supabase.auth.onAuthStateChange((_,session)=>{
@@ -1310,13 +1506,14 @@ export default function App(){
     setLoginErr("");
     const{error}=await supabase.auth.signInWithPassword({email:loginEmail,password:loginPass});
     if(error){setLoginErr("Email ou mot de passe incorrect ❌");}
-    else{setLoginEmail("");setLoginPass("");setScreen("setup-pseudo");}
+    else{localStorage.setItem("nle_saved_email",loginEmail);setLoginPass("");setScreen("setup-pseudo");}
   };
   const doRegister=async()=>{
     setRegErr("");
-    if(!regPrenom||!regNom||!regEmail||!regPass){setRegErr("Remplis tous les champs !");return;}
+    if(!regPrenom||!regNom||!regEmail||!regPass||!regPassConfirm){setRegErr("Remplis tous les champs !");return;}
     if(regPass.length<6){setRegErr("Mot de passe trop court (6 min)");return;}
-    const{error}=await supabase.auth.signUp({email:regEmail,password:regPass,options:{data:{prenom:regPrenom,nom:regNom}}});
+    if(regPass!==regPassConfirm){setRegErr("Les mots de passe ne correspondent pas ❌");return;}
+    const{error}=await supabase.auth.signUp({email:regEmail,password:regPass,options:{data:{prenom:regPrenom,nom:regNom},emailRedirectTo:"https://app.nolimitevents.ch/confirm.html"}});
     if(error){setRegErr(error.message);}
     else{
       if(regRefCode.trim())localStorage.setItem("nle_pendingRef",regRefCode.trim().toUpperCase());
@@ -1324,7 +1521,15 @@ export default function App(){
     }
   };
   const doLogout=async()=>{await supabase.auth.signOut();setAuthUser(null);setProfil(null);setScreen("login");};
-  const loadProfil=async(uid)=>{
+  const doForgotPassword=async()=>{
+    setForgotErr("");
+    if(!forgotEmail){setForgotErr("Entre ton adresse email");return;}
+    const{error}=await supabase.auth.resetPasswordForEmail(forgotEmail,{redirectTo:"https://app.nolimitevents.ch/reset-password.html"});
+    if(error){setForgotErr(error.message);}
+    else{setForgotSent(true);}
+  };
+  const loadProfil=async(uid,email)=>{
+    const pendingRef=localStorage.getItem("nle_pendingRef");
     const{data}=await supabase.from("profiles").select("*").eq("id",uid).single();
     if(data){
       if(!data.referral_code){
@@ -1332,18 +1537,24 @@ export default function App(){
         await supabase.from("profiles").update({referral_code:code}).eq("id",uid);
         data.referral_code=code;
       }
+      if(email&&!data.email){
+        await supabase.rpc("save_user_email",{user_id:uid,user_email:email});
+        data.email=email;
+      }
+      if(pendingRef){
+        await supabase.rpc("award_referral_points",{referrer_code:pendingRef});
+        localStorage.removeItem("nle_pendingRef");
+      }
       setProfil(data);setProfilPseudo(data.pseudo||"");setProfilInsta(data.instagram||"");setProfilSnap(data.snapchat||"");
     }
     else{
       const code="NLE"+Math.random().toString(36).substring(2,8).toUpperCase();
-      const pendingRef=localStorage.getItem("nle_pendingRef");
       if(pendingRef){
-        const{data:ref}=await supabase.from("profiles").select("id,points").eq("referral_code",pendingRef).single();
-        if(ref)await supabase.from("profiles").update({points:(ref.points||0)+50}).eq("id",ref.id);
+        await supabase.rpc("award_referral_points",{referrer_code:pendingRef});
         localStorage.removeItem("nle_pendingRef");
       }
-      await supabase.from("profiles").insert({id:uid,pseudo:null,instagram:"",snapchat:"",points:0,referral_code:code});
-      setProfil({pseudo:"",instagram:"",snapchat:"",points:0,referral_code:code});
+      await supabase.from("profiles").insert({id:uid,email:email||null,pseudo:null,instagram:"",snapchat:"",points:0,referral_code:code});
+      setProfil({email:email||null,pseudo:"",instagram:"",snapchat:"",points:0,referral_code:code});
     }
   };
   const saveProfil=async()=>{
@@ -1365,7 +1576,8 @@ export default function App(){
     setSetupPseudoSaving(false);
   };
   useEffect(()=>{if(screen==="setup-pseudo"&&profil&&profil.pseudo){setScreen("main");}  },[screen,profil]);
-  useEffect(()=>{if(authUser)loadProfil(authUser.id);},[authUser]);
+  useEffect(()=>{if(authUser)loadProfil(authUser.id,authUser.email);},[authUser]);
+  useEffect(()=>{if(Capacitor.isNativePlatform()){StripeNative.initialize({publishableKey:"pk_live_51TTVaDFUXKzLhWzmPzssbExHX18VMOToe84YxYDRBSJOte5YQVUAYyyPs4abetTYlnf3FUZCRyST5jC7ZfQGLdWp00MVOLOkKj"}).catch(()=>{});}},[]);
   const openEv=(ev)=>{setSelEv(events.find(e=>e.id===ev.id));setQty(1);setScreen("event");};
   const changeQty=(d)=>{setQty(q=>Math.min(10,Math.max(1,q+d)));setQtyAnim(true);setTimeout(()=>setQtyAnim(false),300);};
   const showToast=(msg,dur=4000)=>{setToast(msg);setTimeout(()=>setToast(null),dur)};
@@ -1442,8 +1654,22 @@ export default function App(){
   };
   const deleteEventFn=async(id)=>{await dbDeleteEvent(id);setEvents(p=>p.filter(e=>e.id!==id));setDelConfirm(null);showToast("🗑️ Supprimé");};
   const deleteTicketFn=async(id)=>{const err=await dbDeleteTicket(id);if(err){showToast("❌ Erreur suppression : "+err,8000);setDelTicketConfirm(null);return;}setTickets(p=>p.filter(t=>t.id!==id));setDelTicketConfirm(null);showToast("🗑️ Billet supprimé");};
-  const deleteUserFn=async(id)=>{await dbDeleteProfile(id);setAdminUsers(p=>p.filter(u=>u.id!==id));setDelUserConfirm(null);showToast("🗑️ Compte supprimé");};
+  const deleteUserFn=async(id)=>{
+    try{
+      const r=await fetch(`${API_BASE}/api/delete-user`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:id,adminKey:ADMIN_PASS})});
+      const d=await r.json();
+      if(!r.ok)throw new Error(d.error||"Erreur serveur");
+      setAdminUsers(p=>p.filter(u=>u.id!==id));
+      setDelUserConfirm(null);
+      showToast("🗑️ Compte supprimé définitivement");
+    }catch(e){
+      showToast("❌ Erreur : "+e.message,8000);
+      setDelUserConfirm(null);
+    }
+  };
   const toggleSoldOut=async(id)=>{const ev=events.find(e=>e.id===id);if(!ev)return;const v=!ev.soldOut;await supabase.from("events").update({sold_out:v}).eq("id",id);setEvents(p=>p.map(e=>e.id===id?{...e,soldOut:v}:e));showToast("✅ Mis à jour");};
+  const switchPhase=async(id,phase)=>{const ev=events.find(e=>e.id===id);if(!ev)return;const newPrice=phase===1?ev.phase1Price:phase===2?ev.phase2Price:ev.phase3Price;if(!newPrice){showToast("⚠️ Prix phase "+phase+" non défini");return;}await supabase.from("events").update({active_phase:phase,price:newPrice}).eq("id",id);setEvents(p=>p.map(e=>e.id===id?{...e,activePhase:phase,price:newPrice}:e));showToast(`✅ Phase ${phase} activée – CHF ${newPrice}`);};
+  const togglePublished=async(id)=>{const ev=events.find(e=>e.id===id);if(!ev)return;const v=!ev.published;await supabase.from("events").update({published:v}).eq("id",id);setEvents(p=>p.map(e=>e.id===id?{...e,published:v}:e));showToast(v?"✅ Soirée publiée !":"📝 Passée en brouillon");};
   const toggleEnd=async(id)=>{const ev=events.find(e=>e.id===id);if(!ev)return;const ending=!ev.ended;await supabase.from("events").update({ended:ending,sold_out:ending?true:ev.soldOut}).eq("id",id);setEvents(p=>p.map(e=>e.id===id?{...e,ended:ending,soldOut:ending?true:e.soldOut}:e));showToast(ending?"✅ Terminée !":"✅ Réactivée !");};
 
   const addPaidTicket=async(buyerEmail="jean@example.ch",buyerName="Client")=>{
@@ -1460,8 +1686,20 @@ export default function App(){
       try{await fetch(`${API_BASE}/api/send-ticket`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:buyerEmail,name:buyerName,eventTitle:selEv.title,eventDate:selEv.date,eventLocation:selEv.location,ticketId:id})});}catch{}
     }
     setTickets(p=>[...p,...newTickets]);
-    await supabase.from("events").update({tickets_sold:selEv.ticketsSold+qty}).eq("id",selEv.id);
-    setEvents(p=>p.map(e=>e.id===selEv.id?{...e,ticketsSold:e.ticketsSold+qty}:e));
+    const newSold=selEv.ticketsSold+qty;
+    const activePhase=selEv.activePhase||1;
+    const phaseSoldKey=`phase${activePhase}Sold`;
+    const phaseCapKey=`phase${activePhase}Capacity`;
+    const newPhaseSold=(selEv[phaseSoldKey]||0)+qty;
+    const phaseCap=selEv[phaseCapKey]||0;
+    const phaseUpdate={tickets_sold:newSold,[`phase${activePhase}_sold`]:newPhaseSold};
+    await supabase.from("events").update(phaseUpdate).eq("id",selEv.id);
+    setEvents(p=>p.map(e=>e.id===selEv.id?{...e,ticketsSold:newSold,[phaseSoldKey]:newPhaseSold}:e));
+    if(phaseCap>0&&newPhaseSold>=phaseCap&&activePhase<3){
+      const nextPhase=activePhase+1;
+      const nextPrice=nextPhase===2?selEv.phase2Price:selEv.phase3Price;
+      if(nextPrice){await supabase.from("events").update({active_phase:nextPhase,price:nextPrice}).eq("id",selEv.id);setEvents(p=>p.map(e=>e.id===selEv.id?{...e,activePhase:nextPhase,price:nextPrice}:e));showToast(`🎟️ Phase ${nextPhase} activée automatiquement – CHF ${nextPrice}`);}
+    }
     if(hasDisc&&authUser){
       const nd=Math.max(0,(profil.points||0)-1000);
       await supabase.from("profiles").update({points:nd}).eq("id",authUser.id);
@@ -1494,16 +1732,17 @@ export default function App(){
   );
 
   return(
-    <div style={{display:"flex",justifyContent:"center",background:BG,height:"100vh",height:"100dvh",overflow:"hidden",fontFamily:"'DM Sans','Helvetica Neue',sans-serif"}}>
+    <div style={{display:"flex",justifyContent:"center",background:BG,width:"100vw",height:"100dvh",overflow:"hidden",position:"fixed",top:0,left:0,fontFamily:"'DM Sans','Helvetica Neue',sans-serif"}}>
       <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleFile}/>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&display=swap');
-        *{box-sizing:border-box;margin:0;padding:0}
+        *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation;min-width:0;}
         ::-webkit-scrollbar{display:none}
-        body,html{background:${BG};margin:0;padding:0;overflow:hidden;height:100%;width:100%}
-        .phone{width:100%;max-width:430px;height:100%;height:100dvh;background:${BG};overflow:hidden;position:relative;}
+        body,html{background:${BG};margin:0;padding:0;overflow:hidden;height:100%;width:100%;max-width:100vw;position:fixed;}
+        #root{width:100vw;height:100%;height:100dvh;overflow:hidden;position:relative;}
+        .phone{width:100vw;max-width:430px;height:100%;height:100dvh;background:${BG};overflow:hidden;position:relative;}
         .sc{height:100%;display:flex;flex-direction:column;overflow:hidden;position:relative;}
-        .scroll{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;width:100%;max-width:100%;}
+        .scroll{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;width:100%;touch-action:pan-y;}
         .inp{width:100%;padding:12px 14px;background:${BG3};border:1.5px solid ${BORDER};border-radius:12px;color:${WHITE};font-size:14px;outline:none;font-family:inherit}
         .inp::placeholder{color:${GRAY}}
         @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
@@ -1688,13 +1927,38 @@ export default function App(){
                       </div>
                     </div>
 
+                    {/* ── À PROPOS teaser ── */}
+                    <div style={{margin:"0 16px 18px",animation:"slideUp .35s both"}}>
+                      <div onClick={()=>setScreen("about")} style={{borderRadius:20,overflow:"hidden",position:"relative",cursor:"pointer",background:"linear-gradient(135deg,rgba(123,47,255,.15),rgba(255,0,128,.08))",border:"1px solid rgba(123,47,255,.25)"}}>
+                        <div style={{padding:"18px 18px 16px",display:"flex",alignItems:"center",gap:14}}>
+                          <div style={{width:52,height:52,borderRadius:16,background:"linear-gradient(135deg,#7B2FFF,#FF0080)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:"0 4px 16px rgba(123,47,255,.4)"}}>
+                            <img src={LOGO} alt="" style={{width:34,height:34,objectFit:"contain"}}/>
+                          </div>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:15,fontWeight:900,color:WHITE,marginBottom:4}}>No Limit Events</div>
+                            <div style={{fontSize:12,color:"rgba(255,255,255,.6)",lineHeight:1.5}}>La soirée sans limites · La Chaux-de-Fonds</div>
+                          </div>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+                        </div>
+                        <div style={{display:"flex",borderTop:"1px solid rgba(255,255,255,.06)"}}>
+                          {[["🎉","Soirées",events.filter(e=>e.published).length],["🎟️","À venir",events.filter(e=>!e.ended&&e.published).length],["📸","Photos",Object.values(evMedia).flat().filter(m=>m.type==="photo").length]].map(([ico,label,val])=>(
+                            <div key={label} style={{flex:1,textAlign:"center",padding:"10px 4px",borderRight:"1px solid rgba(255,255,255,.04)"}}>
+                              <div style={{fontSize:9,marginBottom:3}}>{ico}</div>
+                              <div style={{fontSize:16,fontWeight:900,color:WHITE}}>{val}</div>
+                              <div style={{fontSize:8,color:GRAY,textTransform:"uppercase",letterSpacing:.5}}>{label}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Niveau fidélité */}
                     {authUser&&(()=>{
                       const pts=profil?.points||0;
                       const tier=pts>=1000?{n:"Or",c:"#FFD700",bg:"rgba(255,215,0,.08)",grad:"linear-gradient(90deg,#FFD700,#FFA500)",next:1000,icon:"🏆"}:pts>=500?{n:"Argent",c:"#C0C0C0",bg:"rgba(192,192,192,.08)",grad:"linear-gradient(90deg,#C0C0C0,#A8A8A8)",next:1000,icon:"🥈"}:{n:"Bronze",c:"#CD7F32",bg:"rgba(205,127,50,.08)",grad:"linear-gradient(90deg,#CD7F32,#A0522D)",next:500,icon:"🥉"};
                       const pct=Math.min(100,Math.round(pts/tier.next*100));
                       return(
-                        <div onClick={()=>setScreen("groups")} style={{margin:"0 16px 18px",background:tier.bg,borderRadius:18,padding:"14px 16px",border:`1px solid ${tier.c}25`,cursor:"pointer",animation:"slideUp .4s .1s both"}}>
+                        <div onClick={()=>setScreen("groups")} style={{margin:"0 16px 18px",background:tier.bg,borderRadius:18,padding:"14px 16px",border:`1px solid ${tier.c}25`,cursor:"pointer",animation:"slideUp .35s both"}}>
                           <div style={{display:"flex",alignItems:"center",gap:12}}>
                             <div style={{width:40,height:40,borderRadius:12,background:`${tier.c}18`,border:`1px solid ${tier.c}30`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{tier.icon}</div>
                             <div style={{flex:1}}>
@@ -1714,10 +1978,10 @@ export default function App(){
 
                     {/* ── HERO événement à la une ── */}
                     {(()=>{
-                      const featEv=events.find(e=>e.id===newestId&&!e.ended)||events.find(e=>!e.ended);
+                      const featEv=events.find(e=>e.id===newestId&&!e.ended&&e.published)||events.find(e=>!e.ended&&e.published);
                       if(!featEv||search) return null;
                       return(
-                        <div style={{margin:"0 16px 20px",animation:"slideUp .45s .15s both"}}>
+                        <div style={{margin:"0 16px 20px",animation:"slideUp .35s both"}}>
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
                             <div style={{display:"flex",alignItems:"center",gap:8}}>
                               <div style={{width:3,height:16,background:GRAD,borderRadius:4}}/>
@@ -1737,7 +2001,6 @@ export default function App(){
                                   <div style={{fontSize:11,color:"rgba(255,255,255,.65)"}}>{featEv.date} · {featEv.location}</div>
                                   <div style={{fontSize:18,fontWeight:900,color:PINK,textShadow:`0 0 12px ${PINK}88`}}>CHF {featEv.price}</div>
                                 </div>
-                                {featEv.capacity>0&&<div style={{marginTop:7,height:3,borderRadius:3,background:"rgba(255,255,255,.1)",overflow:"hidden"}}><div style={{height:"100%",borderRadius:3,background:GRAD,width:`${Math.min(100,Math.round((featEv.ticketsSold||0)/featEv.capacity*100))}%`,transition:"width 1.2s ease"}}/></div>}
                               </div>
                             </div>
                           </div>
@@ -1746,8 +2009,8 @@ export default function App(){
                     })()}
 
                     {/* ── PROCHAINS ÉVÉNEMENTS carousel ── */}
-                    {!search&&events.filter(e=>!e.ended).length>1&&(
-                      <div style={{marginBottom:22,animation:"slideUp .45s .2s both"}}>
+                    {!search&&events.filter(e=>e.published&&!e.ended).length>1&&(
+                      <div style={{marginBottom:22,animation:"slideUp .35s both"}}>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,padding:"0 16px"}}>
                           <div style={{display:"flex",alignItems:"center",gap:8}}>
                             <div style={{width:3,height:16,background:GRAD,borderRadius:4}}/>
@@ -1755,7 +2018,7 @@ export default function App(){
                           </div>
                         </div>
                         <div style={{display:"flex",gap:12,overflowX:"auto",padding:"4px 16px 8px",scrollbarWidth:"none",WebkitOverflowScrolling:"touch",scrollSnapType:"x mandatory"}}>
-                          {events.filter(e=>!e.ended).slice(0,6).map((ev,i)=>(
+                          {events.filter(e=>e.published&&!e.ended).slice(0,6).map((ev,i)=>(
                             <div key={ev.id} onClick={()=>openEv(ev)} style={{flexShrink:0,width:155,borderRadius:18,overflow:"hidden",background:BG2,border:`1px solid ${BORDER}`,cursor:"pointer",scrollSnapAlign:"start",animation:`slideIn .4s ${i*.07}s both`,boxShadow:"0 6px 20px rgba(0,0,0,.35)"}}>
                               <div style={{height:110,position:"relative",background:"linear-gradient(135deg,#FF0080,#7B2FFF)"}}>
                                 {ev.poster&&<img src={ev.poster} alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>}
@@ -1774,12 +2037,39 @@ export default function App(){
                       </div>
                     )}
 
+                    {/* ── SOIRÉES PASSÉES carousel ── */}
+                    {!search&&events.filter(e=>e.ended).length>0&&(
+                      <div style={{marginBottom:22,animation:"slideUp .35s both"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,padding:"0 16px"}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8}}>
+                            <div style={{width:3,height:16,background:"linear-gradient(135deg,#7B6CF6,#4ECDC4)",borderRadius:4}}/>
+                            <div style={{fontSize:10,fontWeight:900,color:"#7B6CF6",letterSpacing:2,textTransform:"uppercase"}}>Soirées passées</div>
+                          </div>
+                        </div>
+                        <div style={{display:"flex",gap:12,overflowX:"auto",padding:"4px 16px 8px",scrollbarWidth:"none",WebkitOverflowScrolling:"touch",scrollSnapType:"x mandatory"}}>
+                          {events.filter(e=>e.ended).slice(0,6).map((ev,i)=>(
+                            <div key={ev.id} onClick={()=>openEv(ev)} style={{flexShrink:0,width:"calc(100vw - 48px)",maxWidth:380,borderRadius:22,overflow:"hidden",cursor:"pointer",scrollSnapAlign:"start",animation:`slideIn .4s ${i*.07}s both`,boxShadow:"0 12px 40px rgba(0,0,0,.5)"}}>
+                              <div style={{height:210,position:"relative"}}>
+                                {ev.poster?<img src={ev.poster} alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",filter:"grayscale(20%)"}}/>:<div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,#7B6CF6,#4ECDC4)"}}/>}
+                                <div style={{position:"absolute",inset:0,background:"linear-gradient(0deg,rgba(13,17,23,1) 0%,rgba(13,17,23,.1) 70%,transparent 100%)"}}/>
+                                <div style={{position:"absolute",top:12,left:12,background:"rgba(0,0,0,.55)",border:"1px solid rgba(255,255,255,.15)",color:"rgba(255,255,255,.7)",fontSize:9,fontWeight:900,padding:"4px 12px",borderRadius:20,letterSpacing:.5,backdropFilter:"blur(6px)"}}>✓ PASSÉE</div>
+                                <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"16px 16px 14px"}}>
+                                  <div style={{fontSize:19,fontWeight:900,color:WHITE,marginBottom:5,textShadow:"0 2px 8px rgba(0,0,0,.8)"}}>{ev.title}</div>
+                                  <div style={{fontSize:11,color:"rgba(255,255,255,.55)"}}>{ev.date.split(" ").slice(0,3).join(" ")} · {ev.location}</div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* ── GALERIE soirées ── */}
                     {(()=>{
                       const allMedia=Object.entries(evMedia).flatMap(([k,arr])=>k!=="about"?arr:[]).slice(0,6);
                       if(allMedia.length===0)return null;
                       return(
-                        <div style={{margin:"0 16px 22px",animation:"slideUp .45s .25s both"}}>
+                        <div style={{margin:"0 16px 22px",animation:"slideUp .35s both"}}>
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
                             <div style={{display:"flex",alignItems:"center",gap:8}}>
                               <div style={{width:3,height:16,background:"linear-gradient(135deg,#7B6CF6,#4ECDC4)",borderRadius:4}}/>
@@ -1789,7 +2079,7 @@ export default function App(){
                           </div>
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
                             {allMedia.slice(0,6).map((m,i)=>(
-                              <div key={m.id||i} onClick={()=>{setGalleryEv({title:"Galerie",media:allMedia});setGalleryIdx(i);setScreen("gallery");}} style={{borderRadius:12,overflow:"hidden",aspectRatio:"1",background:BG2,cursor:"pointer",animation:`slideUp .3s ${i*.05}s both`,position:"relative"}}>
+                              <div key={m.id||i} onClick={()=>{setGalleryEv({title:"Galerie",media:allMedia});setGalleryIdx(i);setScreen("gallery");}} style={{borderRadius:12,overflow:"hidden",aspectRatio:"1",background:BG2,cursor:"pointer",animation:"slideUp .3s both",position:"relative"}}>
                                 {m.type==="video"
                                   ?<video src={m.url} style={{width:"100%",height:"100%",objectFit:"cover"}} muted playsInline/>
                                   :<img src={m.url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>}
@@ -1801,33 +2091,9 @@ export default function App(){
                       );
                     })()}
 
-                    {/* ── À PROPOS teaser ── */}
-                    <div style={{margin:"0 16px 22px",animation:"slideUp .45s .3s both"}}>
-                      <div onClick={()=>setScreen("about")} style={{borderRadius:20,overflow:"hidden",position:"relative",cursor:"pointer",background:"linear-gradient(135deg,rgba(123,47,255,.15),rgba(255,0,128,.08))",border:"1px solid rgba(123,47,255,.25)"}}>
-                        <div style={{padding:"18px 18px 16px",display:"flex",alignItems:"center",gap:14}}>
-                          <div style={{width:52,height:52,borderRadius:16,background:"linear-gradient(135deg,#7B2FFF,#FF0080)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:"0 4px 16px rgba(123,47,255,.4)"}}>
-                            <img src={LOGO} alt="" style={{width:34,height:34,objectFit:"contain"}}/>
-                          </div>
-                          <div style={{flex:1}}>
-                            <div style={{fontSize:15,fontWeight:900,color:WHITE,marginBottom:4}}>No Limit Events</div>
-                            <div style={{fontSize:12,color:"rgba(255,255,255,.6)",lineHeight:1.5}}>La soirée sans limites · La Chaux-de-Fonds</div>
-                          </div>
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
-                        </div>
-                        <div style={{display:"flex",borderTop:"1px solid rgba(255,255,255,.06)"}}>
-                          {[["🎉","Soirées",events.length],["🎟️","Events actifs",events.filter(e=>!e.ended).length],["📸","Photos",Object.values(evMedia).flat().filter(m=>m.type==="photo").length]].map(([ico,label,val])=>(
-                            <div key={label} style={{flex:1,textAlign:"center",padding:"10px 4px",borderRight:"1px solid rgba(255,255,255,.04)"}}>
-                              <div style={{fontSize:9,marginBottom:3}}>{ico}</div>
-                              <div style={{fontSize:16,fontWeight:900,color:WHITE}}>{val}</div>
-                              <div style={{fontSize:8,color:GRAY,textTransform:"uppercase",letterSpacing:.5}}>{label}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
 
                     {/* ── INSTAGRAM ── */}
-                    <div style={{margin:"0 16px 22px",animation:"slideUp .45s .35s both"}}>
+                    <div style={{margin:"0 16px 22px",animation:"slideUp .35s both"}}>
                       <div onClick={()=>window.open("https://www.instagram.com/nolimit_eventss","_blank")} style={{borderRadius:18,padding:"14px 16px",background:"linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045)",display:"flex",alignItems:"center",gap:14,cursor:"pointer",boxShadow:"0 8px 24px rgba(131,58,180,.3)"}}>
                         <div style={{width:44,height:44,borderRadius:13,background:"rgba(255,255,255,.15)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={WHITE} strokeWidth="1.8" strokeLinecap="round"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
@@ -2037,21 +2303,22 @@ export default function App(){
 {screen==="login"&&(
   <div style={{position:"absolute",inset:0,background:BG,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 20px",zIndex:100,overflow:"hidden"}}>
     <LightBeams/>
-    <div style={{position:"relative",zIndex:1,width:"100%",maxWidth:380,animation:"slideUp .5s cubic-bezier(.34,1.56,.64,1) both"}}>
+    <div style={{position:"relative",zIndex:1,width:"100%",maxWidth:380,animation:"slideUp .4s ease-out both"}}>
       {/* Logo + titre */}
       <div style={{textAlign:"center",marginBottom:32}}>
         <div style={{width:80,height:80,borderRadius:"50%",background:"linear-gradient(135deg,rgba(255,0,128,.2),rgba(123,47,255,.15))",border:"1px solid rgba(255,0,128,.35)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 18px",boxShadow:"0 0 40px rgba(255,0,128,.3)"}}>
-          <img src={LOGO} alt="" style={{width:54,height:54,objectFit:"contain",filter:"drop-shadow(0 0 12px rgba(255,0,128,.8))",animation:"pulse 2s ease-in-out infinite"}}/>
+          <img src={LOGO} alt="" style={{width:54,height:54,objectFit:"contain",filter:"drop-shadow(0 0 12px rgba(255,0,128,.8))"}}/>
         </div>
         <div style={{fontSize:26,fontWeight:900,color:WHITE,letterSpacing:.5,marginBottom:6}}>Connexion</div>
         <div style={{fontSize:13,color:GRAY}}>Content de te revoir 👋</div>
       </div>
       {/* Carte formulaire */}
       <div style={{background:"rgba(20,26,34,.85)",backdropFilter:"blur(16px)",border:`1px solid ${BORDER}`,borderRadius:24,padding:"24px 20px"}}>
-        <input type="email" placeholder="Adresse email" value={loginEmail} onChange={e=>setLoginEmail(e.target.value)} style={{width:"100%",padding:"14px 16px",background:BG3,border:`1.5px solid ${BORDER}`,borderRadius:14,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:12,boxSizing:"border-box",transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
-        <input type="password" placeholder="Mot de passe" value={loginPass} onChange={e=>setLoginPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} style={{width:"100%",padding:"14px 16px",background:BG3,border:`1.5px solid ${BORDER}`,borderRadius:14,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:8,boxSizing:"border-box",transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
+        <input type="email" placeholder="Adresse email" value={loginEmail} onChange={e=>setLoginEmail(e.target.value)} autoComplete="email" style={{width:"100%",padding:"14px 16px",background:BG3,border:`1.5px solid ${BORDER}`,borderRadius:14,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:12,boxSizing:"border-box",transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
+        <input type="password" placeholder="Mot de passe" value={loginPass} onChange={e=>setLoginPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} autoComplete="current-password" style={{width:"100%",padding:"14px 16px",background:BG3,border:`1.5px solid ${BORDER}`,borderRadius:14,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:8,boxSizing:"border-box",transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
         {loginErr&&<div style={{color:"#FF4444",fontSize:12,fontWeight:700,marginBottom:12,textAlign:"center",padding:"8px",background:"rgba(255,68,68,.08)",borderRadius:10}}>{loginErr}</div>}
         <div onClick={doLogin} style={{width:"100%",padding:"15px 0",borderRadius:14,background:GRAD,textAlign:"center",fontWeight:900,fontSize:15,color:WHITE,cursor:"pointer",letterSpacing:1,boxShadow:`0 6px 24px rgba(255,0,128,.35)`,marginTop:4}}>SE CONNECTER</div>
+        <div onClick={()=>{setForgotScreen(true);setForgotEmail(loginEmail);setForgotSent(false);setForgotErr("");}} style={{textAlign:"center",marginTop:14,fontSize:13,color:GRAY,cursor:"pointer"}}>Mot de passe oublié ? <span style={{color:PINK,fontWeight:700}}>Réinitialiser</span></div>
       </div>
       <div style={{textAlign:"center",marginTop:20,fontSize:13,color:GRAY}}>
         Pas encore de compte ? <span onClick={()=>setScreen("register")} style={{color:PINK,fontWeight:800,cursor:"pointer"}}>S'inscrire</span>
@@ -2059,11 +2326,39 @@ export default function App(){
     </div>
   </div>
 )}
-{screen==="register"&&(
-  <div style={{position:"absolute",inset:0,background:BG,overflowY:"auto",zIndex:100}}>
+{forgotScreen&&(
+  <div style={{position:"absolute",inset:0,background:BG,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 20px",zIndex:200,overflow:"hidden"}}>
     <LightBeams/>
-    <div style={{position:"relative",zIndex:1,padding:"calc(env(safe-area-inset-top,44px) + 20px) 20px 40px",display:"flex",flexDirection:"column",alignItems:"center"}}>
-      <div style={{width:"100%",maxWidth:380,animation:"slideUp .5s cubic-bezier(.34,1.56,.64,1) both"}}>
+    <div style={{position:"relative",zIndex:1,width:"100%",maxWidth:380,animation:"slideUp .4s ease-out both"}}>
+      <div style={{textAlign:"center",marginBottom:28}}>
+        <div style={{fontSize:48,marginBottom:12}}>🔑</div>
+        <div style={{fontSize:22,fontWeight:900,color:WHITE,marginBottom:6}}>Mot de passe oublié</div>
+        <div style={{fontSize:13,color:GRAY,lineHeight:1.6}}>Entre ton email et on t'envoie un lien pour réinitialiser ton mot de passe.</div>
+      </div>
+      <div style={{background:"rgba(20,26,34,.85)",backdropFilter:"blur(16px)",border:`1px solid ${BORDER}`,borderRadius:24,padding:"24px 20px"}}>
+        {!forgotSent?(
+          <>
+            <input type="email" placeholder="Adresse email" value={forgotEmail} onChange={e=>setForgotEmail(e.target.value)} autoComplete="email" style={{width:"100%",padding:"14px 16px",background:BG3,border:`1.5px solid ${BORDER}`,borderRadius:14,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:12,boxSizing:"border-box"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
+            {forgotErr&&<div style={{color:"#FF4444",fontSize:12,fontWeight:700,marginBottom:12,textAlign:"center",padding:"8px",background:"rgba(255,68,68,.08)",borderRadius:10}}>{forgotErr}</div>}
+            <div onClick={doForgotPassword} style={{width:"100%",padding:"15px 0",borderRadius:14,background:GRAD,textAlign:"center",fontWeight:900,fontSize:15,color:WHITE,cursor:"pointer",letterSpacing:1,boxShadow:`0 6px 24px rgba(255,0,128,.35)`}}>ENVOYER LE LIEN</div>
+          </>
+        ):(
+          <div style={{textAlign:"center",padding:"10px 0"}}>
+            <div style={{fontSize:40,marginBottom:12}}>📧</div>
+            <div style={{fontSize:16,fontWeight:900,color:WHITE,marginBottom:8}}>Email envoyé !</div>
+            <div style={{fontSize:13,color:GRAY,lineHeight:1.6}}>Vérifie ta boite mail et clique sur le lien pour créer un nouveau mot de passe.</div>
+          </div>
+        )}
+      </div>
+      <div onClick={()=>setForgotScreen(false)} style={{textAlign:"center",marginTop:20,fontSize:13,color:GRAY,cursor:"pointer"}}>← Retour à la connexion</div>
+    </div>
+  </div>
+)}
+{screen==="register"&&(
+  <div style={{position:"absolute",inset:0,background:BG,overflowY:"auto",overflowX:"hidden",zIndex:100}}>
+    <LightBeams/>
+    <div style={{position:"relative",zIndex:1,padding:"calc(env(safe-area-inset-top,44px) + 20px) 20px 40px",display:"flex",flexDirection:"column",alignItems:"center",width:"100%",boxSizing:"border-box"}}>
+      <div style={{width:"100%",maxWidth:380,animation:"slideUp .4s ease-out both"}}>
         <div style={{textAlign:"center",marginBottom:28}}>
           <div style={{width:70,height:70,borderRadius:"50%",background:"linear-gradient(135deg,rgba(255,0,128,.2),rgba(123,47,255,.15))",border:"1px solid rgba(255,0,128,.35)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",boxShadow:"0 0 30px rgba(255,0,128,.25)"}}>
             <img src={LOGO} alt="" style={{width:48,height:48,objectFit:"contain",filter:"drop-shadow(0 0 10px rgba(255,0,128,.8))"}}/>
@@ -2072,26 +2367,42 @@ export default function App(){
           <div style={{fontSize:13,color:GRAY}}>Rejoins la communauté No Limit ! 🔥</div>
         </div>
         {regDone?(
-          <div style={{textAlign:"center",padding:"30px 0",animation:"slideUp .4s both"}}>
-            <div style={{fontSize:52,marginBottom:16}}>🎉</div>
-            <div style={{fontSize:20,fontWeight:900,color:WHITE,marginBottom:8}}>Compte créé !</div>
-            <div style={{fontSize:13,color:GRAY,marginBottom:28,lineHeight:1.6}}>Vérifie ton email pour confirmer ton compte.</div>
-            <div onClick={()=>setScreen("login")} style={{padding:"15px 0",borderRadius:14,background:GRAD,textAlign:"center",fontWeight:900,fontSize:15,color:WHITE,cursor:"pointer",letterSpacing:1,boxShadow:`0 6px 24px rgba(255,0,128,.35)`}}>SE CONNECTER</div>
+          <div style={{padding:"20px 0",animation:"slideUp .4s both"}}>
+            <div style={{textAlign:"center",marginBottom:18}}>
+              <div style={{fontSize:52,marginBottom:10}}>📧</div>
+              <div style={{fontSize:22,fontWeight:900,color:WHITE,marginBottom:6}}>Vérifie ton email !</div>
+              <div style={{fontSize:13,color:GRAY,lineHeight:1.6}}>Un email de confirmation a été envoyé à</div>
+              <div style={{fontSize:13,color:PINK,fontWeight:800,marginTop:4}}>{regEmail}</div>
+            </div>
+            <div style={{background:"rgba(255,0,128,.07)",border:"1px solid rgba(255,0,128,.2)",borderRadius:18,padding:"18px 16px",marginBottom:20}}>
+              <div style={{fontSize:13,fontWeight:900,color:WHITE,marginBottom:14}}>Comment activer ton compte :</div>
+              {[["1️⃣","Ouvre l'email de","No Limit Events","dans ta boite mail"],["2️⃣","Clique sur le lien","Confirmer mon email","dans l'email"],["3️⃣","Reviens ici et connecte-toi","","🎉"]].map(([num,pre,bold,suf],i)=>(
+                <div key={i} style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:i<2?10:0}}>
+                  <span style={{fontSize:18,flexShrink:0,lineHeight:1.3}}>{num}</span>
+                  <span style={{fontSize:12,color:GRAY,lineHeight:1.6}}>{pre} <span style={{color:PINK,fontWeight:700}}>{bold}</span> {suf}</span>
+                </div>
+              ))}
+            </div>
+            <div onClick={()=>{setRegDone(false);setRegEmail("");setRegPass("");setRegPrenom("");setRegNom("");setRegRefCode("");setScreen("login");}} style={{padding:"15px 0",borderRadius:14,background:GRAD,textAlign:"center",fontWeight:900,fontSize:15,color:WHITE,cursor:"pointer",letterSpacing:1,boxShadow:`0 6px 24px rgba(255,0,128,.35)`,marginBottom:10}}>SE CONNECTER</div>
+            <div style={{textAlign:"center",fontSize:11,color:GRAY,marginTop:6}}>Tu n'as pas reçu l'email ? Vérifie tes spams 📁</div>
           </div>
         ):(
           <div style={{background:"rgba(20,26,34,.85)",backdropFilter:"blur(16px)",border:`1px solid ${BORDER}`,borderRadius:24,padding:"24px 20px"}}>
             <div style={{display:"flex",gap:10,marginBottom:12}}>
-              <input type="text" placeholder="Prénom" value={regPrenom} onChange={e=>setRegPrenom(e.target.value)} style={{flex:1,padding:"13px 14px",background:BG3,border:`1.5px solid ${BORDER}`,borderRadius:12,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",boxSizing:"border-box",transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
-              <input type="text" placeholder="Nom" value={regNom} onChange={e=>setRegNom(e.target.value)} style={{flex:1,padding:"13px 14px",background:BG3,border:`1.5px solid ${BORDER}`,borderRadius:12,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",boxSizing:"border-box",transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
+              <input type="text" placeholder="Prénom" value={regPrenom} onChange={e=>setRegPrenom(e.target.value)} autoComplete="given-name" style={{flex:1,minWidth:0,padding:"13px 14px",background:BG3,border:`1.5px solid ${BORDER}`,borderRadius:12,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",boxSizing:"border-box",transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
+              <input type="text" placeholder="Nom" value={regNom} onChange={e=>setRegNom(e.target.value)} autoComplete="family-name" style={{flex:1,minWidth:0,padding:"13px 14px",background:BG3,border:`1.5px solid ${BORDER}`,borderRadius:12,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",boxSizing:"border-box",transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
             </div>
-            <input type="email" placeholder="Adresse email" value={regEmail} onChange={e=>setRegEmail(e.target.value)} style={{width:"100%",padding:"13px 14px",background:BG3,border:`1.5px solid ${BORDER}`,borderRadius:12,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:12,boxSizing:"border-box",transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
-            <input type="password" placeholder="Mot de passe (6 min)" value={regPass} onChange={e=>setRegPass(e.target.value)} style={{width:"100%",padding:"13px 14px",background:BG3,border:`1.5px solid ${BORDER}`,borderRadius:12,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:12,boxSizing:"border-box",transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
+            <input type="email" placeholder="Adresse email" value={regEmail} onChange={e=>setRegEmail(e.target.value)} autoComplete="email" style={{width:"100%",padding:"13px 14px",background:BG3,border:`1.5px solid ${BORDER}`,borderRadius:12,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:12,boxSizing:"border-box",transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
+            <input type="password" placeholder="Mot de passe (6 min)" value={regPass} onChange={e=>setRegPass(e.target.value)} autoComplete="new-password" style={{width:"100%",padding:"13px 14px",background:BG3,border:`1.5px solid ${regPassConfirm&&regPass!==regPassConfirm?"rgba(255,68,68,.6)":BORDER}`,borderRadius:12,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:10,boxSizing:"border-box",transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
+            <input type="password" placeholder="Confirmer le mot de passe" value={regPassConfirm} onChange={e=>setRegPassConfirm(e.target.value)} autoComplete="new-password" style={{width:"100%",padding:"13px 14px",background:BG3,border:`1.5px solid ${regPassConfirm&&regPass!==regPassConfirm?"rgba(255,68,68,.6)":regPassConfirm&&regPass===regPassConfirm?"rgba(0,230,118,.5)":BORDER}`,borderRadius:12,color:WHITE,fontSize:14,outline:"none",fontFamily:"inherit",marginBottom:regPassConfirm&&regPass!==regPassConfirm?4:12,boxSizing:"border-box",transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor=PINK} onBlur={e=>e.target.style.borderColor=BORDER}/>
+            {regPassConfirm&&regPass!==regPassConfirm&&<div style={{fontSize:11,color:"#FF4444",fontWeight:700,marginBottom:10}}>❌ Les mots de passe ne correspondent pas</div>}
+            {regPassConfirm&&regPass===regPassConfirm&&regPass.length>=6&&<div style={{fontSize:11,color:"#00E676",fontWeight:700,marginBottom:10}}>✓ Mots de passe identiques</div>}
             <div style={{position:"relative",marginBottom:8}}>
               <input type="text" placeholder="Code de parrainage (optionnel)" value={regRefCode} onChange={e=>setRegRefCode(e.target.value.toUpperCase())} style={{width:"100%",padding:"13px 14px 13px 40px",background:BG3,border:`1.5px solid ${regRefCode.length>=6?"rgba(255,0,128,.6)":BORDER}`,borderRadius:12,color:PINK,fontSize:13,fontWeight:700,outline:"none",fontFamily:"monospace",boxSizing:"border-box",letterSpacing:1,transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor="rgba(255,0,128,.6)"} onBlur={e=>e.target.style.borderColor=regRefCode.length>=6?"rgba(255,0,128,.6)":BORDER}/>
               <span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",fontSize:16}}>🎁</span>
               {regRefCode.length>=6&&<span style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",fontSize:14,color:"#00E676"}}>✓</span>}
             </div>
-            {regRefCode.length>=6&&<div style={{fontSize:11,color:"#00E676",fontWeight:700,marginBottom:8,textAlign:"center"}}>-20% sur ta première soirée !</div>}
+            {regRefCode.length>=6&&<div style={{fontSize:11,color:"#00E676",fontWeight:700,marginBottom:8,textAlign:"center"}}>+50 points offerts avec ce code 🎁</div>}
             {regErr&&<div style={{color:"#FF4444",fontSize:12,fontWeight:700,marginBottom:12,textAlign:"center",padding:"8px",background:"rgba(255,68,68,.08)",borderRadius:10}}>{regErr}</div>}
             <div onClick={doRegister} style={{width:"100%",padding:"15px 0",borderRadius:14,background:GRAD,textAlign:"center",fontWeight:900,fontSize:15,color:WHITE,cursor:"pointer",letterSpacing:1,boxShadow:`0 6px 24px rgba(255,0,128,.35)`,marginTop:4}}>CRÉER MON COMPTE</div>
           </div>
@@ -2113,7 +2424,7 @@ export default function App(){
         <div style={{fontSize:14,color:"#8892A0"}}>Chargement...</div>
       </div>
     ):(
-      <div style={{width:"100%",maxWidth:380,animation:"slideUp .5s cubic-bezier(.34,1.56,.64,1) both",position:"relative",zIndex:1}}>
+      <div style={{width:"100%",maxWidth:380,animation:"slideUp .4s ease-out both",position:"relative",zIndex:1}}>
         <div style={{textAlign:"center",marginBottom:36}}>
           <div style={{width:82,height:82,borderRadius:"50%",background:"linear-gradient(135deg,#FF0080,#FF3399)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 20px",boxShadow:"0 0 60px rgba(255,0,128,.55)",animation:"pulse 2s ease-in-out infinite"}}>
             <img src={LOGO} alt="" style={{width:54,height:54,objectFit:"contain"}}/>
@@ -2149,7 +2460,7 @@ export default function App(){
   </div>
 )}
 {screen==="profil"&&(
-  <div style={{position:"absolute",inset:0,background:BG,overflowY:"auto",zIndex:100,paddingBottom:90}}>
+  <div style={{position:"absolute",inset:0,background:BG,overflowY:"auto",overflowX:"hidden",zIndex:100,paddingBottom:90}}>
     <LightBeams/>
     <style>{`
       @keyframes ringRotate{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
@@ -2357,7 +2668,7 @@ export default function App(){
   </div>
 )}
 {screen==="about"&&(
-  <div style={{position:"fixed",inset:0,background:BG,zIndex:100,overflowY:"auto"}}>
+  <div style={{position:"fixed",inset:0,background:BG,zIndex:100,overflowY:"auto",overflowX:"hidden"}}>
     <LightBeams/>
     <style>{`@keyframes aboutFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}`}</style>
     {/* Hero */}
@@ -2381,8 +2692,8 @@ export default function App(){
       {/* Stats */}
       <div style={{display:"flex",gap:8,marginBottom:18,animation:"slideUp .4s both"}}>
         {[
-          [events.length,"Soirées","🎉",PINK],
-          [events.filter(e=>!e.ended).length,"À venir","📅","#4ECDC4"],
+          [events.filter(e=>e.published).length,"Soirées","🎉",PINK],
+          [events.filter(e=>!e.ended&&e.published).length,"À venir","📅","#4ECDC4"],
           [Object.values(evMedia).flat().length,"Médias","📸","#7B6CF6"],
           ["100%","Passion","🔥","#FFD700"],
         ].map(([val,label,ico,color])=>(
@@ -2583,10 +2894,10 @@ export default function App(){
     </div>
 
     {/* Contenu scrollable */}
-    <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain"}}>
+    <div style={{flex:1,overflowY:"auto",overflowX:"hidden",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain"}}>
       {(()=>{
-        const upcoming=events.filter(e=>!e.ended&&(filter==="Tous"||e.category===filter)&&(search===""||e.title.toLowerCase().includes(search.toLowerCase())));
-        const ended=events.filter(e=>e.ended&&(search===""||e.title.toLowerCase().includes(search.toLowerCase())));
+        const upcoming=events.filter(e=>e.published&&!e.ended&&(filter==="Tous"||e.category===filter)&&(search===""||e.title.toLowerCase().includes(search.toLowerCase())));
+        const ended=events.filter(e=>e.published&&e.ended&&(search===""||e.title.toLowerCase().includes(search.toLowerCase())));
         const featured=upcoming[0]||null;
         const rest=upcoming.slice(1);
         return(
@@ -2600,7 +2911,7 @@ export default function App(){
                   <div style={{fontSize:10,fontWeight:900,color:PINK,letterSpacing:2,textTransform:"uppercase"}}>Prochain événement</div>
                 </div>
                 <div onClick={()=>openEv(featured)} style={{borderRadius:24,overflow:"hidden",cursor:"pointer",animation:"heroIn .5s both",boxShadow:"0 12px 40px rgba(0,0,0,.5)",position:"relative"}}>
-                  <div style={{height:220,position:"relative"}}>
+                  <div style={{width:"100%",aspectRatio:"5/6",position:"relative"}}>
                     {featured.poster?<img src={featured.poster} alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,#FF0080,#7B2FFF)"}}/>}
                     <div style={{position:"absolute",inset:0,background:"linear-gradient(0deg,rgba(13,17,23,1) 0%,rgba(13,17,23,.2) 60%,transparent 100%)"}}/>
                     {featured.soldOut&&<div style={{position:"absolute",top:14,right:14,background:"rgba(0,0,0,.7)",border:"1px solid rgba(255,255,255,.2)",borderRadius:20,padding:"5px 12px",fontSize:9,fontWeight:900,color:WHITE,letterSpacing:1}}>COMPLET</div>}
@@ -2625,14 +2936,6 @@ export default function App(){
                         </div>
                         <div style={{fontSize:20,fontWeight:900,color:PINK,textShadow:"0 0 20px rgba(255,0,128,.5)"}}>CHF {featured.price}</div>
                       </div>
-                      {featured.capacity>0&&(
-                        <div style={{marginTop:10}}>
-                          <div style={{height:3,borderRadius:3,background:"rgba(255,255,255,.1)",overflow:"hidden"}}>
-                            <div style={{height:"100%",borderRadius:3,background:GRAD,width:`${Math.min(100,Math.round((featured.ticketsSold||0)/featured.capacity*100))}%`,transition:"width 1.2s ease"}}/>
-                          </div>
-                          <div style={{fontSize:10,color:"rgba(255,255,255,.45)",marginTop:4}}>{featured.ticketsSold||0}/{featured.capacity} billets vendus</div>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -2652,40 +2955,31 @@ export default function App(){
                     {(featured&&!search&&filter==="Tous"?rest:upcoming).map((ev,i)=>{
                       const pct=ev.capacity>0?Math.min(100,Math.round((ev.ticketsSold||0)/ev.capacity*100)):0;
                       return(
-                        <div key={ev.id} onClick={()=>openEv(ev)} style={{display:"flex",gap:14,background:BG2,borderRadius:18,padding:"12px 14px",marginBottom:10,border:`1px solid ${BORDER}`,cursor:"pointer",animation:`evCardIn .45s ${i*.07}s both`,position:"relative",overflow:"hidden"}}>
-                          <div style={{position:"absolute",inset:0,background:"linear-gradient(90deg,rgba(255,0,128,.04),transparent)",pointerEvents:"none"}}/>
-                          <div style={{width:72,height:82,borderRadius:14,overflow:"hidden",flexShrink:0,background:"linear-gradient(135deg,#FF0080,#7B2FFF)",position:"relative"}}>
-                            {ev.poster?<img src={ev.poster} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:
-                            <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2}}>
-                              <div style={{fontSize:20,fontWeight:900,color:WHITE}}>{ev.date.split(" ")[1]||"?"}</div>
-                              <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,.8)",textTransform:"uppercase"}}>{ev.date.split(" ")[2]||""}</div>
-                            </div>}
-                            {ev.soldOut&&<div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.65)",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{fontSize:8,fontWeight:900,color:WHITE,letterSpacing:.5}}>COMPLET</div></div>}
+                        <div key={ev.id} onClick={()=>openEv(ev)} style={{borderRadius:22,overflow:"hidden",marginBottom:14,cursor:"pointer",animation:`evCardIn .45s ${i*.07}s both`,boxShadow:"0 12px 40px rgba(0,0,0,.5)",position:"relative",width:"100%",aspectRatio:"5/6"}}>
+                          {ev.poster?<img src={ev.poster} alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,#FF0080,#7B2FFF)"}}/>}
+                          <div style={{position:"absolute",inset:0,background:"linear-gradient(0deg,rgba(13,17,23,1) 0%,rgba(13,17,23,.3) 55%,transparent 100%)"}}/>
+                          <div style={{position:"absolute",top:14,left:14,background:"rgba(0,0,0,.5)",borderRadius:12,padding:"6px 10px",backdropFilter:"blur(6px)"}}>
+                            <div style={{fontSize:20,fontWeight:900,color:WHITE,lineHeight:1}}>{ev.date.split(" ")[1]||"—"}</div>
+                            <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,.7)",textTransform:"uppercase"}}>{ev.date.split(" ")[2]||""}</div>
                           </div>
-                          <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",justifyContent:"center",gap:4}}>
-                            <div style={{fontSize:15,fontWeight:900,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</div>
-                            <div style={{display:"flex",alignItems:"center",gap:5}}>
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={GRAY} strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                              <span style={{fontSize:11,color:GRAY}}>{ev.date}</span>
-                            </div>
-                            <div style={{display:"flex",alignItems:"center",gap:5}}>
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={GRAY} strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                              <span style={{fontSize:11,color:GRAY,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.location}</span>
-                            </div>
-                            {ev.category&&<div style={{display:"inline-block",background:"rgba(255,0,128,.1)",border:"1px solid rgba(255,0,128,.2)",color:PINK,fontSize:9,fontWeight:700,padding:"2px 8px",borderRadius:10,width:"fit-content"}}>{ev.category}</div>}
-                            {ev.capacity>0&&(
-                              <div style={{marginTop:2}}>
-                                <div style={{height:2.5,borderRadius:2,background:"rgba(255,255,255,.06)",overflow:"hidden"}}>
-                                  <div style={{height:"100%",borderRadius:2,background:pct>80?"linear-gradient(90deg,#FF4444,#FF6B6B)":GRAD,width:`${pct}%`,transition:"width 1s ease"}}/>
+                          {ev.soldOut?<div style={{position:"absolute",top:14,right:14,background:"rgba(0,0,0,.7)",border:"1px solid rgba(255,255,255,.2)",borderRadius:20,padding:"5px 12px",fontSize:9,fontWeight:900,color:WHITE,letterSpacing:1}}>COMPLET</div>:<div style={{position:"absolute",top:14,right:14,background:"rgba(255,0,128,.15)",border:"1px solid rgba(255,0,128,.4)",borderRadius:20,padding:"5px 12px",fontSize:9,fontWeight:900,color:PINK,letterSpacing:1,backdropFilter:"blur(6px)"}}>BILLETS DISPO</div>}
+                          <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"18px 18px 16px"}}>
+                            {ev.category&&<div style={{display:"inline-block",background:"rgba(255,0,128,.2)",border:"1px solid rgba(255,0,128,.4)",color:PINK,fontSize:9,fontWeight:900,padding:"3px 10px",borderRadius:20,marginBottom:8,letterSpacing:.8}}>{ev.category}</div>}
+                            <div style={{fontSize:20,fontWeight:900,color:WHITE,marginBottom:6,textShadow:"0 2px 8px rgba(0,0,0,.8)"}}>{ev.title}</div>
+                            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:pct>0?10:0}}>
+                              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                                <div style={{display:"flex",alignItems:"center",gap:5}}>
+                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.6)" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                                  <span style={{fontSize:11,color:"rgba(255,255,255,.7)"}}>{ev.location}</span>
+                                </div>
+                                <div style={{display:"flex",alignItems:"center",gap:5}}>
+                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.6)" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                  <span style={{fontSize:11,color:"rgba(255,255,255,.7)"}}>{ev.time}</span>
                                 </div>
                               </div>
-                            )}
-                          </div>
-                          <div style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:"flex-end",justifyContent:"center",gap:6}}>
-                            <div style={{fontSize:16,fontWeight:900,color:PINK}}>CHF {ev.price}</div>
-                            <div style={{width:32,height:32,borderRadius:10,background:"rgba(255,0,128,.1)",border:"1px solid rgba(255,0,128,.25)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={PINK} strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                              <div style={{fontSize:22,fontWeight:900,color:PINK,textShadow:`0 0 20px ${PINK}88`}}>CHF {ev.price}</div>
                             </div>
+                            {pct>0&&<div style={{height:3,borderRadius:3,background:"rgba(255,255,255,.1)",overflow:"hidden"}}><div style={{height:"100%",borderRadius:3,background:pct>80?"linear-gradient(90deg,#FF4444,#FF6B6B)":GRAD,width:`${pct}%`,transition:"width 1s ease"}}/></div>}
                           </div>
                         </div>
                       );
@@ -2695,30 +2989,28 @@ export default function App(){
               </div>
             )}
 
-            {/* Events terminés — carrousel */}
+            {/* Events terminés */}
             {ended.length>0&&(
               <div style={{marginBottom:8}}>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
                   <div style={{width:3,height:16,background:"rgba(255,255,255,.12)",borderRadius:4}}/>
                   <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase"}}>Soirées passées</div>
                   <div style={{marginLeft:"auto",fontSize:10,fontWeight:700,color:GRAY}}>{ended.length} soirée{ended.length>1?"s":""}</div>
                 </div>
-                <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:8,scrollbarWidth:"none",msOverflowStyle:"none",WebkitOverflowScrolling:"touch"}}>
-                  {ended.map((ev,i)=>(
-                    <div key={ev.id} style={{flexShrink:0,width:140,height:175,borderRadius:16,overflow:"hidden",position:"relative",border:"1px solid rgba(255,255,255,.08)",animation:`evCardIn .4s ${i*.06}s both`}}>
-                      {ev.poster
-                        ?<img src={ev.poster} alt={ev.title} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-                        :<div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#1C2430,#141A22)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:36}}>🎉</div>
-                      }
-                      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,.15) 0%,rgba(0,0,0,.75) 100%)"}}/>
-                      <div style={{position:"absolute",top:8,right:8,background:"rgba(255,0,128,.2)",border:`1px solid ${PINK}`,borderRadius:20,padding:"3px 8px",fontSize:8,fontWeight:900,color:PINK,letterSpacing:.5}}>TERMINÉE</div>
-                      <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"8px 10px"}}>
-                        <div style={{fontSize:11,fontWeight:900,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",lineHeight:1.3}}>{ev.title}</div>
-                        <div style={{fontSize:9,color:"rgba(255,255,255,.5)",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.date}</div>
+                {ended.map((ev,i)=>(
+                  <div key={ev.id} onClick={()=>openEv(ev)} style={{borderRadius:22,overflow:"hidden",marginBottom:14,cursor:"pointer",animation:`evCardIn .45s ${i*.07}s both`,boxShadow:"0 12px 40px rgba(0,0,0,.5)",position:"relative",width:"100%",aspectRatio:"5/6",opacity:.85}}>
+                    {ev.poster?<img src={ev.poster} alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",filter:"grayscale(20%)"}}/>:<div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,#1C2430,#141A22)"}}/>}
+                    <div style={{position:"absolute",inset:0,background:"linear-gradient(0deg,rgba(13,17,23,1) 0%,rgba(13,17,23,.3) 55%,transparent 100%)"}}/>
+                    <div style={{position:"absolute",top:14,right:14,background:"rgba(0,0,0,.6)",border:"1px solid rgba(255,255,255,.15)",borderRadius:20,padding:"5px 12px",fontSize:9,fontWeight:900,color:"rgba(255,255,255,.6)",letterSpacing:1,backdropFilter:"blur(6px)"}}>✓ TERMINÉE</div>
+                    <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"18px 18px 16px"}}>
+                      <div style={{fontSize:20,fontWeight:900,color:WHITE,marginBottom:6,textShadow:"0 2px 8px rgba(0,0,0,.8)"}}>{ev.title}</div>
+                      <div style={{display:"flex",alignItems:"center",gap:5}}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.5)" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                        <span style={{fontSize:11,color:"rgba(255,255,255,.55)"}}>{ev.date.split(" ").slice(0,3).join(" ")} · {ev.location}</span>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             )}
 
@@ -2828,6 +3120,7 @@ export default function App(){
                         {icon:<Icon n="ticket" s={20} c={"#7B6CF6"}/>,label:"Billets",val:totalSold,sub:`sur ${totalCap} places`,color:"#7B6CF6",bg:"rgba(123,108,246,.06)"},
                         {icon:<Icon n="gift" s={20} c={GREEN}/>,label:"Gratuits",val:freeCount,sub:"Invités / Staff",color:GREEN,bg:"rgba(78,205,196,.06)"},
                         {icon:<Icon n="users" s={20} c={"#60A5FA"}/>,label:"Membres",val:adminUsersLoading?"…":adminUsers.length,sub:"Inscrits",color:"#60A5FA",bg:"rgba(96,165,250,.06)"},
+                        {icon:<Icon n="globe" s={20} c={"#F59E0B"}/>,label:"Via Web",val:tickets.filter(t=>t.source==="web").length,sub:"Achetés en ligne",color:"#F59E0B",bg:"rgba(245,158,11,.06)"},
                       ].map(({icon,label,val,sub,color,bg},i)=>(
                         <div key={label} style={{background:bg,borderRadius:18,padding:"16px 14px",border:`1px solid ${color}22`,animation:`slideUp .4s ${i*.07}s both`}}>
                           <div style={{marginBottom:10}}>{icon}</div>
@@ -2893,10 +3186,7 @@ export default function App(){
                           <div style={{flex:1,minWidth:0}}>
                             <div style={{fontSize:13,fontWeight:800,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</div>
                             <div style={{fontSize:11,color:GRAY,marginTop:2}}>{ev.date}</div>
-                            <div style={{height:3,borderRadius:3,background:"rgba(255,255,255,.08)",marginTop:6,overflow:"hidden"}}>
-                              <div style={{height:"100%",borderRadius:3,background:GRAD,width:`${Math.min(100,Math.round(ev.ticketsSold/Math.max(ev.capacity,1)*100))}%`,transition:"width 1s ease"}}/>
-                            </div>
-                            <div style={{fontSize:10,color:GRAY,marginTop:2}}>{ev.ticketsSold}/{ev.capacity} billets · CHF {ev.price}</div>
+                            <div style={{fontSize:10,color:GRAY,marginTop:4}}>CHF {ev.price}</div>
                           </div>
                         </div>
                       ))
@@ -2923,7 +3213,7 @@ export default function App(){
                     {events.length===0?(
                       <div style={{textAlign:"center",padding:"40px 0"}}><div style={{fontSize:40,marginBottom:12}}>🎉</div><div style={{color:GRAY,fontSize:13}}>Aucune soirée</div></div>
                     ):(
-                      events.map((ev,i)=><AdminEventRow key={ev.id} ev={ev} index={i} onEdit={(ev)=>{setEditEv(ev);setShowEvForm(true);}} onToggle={toggleSoldOut} onEnd={toggleEnd} onDelete={(id)=>setDelConfirm(id)} onUpload={handleUpload}/>)
+                      events.map((ev,i)=><AdminEventRow key={ev.id} ev={ev} index={i} onEdit={(ev)=>{setEditEv(ev);setShowEvForm(true);}} onToggle={toggleSoldOut} onEnd={toggleEnd} onDelete={(id)=>setDelConfirm(id)} onUpload={handleUpload} onPublish={togglePublished} onPhase={switchPhase}/>)
                     )}
                   </div>
                 )}
@@ -2953,6 +3243,7 @@ export default function App(){
                             <div style={{background:"rgba(255,255,255,.05)",borderRadius:8,padding:"3px 8px",fontSize:9,fontWeight:700,color:GRAY}}>{t.date}</div>
                             <div style={{background:t.type==="free"?"rgba(78,205,196,.12)":t.status==="valid"?"rgba(255,0,128,.12)":"rgba(136,146,160,.1)",borderRadius:8,padding:"3px 8px",fontSize:9,fontWeight:700,color:t.type==="free"?GREEN:t.status==="valid"?PINK:GRAY}}>{t.type==="free"?"GRATUIT":t.status==="valid"?"VALIDE":"UTILISÉ"}</div>
                             {t.type!=="free"&&<div style={{background:"rgba(255,179,71,.1)",borderRadius:8,padding:"3px 8px",fontSize:9,fontWeight:700,color:"#FFB347"}}>CHF {t.price}</div>}
+                            <div style={{background:t.source==="web"?"rgba(96,165,250,.12)":"rgba(136,146,160,.08)",borderRadius:8,padding:"3px 8px",fontSize:9,fontWeight:700,color:t.source==="web"?"#60A5FA":GRAY}}>{t.source==="web"?"🌐 WEB":"📱 APP"}</div>
                           </div>
                         </div>
                       ))
@@ -3130,6 +3421,7 @@ export default function App(){
                                 </div>
                                 <div style={{flex:1,minWidth:0}}>
                                   <div style={{fontSize:13,fontWeight:800,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.pseudo||<span style={{color:GRAY,fontStyle:"italic"}}>Sans pseudo</span>}</div>
+                                  {u.email&&<div style={{fontSize:10,color:"#60A5FA",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.email}</div>}
                                   <div style={{fontSize:10,color:GRAY,marginTop:1}}>Inscrit le {joined}</div>
                                 </div>
                               </div>
@@ -3292,7 +3584,7 @@ export default function App(){
                 )}
 
                 {/* Dispo billets */}
-                {selEv.capacity>0&&!selEv.ended&&(
+                {false&&selEv.capacity>0&&!selEv.ended&&(
                   <div style={{background:BG2,borderRadius:16,padding:"14px 16px",marginBottom:14,border:`1px solid ${BORDER}`,animation:"evCardIn .4s .25s both"}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                       <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:1.5,textTransform:"uppercase"}}>Disponibilité</div>
@@ -3358,48 +3650,50 @@ export default function App(){
               {payStep===0&&(
                 <div>
                   <div style={{fontSize:15,fontWeight:900,color:WHITE,marginBottom:16}}>Vos informations</div>
-                  {[["Prénom","Jean"],["Nom","Dupont"],["Email","jean@example.ch"],["Téléphone","+41 79 000 00 00"]].map(([l,ph])=>(
-                    <div key={l} style={{marginBottom:12}}>
+                  {[["Prénom","Jean","prenom"],["Nom","Dupont","nom"],["Email","jean@example.ch","email"],["Téléphone","+41 79 000 00 00","tel"]].map(([l,ph,key])=>(
+                    <div key={key} style={{marginBottom:12}}>
                       <div style={{fontSize:10,color:PINK,fontWeight:900,marginBottom:5,letterSpacing:1,textTransform:"uppercase"}}>{l}</div>
-                      <input placeholder={ph} className="inp"/>
+                      <input placeholder={ph} className="inp" value={buyerInfo[key]||""} onChange={e=>setBuyerInfo(p=>({...p,[key]:e.target.value}))} type={key==="email"?"email":key==="tel"?"tel":"text"}/>
                     </div>
                   ))}
-                  {(()=>{const hasD=(profil?.points||0)>=1000;const base=(selEv?.price||0)*qty;const disc=hasD?Math.round(base*0.3*100)/100:0;const total=Math.round((base-disc+2.90)*100)/100;return(
+                  {(()=>{const hasD=(profil?.points||0)>=1000;const base=(selEv?.price||0)*qty;const disc=hasD?Math.round(base*0.3*100)/100:0;const total=base-disc;return(
                   <div style={{background:BG2,borderRadius:14,padding:16,marginBottom:20,border:`1px solid ${hasD?"rgba(255,215,0,.3)":BORDER}`,marginTop:16}}>
                     <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WHITE,fontWeight:700,marginBottom:8}}><span>{selEv?.title} × {qty}</span><span>CHF {base}</span></div>
                     {hasD&&<div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#FFD700",fontWeight:800,marginBottom:8}}><span>🏆 Réduction Gold -30%</span><span>- CHF {disc}</span></div>}
-                    <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:GRAY}}><span>Frais</span><span>CHF 2.90</span></div>
                     <div style={{borderTop:`1px solid ${BORDER}`,marginTop:10,paddingTop:10,display:"flex",justifyContent:"space-between"}}>
                       <span style={{fontSize:14,fontWeight:900,color:WHITE}}>TOTAL</span>
                       <span style={{fontSize:20,fontWeight:900,color:hasD?"#FFD700":PINK}}>CHF {total}</span>
                     </div>
                   </div>
                   );})()}
-                  <Btn onClick={()=>setPayStep(1)}>CONTINUER</Btn>
+                  <Btn onClick={()=>{if(!buyerInfo.prenom||!buyerInfo.nom||!buyerInfo.email)return;setPayStep(1);}}>CONTINUER</Btn>
                 </div>
               )}
               {payStep===1&&(
                 <div>
-                  <div style={{fontSize:15,fontWeight:900,color:WHITE,marginBottom:16}}>Moyen de paiement</div>
-                  {[["card","💳","Carte de crédit"],["twint","📱","TWINT"],["bank","🏦","Virement bancaire"]].map(([key,icon,label])=>(
-                    <div key={key} onClick={()=>setPayMethod(key)} style={{background:payMethod===key?"rgba(255,0,128,.07)":BG2,borderRadius:14,padding:16,marginBottom:10,display:"flex",alignItems:"center",gap:14,cursor:"pointer",border:payMethod===key?`1.5px solid ${PINK}`:`1px solid ${BORDER}`}}>
-                      <span style={{fontSize:22}}>{icon}</span>
-                      <span style={{fontSize:14,color:WHITE,fontWeight:600,flex:1}}>{label}</span>
-                      {payMethod===key&&<Icon n="check" s={18} c={PINK}/>}
-                    </div>
-                  ))}
-                  {payMethod==="card"&&(
-                    <div style={{marginTop:14}}>
-                      <div style={{fontSize:10,color:PINK,fontWeight:900,marginBottom:5,letterSpacing:1,textTransform:"uppercase"}}>Numéro de carte</div>
-                      <input placeholder="0000 0000 0000 0000" className="inp" style={{marginBottom:10}}/>
-                      <div style={{display:"flex",gap:10}}>
-                        <div style={{flex:1}}><div style={{fontSize:10,color:PINK,fontWeight:900,marginBottom:5,letterSpacing:1,textTransform:"uppercase"}}>Expiration</div><input placeholder="MM / AA" className="inp"/></div>
-                        <div style={{flex:1}}><div style={{fontSize:10,color:PINK,fontWeight:900,marginBottom:5,letterSpacing:1,textTransform:"uppercase"}}>CVV</div><input placeholder="•••" className="inp"/></div>
-                      </div>
-                    </div>
+                  <div style={{fontSize:15,fontWeight:900,color:WHITE,marginBottom:16}}>Paiement sécurisé 🔒</div>
+                  <div style={{background:BG2,borderRadius:14,padding:16,marginBottom:20,border:`1px solid ${BORDER}`}}>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WHITE,fontWeight:700}}><span>{selEv?.title} × {qty}</span><span style={{color:PINK}}>CHF {(()=>{const hasD=(profil?.points||0)>=1000;const base=(selEv?.price||0)*qty;return hasD?Math.round(base*0.7*100)/100:base;})()}</span></div>
+                  </div>
+                  {payClientSecret?(
+                  Capacitor.isNativePlatform()?(
+                    <NativePayButton
+                      amount={(()=>{const hasD=(profil?.points||0)>=1000;const base=(selEv?.price||0)*qty;return hasD?Math.round(base*0.7*100)/100:base;})()}
+                      clientSecret={payClientSecret}
+                      onSuccess={()=>{const name=(buyerInfo.prenom+" "+buyerInfo.nom).trim()||"Client";const email=buyerInfo.email||"";addPaidTicket(email,name);setPayStep(2);}}
+                      pendingData={{eventId:selEv?.id,event:selEv?.title,date:selEv?.date,time:selEv?.time,location:selEv?.location,buyerName:(buyerInfo.prenom+" "+buyerInfo.nom).trim()||"Client",buyerEmail:buyerInfo.email,qty,unitPrice:(()=>{const hasD=(profil?.points||0)>=1000;const base=(selEv?.price||0);return hasD?Math.round(base*0.7*100)/100:base;})()}}
+                    />
+                  ):(
+                  <Elements stripe={stripePromise} options={{clientSecret:payClientSecret,appearance:{theme:"night",variables:{colorPrimary:"#FF0080",colorBackground:"#1C2430",colorText:"#FFFFFF",colorDanger:"#FF4444",fontFamily:"DM Sans,sans-serif",borderRadius:"12px"}}}}>
+                    <StripePayForm
+                      amount={(()=>{const hasD=(profil?.points||0)>=1000;const base=(selEv?.price||0)*qty;return hasD?Math.round(base*0.7*100)/100:base;})()}
+                      onSuccess={()=>{const name=(buyerInfo.prenom+" "+buyerInfo.nom).trim()||"Client";const email=buyerInfo.email||"";addPaidTicket(email,name);setPayStep(2);}}
+                      pendingData={{eventId:selEv?.id,event:selEv?.title,date:selEv?.date,time:selEv?.time,location:selEv?.location,buyerName:(buyerInfo.prenom+" "+buyerInfo.nom).trim()||"Client",buyerEmail:buyerInfo.email,qty,unitPrice:(()=>{const hasD=(profil?.points||0)>=1000;const base=(selEv?.price||0);return hasD?Math.round(base*0.7*100)/100:base;})()}}
+                    />
+                  </Elements>
+                  )):(
+                    <div style={{textAlign:"center",padding:30,color:GRAY,fontSize:14}}>⏳ Initialisation…</div>
                   )}
-                  <div style={{height:20}}/>
-                  {(()=>{const hasD=(profil?.points||0)>=1000;const base=(selEv?.price||0)*qty;const disc=hasD?Math.round(base*0.3*100)/100:0;const total=Math.round((base-disc+2.90)*100)/100;return(<Btn onClick={()=>{setPayStep(2);addPaidTicket();}}>PAYER CHF {total}</Btn>);})()}
                 </div>
               )}
               {payStep===2&&(
@@ -3457,7 +3751,7 @@ export default function App(){
               </div>
 
               {/* Corps */}
-              <div style={{flex:1,overflowY:"auto",background:"linear-gradient(180deg,#0f0a14,#0D1117)",padding:"16px 14px"}}>
+              <div style={{flex:1,overflowY:"auto",overflowX:"hidden",background:"linear-gradient(180deg,#0f0a14,#0D1117)",padding:"16px 14px"}}>
 
                 {/* Bannière activer */}
                 <div style={{borderRadius:20,padding:"16px",marginBottom:18,background:"linear-gradient(135deg,rgba(255,0,128,.14),rgba(123,47,255,.1))",border:"1px solid rgba(255,0,128,.22)",position:"relative",overflow:"hidden",animation:"notifItemIn .4s .05s both"}}>
@@ -3516,7 +3810,7 @@ export default function App(){
                 <img src={LOGO} alt="" style={{height:36,objectFit:"contain"}}/>
                 <button onClick={()=>setMenuOpen(false)} style={{background:"none",border:"none",color:GRAY,cursor:"pointer",fontSize:22}}>×</button>
               </div>
-              <div style={{flex:1,overflowY:"auto",padding:"20px"}}>
+              <div style={{flex:1,overflowY:"auto",overflowX:"hidden",padding:"20px"}}>
                 <div onClick={()=>{setMenuOpen(false);setScreen("profil");}} style={{background:GRAD,borderRadius:16,padding:"16px 18px",marginBottom:20,cursor:"pointer",display:"flex",alignItems:"center",gap:12}}>
                   <span style={{fontSize:22}}>🎉</span>
                   <div><div style={{fontSize:15,fontWeight:900,color:WHITE}}>{authUser?"Mon Profil 👤":"Se connecter"}</div><div style={{fontSize:11,color:"rgba(255,255,255,.75)"}}>{authUser?(authUser.user_metadata&&authUser.user_metadata.prenom?authUser.user_metadata.prenom+" ":"")+authUser.email:"Rejoins la communaute"}</div></div>
@@ -3548,6 +3842,42 @@ export default function App(){
 
         {qrTicket&&<QRModal ticket={qrTicket} onClose={()=>setQrTicket(null)}/>}
         {toast&&<div style={{position:"absolute",bottom:90,left:"50%",background:GRAD,color:WHITE,padding:"10px 22px",borderRadius:30,fontSize:13,fontWeight:900,boxShadow:"0 4px 20px rgba(255,0,128,.4)",animation:"toastIn .4s both",whiteSpace:"nowrap",zIndex:400}}>{toast}</div>}
+
+        {showEmailConfirm&&(
+          <div style={{position:"absolute",inset:0,background:BG,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 20px",zIndex:9999,overflow:"hidden"}}>
+            <LightBeams/>
+            <div style={{position:"relative",zIndex:1,width:"100%",maxWidth:380,animation:"slideUp .4s both"}}>
+              <div style={{textAlign:"center",marginBottom:28}}>
+                <div style={{width:90,height:90,borderRadius:"50%",background:"linear-gradient(135deg,rgba(0,230,118,.2),rgba(78,205,196,.15))",border:"1px solid rgba(0,230,118,.4)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 18px",boxShadow:"0 0 40px rgba(0,230,118,.25)"}}>
+                  <span style={{fontSize:44}}>✅</span>
+                </div>
+                <div style={{fontSize:28,fontWeight:900,color:WHITE,marginBottom:8}}>Email confirmé !</div>
+                <div style={{fontSize:14,color:GRAY,lineHeight:1.7}}>Merci pour ton inscription.<br/>Ton compte est maintenant actif.</div>
+              </div>
+              <div style={{background:"rgba(0,230,118,.07)",border:"1px solid rgba(0,230,118,.25)",borderRadius:18,padding:"18px 16px",marginBottom:28}}>
+                <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+                  <span style={{fontSize:24}}>🎉</span>
+                  <div>
+                    <div style={{fontSize:14,fontWeight:900,color:"#00E676",marginBottom:2}}>Bienvenue dans la communauté !</div>
+                    <div style={{fontSize:12,color:GRAY,lineHeight:1.5}}>Tu peux maintenant te connecter et accéder à toutes nos soirées.</div>
+                  </div>
+                </div>
+                <div style={{height:1,background:"rgba(0,230,118,.15)",marginBottom:12}}/>
+                <div style={{display:"flex",gap:8}}>
+                  {[["🎟️","Achète tes billets"],["📸","Rejoins les groupes"],["⭐","Gagne des points"]].map(([ico,txt])=>(
+                    <div key={txt} style={{flex:1,textAlign:"center",background:"rgba(0,230,118,.06)",borderRadius:12,padding:"8px 4px"}}>
+                      <div style={{fontSize:18,marginBottom:4}}>{ico}</div>
+                      <div style={{fontSize:9,color:GRAY,fontWeight:700,lineHeight:1.3}}>{txt}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div onClick={()=>setShowEmailConfirm(false)} style={{padding:"16px 0",borderRadius:14,background:GRAD,textAlign:"center",fontWeight:900,fontSize:16,color:WHITE,cursor:"pointer",letterSpacing:1,boxShadow:"0 8px 30px rgba(255,0,128,.4)"}}>
+                COMMENCER 🚀
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

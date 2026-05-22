@@ -47,5 +47,16 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>ch.nolimitevents.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>nolimitevents</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
