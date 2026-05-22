@@ -1164,38 +1164,54 @@ function AdminGallery(){
 function NativePayButton({amount,clientSecret,onSuccess,pendingData}){
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState(null);
-  const pay=async()=>{
+  const [applePayOk,setApplePayOk]=useState(false);
+  useEffect(()=>{StripeNative.isApplePayAvailable().then(()=>setApplePayOk(true)).catch(()=>setApplePayOk(false));},[]);
+  const savePending=()=>{if(pendingData)localStorage.setItem("nle_pending_ticket",JSON.stringify(pendingData));};
+  const clearPending=()=>localStorage.removeItem("nle_pending_ticket");
+  const payApple=async()=>{
     setLoading(true);setError(null);
     try{
-      if(pendingData)localStorage.setItem("nle_pending_ticket",JSON.stringify(pendingData));
+      savePending();
+      await StripeNative.createApplePay({
+        paymentIntentClientSecret:clientSecret,
+        paymentSummaryItems:[{label:"No Limit Events",amount:amount}],
+        merchantIdentifier:"merchant.ch.nolimitevents.app",
+        countryCode:"CH",
+        currency:"chf",
+      });
+      const{paymentResult}=await StripeNative.presentApplePay();
+      if(paymentResult==="applePayCompleted"){clearPending();onSuccess();}
+      else{clearPending();setError("Paiement annulé");}
+    }catch(e){clearPending();setError(e?.message||"Erreur Apple Pay");}
+    setLoading(false);
+  };
+  const payCard=async()=>{
+    setLoading(true);setError(null);
+    try{
+      savePending();
       await StripeNative.createPaymentSheet({
         paymentIntentClientSecret:clientSecret,
         merchantDisplayName:"No Limit Events",
         countryCode:"CH",
         currency:"chf",
-        enableApplePay:true,
-        applePayMerchantId:"merchant.ch.nolimitevents.app",
         returnURL:"nolimitevents://",
       });
       const{paymentResult}=await StripeNative.presentPaymentSheet();
-      if(paymentResult==="paymentSheetCompleted"){
-        localStorage.removeItem("nle_pending_ticket");
-        onSuccess();
-      }else{
-        localStorage.removeItem("nle_pending_ticket");
-        setError("Paiement annulé");
-      }
-    }catch(e){
-      localStorage.removeItem("nle_pending_ticket");
-      setError("Erreur de paiement");
-    }
+      if(paymentResult==="paymentSheetCompleted"){clearPending();onSuccess();}
+      else{clearPending();setError("Paiement annulé");}
+    }catch(e){clearPending();setError(e?.message||"Erreur de paiement");}
     setLoading(false);
   };
   return(
     <div style={{marginTop:14}}>
       {error&&<div style={{color:"#FF4444",fontSize:12,marginBottom:10}}>{error}</div>}
-      <div onClick={pay} style={{background:"linear-gradient(135deg,#FF0080,#FF3399)",color:"#FFFFFF",padding:"15px 0",borderRadius:14,textAlign:"center",fontWeight:900,fontSize:14,cursor:"pointer",opacity:loading?0.7:1,textTransform:"uppercase"}}>
-        {loading?"TRAITEMENT...":"PAYER CHF "+amount}
+      {applePayOk&&(
+        <div onClick={!loading?payApple:undefined} style={{background:"#000000",color:"#FFFFFF",padding:"15px 0",borderRadius:14,textAlign:"center",fontWeight:900,fontSize:15,cursor:"pointer",opacity:loading?0.7:1,marginBottom:10,letterSpacing:1}}>
+          {loading?"TRAITEMENT...":" Payer avec Apple Pay"}
+        </div>
+      )}
+      <div onClick={!loading?payCard:undefined} style={{background:"linear-gradient(135deg,#FF0080,#FF3399)",color:"#FFFFFF",padding:"15px 0",borderRadius:14,textAlign:"center",fontWeight:900,fontSize:14,cursor:"pointer",opacity:loading?0.7:1,textTransform:"uppercase"}}>
+        {loading?"TRAITEMENT...":"PAYER PAR CARTE CHF "+amount}
       </div>
     </div>
   );
