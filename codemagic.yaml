@@ -6,6 +6,8 @@ workflows:
     integrations:
       app_store_connect: NolimitEvents
     environment:
+      groups:
+        - apple_credentials
       ios_signing:
         distribution_type: app_store
         bundle_identifier: ch.nolimitevents.app
