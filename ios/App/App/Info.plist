@@ -58,5 +58,7 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>La caméra est utilisée pour scanner les QR codes des billets.</string>
 </dict>
 </plist>
