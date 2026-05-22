@@ -28,6 +28,9 @@ workflows:
         script: |
           cd ios/App
           agvtool new-version -all $BUILD_NUMBER
+      - name: Installer le profil Apple Pay
+        script: |
+          cp ios/profiles/NoLimitEvents_AppStore.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
       - name: Configurer le code signing
         script: xcode-project use-profiles
       - name: Build IPA
