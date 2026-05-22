@@ -18,12 +18,6 @@ workflows:
         script: npm run build
       - name: Sync Capacitor iOS
         script: npx cap sync ios
-      - name: Résoudre packages SPM
-        script: |
-          xcodebuild -resolvePackageDependencies \
-            -project ios/App/App.xcodeproj \
-            -scheme App \
-            -clonedSourcePackagesDirPath ios/App/SourcePackages
       - name: Incrémenter le numéro de build
         script: |
           cd ios/App
@@ -33,6 +27,12 @@ workflows:
           cp ios/profiles/NoLimitEvents_AppStore.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
       - name: Configurer le code signing
         script: xcode-project use-profiles
+      - name: Résoudre packages SPM
+        script: |
+          xcodebuild -resolvePackageDependencies \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -clonedSourcePackagesDirPath ios/App/SourcePackages
       - name: Build IPA
         script: |
           xcode-project build-ipa \
