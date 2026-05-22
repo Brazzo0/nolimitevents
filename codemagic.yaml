@@ -6,8 +6,6 @@ workflows:
     integrations:
       app_store_connect: NolimitEvents
     environment:
-      groups:
-        - apple_credentials
       ios_signing:
         distribution_type: app_store
         bundle_identifier: ch.nolimitevents.app
@@ -30,10 +28,6 @@ workflows:
         script: |
           cd ios/App
           agvtool new-version -all $BUILD_NUMBER
-      - name: Supprimer les anciens profils
-        script: rm -rf ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision || true
-      - name: Installer le profil de provisionnement
-        script: python3 -c "import base64,os,pathlib; data=os.environ['CM_PROVISIONING_PROFILE']; decoded=base64.b64decode(data); path=pathlib.Path.home()/'Library/MobileDevice/Provisioning Profiles/NoLimitEvents_AppStore.mobileprovision'; path.parent.mkdir(parents=True,exist_ok=True); path.write_bytes(decoded)"
       - name: Configurer le code signing
         script: xcode-project use-profiles
       - name: Build IPA
