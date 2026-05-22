@@ -30,6 +30,9 @@ workflows:
           agvtool new-version -all $BUILD_NUMBER
       - name: Supprimer les anciens profils
         script: rm -rf ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision || true
+      - name: Installer le profil de provisionnement
+        script: |
+          echo $CM_PROVISIONING_PROFILE | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/NoLimitEvents_AppStore.mobileprovision
       - name: Configurer le code signing
         script: xcode-project use-profiles
       - name: Build IPA
