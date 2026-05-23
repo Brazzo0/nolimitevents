@@ -117,6 +117,7 @@ module.exports = async (req, res) => {
     res.status(200).send(buf);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    const lines = (err.stack || '').split('\n').slice(0, 6);
+    res.status(500).json({ error: err.message, v: 9, where: lines });
   }
 };
