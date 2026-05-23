@@ -26,19 +26,34 @@ module.exports = async (req, res) => {
     if (!process.env.PASS_KEY_B64)  return res.status(500).json({ error: 'PASS_KEY_B64 manquant dans Vercel env vars' });
     if (!process.env.WWDR_CERT_B64) return res.status(500).json({ error: 'WWDR_CERT_B64 manquant dans Vercel env vars' });
 
-    const clean = b64 => {
-      const decoded = Buffer.from(b64.replace(/\s/g, ''), 'base64').toString('utf8');
-      return decoded.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+    // Decode base64 env var → normalize PEM with strict 64-char line wrapping
+    const normalizePem = b64 => {
+      const raw = Buffer.from(b64.replace(/\s/g, ''), 'base64').toString('utf8').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+      return raw.split('\n').map(line => {
+        // Re-wrap body lines (not headers) to exactly 64 chars
+        if (line.startsWith('-----')) return line;
+        return line.replace(/\s/g, '');
+      }).join('\n');
     };
-    const certPem = clean(process.env.PASS_CERT_B64);
-    const keyPem  = clean(process.env.PASS_KEY_B64);
-    const wwdrPem = clean(process.env.WWDR_CERT_B64);
+
+    const reformatPem = pem => {
+      const lines = pem.split('\n');
+      const header = lines.find(l => l.startsWith('-----BEGIN'));
+      const footer = lines.find(l => l.startsWith('-----END'));
+      if (!header || !footer) return pem;
+      const body = lines.filter(l => !l.startsWith('-----') && l.trim()).join('');
+      const chunks = body.match(/.{1,64}/g) || [];
+      return [header, ...chunks, footer].join('\n') + '\n';
+    };
+
+    const certPem = reformatPem(normalizePem(process.env.PASS_CERT_B64));
+    const keyPem  = reformatPem(normalizePem(process.env.PASS_KEY_B64));
+    const wwdrPem = reformatPem(normalizePem(process.env.WWDR_CERT_B64));
     const passphrase = process.env.PASS_KEY_PASSPHRASE || '';
 
-    // Validate PEM format
-    if (!certPem.includes('-----BEGIN CERTIFICATE-----')) return res.status(500).json({ error: 'PASS_CERT_B64 invalide: pas de header PEM. Premiers chars: ' + certPem.substring(0,40) });
-    if (!keyPem.includes('-----BEGIN')) return res.status(500).json({ error: 'PASS_KEY_B64 invalide: pas de header PEM. Premiers chars: ' + keyPem.substring(0,40) });
-    if (!wwdrPem.includes('-----BEGIN CERTIFICATE-----')) return res.status(500).json({ error: 'WWDR_CERT_B64 invalide: pas de header PEM. Premiers chars: ' + wwdrPem.substring(0,40) });
+    if (!certPem.includes('-----BEGIN CERTIFICATE-----')) return res.status(500).json({ error: 'PASS_CERT_B64 invalide' });
+    if (!keyPem.includes('-----BEGIN')) return res.status(500).json({ error: 'PASS_KEY_B64 invalide' });
+    if (!wwdrPem.includes('-----BEGIN CERTIFICATE-----')) return res.status(500).json({ error: 'WWDR_CERT_B64 invalide' });
 
     const iconBuf = await fetchBuffer('https://app.nolimitevents.ch/logo_transparent.png');
 
