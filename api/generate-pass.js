@@ -20,6 +20,19 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST' && req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
+    // Debug mode FIRST – before any processing
+    if ((req.query || {}).debug === 'nle2026') {
+      const dec = v => { try { return Buffer.from((v||'').replace(/\s/g,''),'base64').toString('utf8').substring(0,80); } catch(e) { return 'ERR:'+e.message; } };
+      return res.status(200).json({
+        v: 'v6',
+        cert_raw_start: (process.env.PASS_CERT_B64||'').substring(0,40),
+        cert_decoded_start: dec(process.env.PASS_CERT_B64),
+        key_decoded_start: dec(process.env.PASS_KEY_B64),
+        wwdr_decoded_start: dec(process.env.WWDR_CERT_B64),
+        passphrase: process.env.PASS_KEY_PASSPHRASE ? 'SET' : 'EMPTY'
+      });
+    }
+
     const { ticketId, eventTitle, eventDate, eventLocation, name } = req.method === 'GET' ? req.query : req.body;
 
     if (!process.env.PASS_CERT_B64) return res.status(500).json({ error: 'PASS_CERT_B64 manquant dans Vercel env vars' });
@@ -34,21 +47,9 @@ module.exports = async (req, res) => {
     const wwdrPem = normalizePem(process.env.WWDR_CERT_B64);
     const passphrase = process.env.PASS_KEY_PASSPHRASE || '';
 
-    if (!certPem.includes('-----BEGIN CERTIFICATE-----')) return res.status(500).json({ error: 'PASS_CERT_B64 invalide' });
-    if (!keyPem.includes('-----BEGIN')) return res.status(500).json({ error: 'PASS_KEY_B64 invalide' });
-    if (!wwdrPem.includes('-----BEGIN CERTIFICATE-----')) return res.status(500).json({ error: 'WWDR_CERT_B64 invalide' });
-
-    // Debug mode: show cert structure without building the pass
-    if (req.query.debug === 'nle2026') {
-      const info = pem => ({
-        header: pem.split('\n')[0],
-        footer: pem.split('\n').filter(l => l.startsWith('-----END'))[0],
-        lines: pem.split('\n').length,
-        bodyLen: pem.split('\n').filter(l => !l.startsWith('-----')).join('').length,
-        first20body: pem.split('\n').filter(l => !l.startsWith('-----') && l.trim())[0]?.substring(0,20)
-      });
-      return res.status(200).json({ cert: info(certPem), key: info(keyPem), wwdr: info(wwdrPem), passphrase: passphrase ? 'SET' : 'EMPTY' });
-    }
+    if (!certPem.includes('-----BEGIN CERTIFICATE-----')) return res.status(500).json({ error: 'PASS_CERT_B64 invalide: ' + certPem.substring(0,60) });
+    if (!keyPem.includes('-----BEGIN')) return res.status(500).json({ error: 'PASS_KEY_B64 invalide: ' + keyPem.substring(0,60) });
+    if (!wwdrPem.includes('-----BEGIN CERTIFICATE-----')) return res.status(500).json({ error: 'WWDR_CERT_B64 invalide: ' + wwdrPem.substring(0,60) });
 
     const iconBuf = await fetchBuffer('https://app.nolimitevents.ch/logo_transparent.png');
 
