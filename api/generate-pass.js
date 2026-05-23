@@ -111,7 +111,6 @@ module.exports = async (req, res) => {
 
     const pass = new PKPass(
       {
-        'pass.json':   Buffer.from(JSON.stringify(passJson)),
         'icon.png':    iconBuf,
         'icon@2x.png': iconBuf,
         'logo.png':    iconBuf,
@@ -121,7 +120,8 @@ module.exports = async (req, res) => {
         wwdr:       wwdrPem,
         signerCert: certPem,
         signerKey:  passphrase ? { keyFile: keyPem, passphrase } : keyPem,
-      }
+      },
+      passJson
     );
 
     const buf = await pass.getAsBuffer();
