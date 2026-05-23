@@ -322,6 +322,10 @@
         </div>
         <div class="field-label">Moyen de paiement</div>
         <div id="payment-element"><div style="text-align:center;padding:20px;color:rgba(255,255,255,.4);font-size:13px">⏳ Chargement…</div></div>
+        <div style="margin:14px 0 4px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,.45);margin-bottom:4px"><span>Sous-total</span><span id="subtotal-display">CHF 0</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,.35);margin-bottom:10px"><span>Frais de service</span><span id="fees-display">CHF 0</span></div>
+        </div>
         <div class="total-row">
           <div class="total-label">Total à payer</div>
           <div class="total-amount" id="total-display">CHF 0</div>
@@ -620,9 +624,11 @@
     setTimeout(() => mountPaymentElement(), 100);
   }
 
+  const withFees = (p) => Math.round((p + 0.30) / (1 - 0.015) * 100) / 100;
+
   function mountPaymentElement() {
     if (paymentElement) { paymentElement.unmount(); paymentElement = null; }
-    const amountCents = Math.round(selectedPrice * qty * 100);
+    const amountCents = Math.round(withFees(selectedPrice * qty) * 100);
     stripeElements = stripe.elements({
       mode: 'payment',
       amount: amountCents,
@@ -646,11 +652,15 @@
     qty = Math.max(1, Math.min(10, qty + d));
     document.getElementById('qty-display').textContent = qty;
     updateTotal();
-    if (stripeElements) stripeElements.update({ amount: Math.round(selectedPrice * qty * 100) });
+    if (stripeElements) stripeElements.update({ amount: Math.round(withFees(selectedPrice * qty) * 100) });
   }
 
   function updateTotal() {
-    const total = selectedPrice * qty;
+    const subtotal = selectedPrice * qty;
+    const total = withFees(subtotal);
+    const fees = Math.round((total - subtotal) * 100) / 100;
+    document.getElementById('subtotal-display').textContent = 'CHF ' + subtotal.toFixed(2).replace('.00','');
+    document.getElementById('fees-display').textContent = 'CHF ' + fees.toFixed(2);
     document.getElementById('total-display').textContent = 'CHF ' + total.toFixed(2).replace('.00','');
     document.getElementById('pay-btn').textContent = 'PAYER CHF ' + total.toFixed(2).replace('.00','');
   }
@@ -671,7 +681,7 @@
     btn.disabled = true; btn.textContent = 'TRAITEMENT…';
     document.getElementById('pay-error').style.display = 'none';
 
-    const amount = selectedPrice * qty;
+    const amount = withFees(selectedPrice * qty);
     try {
       // Validate payment element fields
       const { error: submitErr } = await stripeElements.submit();
