@@ -20,11 +20,12 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST' && req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    // Debug mode FIRST – before any processing
-    if ((req.query || {}).debug === 'nle2026') {
+    // Debug mode FIRST – parse URL manually (req.query may not be available)
+    const urlParams = new URL(req.url, 'https://app.nolimitevents.ch').searchParams;
+    if (urlParams.get('debug') === 'nle2026') {
       const dec = v => { try { return Buffer.from((v||'').replace(/\s/g,''),'base64').toString('utf8').substring(0,80); } catch(e) { return 'ERR:'+e.message; } };
       return res.status(200).json({
-        v: 'v6',
+        v: 'v8',
         cert_raw_start: (process.env.PASS_CERT_B64||'').substring(0,40),
         cert_decoded_start: dec(process.env.PASS_CERT_B64),
         key_decoded_start: dec(process.env.PASS_KEY_B64),
