@@ -48,9 +48,11 @@ module.exports = async (req, res) => {
     const wwdrPem = normalizePem(process.env.WWDR_CERT_B64);
     const passphrase = process.env.PASS_KEY_PASSPHRASE || '';
 
-    if (!certPem.includes('-----BEGIN CERTIFICATE-----')) return res.status(500).json({ error: 'PASS_CERT_B64 invalide: ' + certPem.substring(0,60) });
-    if (!keyPem.includes('-----BEGIN')) return res.status(500).json({ error: 'PASS_KEY_B64 invalide: ' + keyPem.substring(0,60) });
-    if (!wwdrPem.includes('-----BEGIN CERTIFICATE-----')) return res.status(500).json({ error: 'WWDR_CERT_B64 invalide: ' + wwdrPem.substring(0,60) });
+    // Try to parse each cert with forge to pinpoint which one fails
+    const forge = require('node-forge');
+    try { forge.pki.certificateFromPem(certPem); } catch(e) { return res.status(500).json({ error: 'PASS_CERT_B64 forge error: ' + e.message, start: certPem.substring(0,80), end: certPem.substring(certPem.length-40) }); }
+    try { forge.pki.certificateFromPem(wwdrPem); } catch(e) { return res.status(500).json({ error: 'WWDR_CERT_B64 forge error: ' + e.message, start: wwdrPem.substring(0,80), end: wwdrPem.substring(wwdrPem.length-40) }); }
+    try { forge.pki.decryptRsaPrivateKey(keyPem, passphrase||undefined); } catch(e) { return res.status(500).json({ error: 'PASS_KEY_B64 forge error: ' + e.message, start: keyPem.substring(0,80), end: keyPem.substring(keyPem.length-40) }); }
 
     const iconBuf = await fetchBuffer('https://app.nolimitevents.ch/logo_transparent.png');
 
