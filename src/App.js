@@ -1312,6 +1312,7 @@ export default function App(){
   const [adminPass,setAdminPass]=useState("");
   const [adminErr,setAdminErr]=useState("");
   const [adminTab,setAdminTab]=useState("dashboard");
+  const [chartPeriod,setChartPeriod]=useState(7);
   const [editEv,setEditEv]=useState(null);
   const [showEvForm,setShowEvForm]=useState(false);
   const [showFreeForm,setShowFreeForm]=useState(false);
@@ -3150,46 +3151,79 @@ export default function App(){
                       ))}
                     </div>
 
-                    {/* Graphique ventes 7 jours */}
+                    {/* Graphique ventes */}
                     {(()=>{
                       const paidTix=tickets.filter(t=>t.type!=="free"&&t.createdAt);
-                      const days=Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(6-i));return d;});
+                      const n=chartPeriod;
+                      const days=Array.from({length:n},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(n-1-i));return d;});
                       const dayData=days.map(d=>{
                         const key=d.toISOString().slice(0,10);
                         const dayTix=paidTix.filter(t=>t.createdAt&&normDate(t.createdAt)===key);
-                        return{label:d.toLocaleDateString("fr-CH",{weekday:"short"}).slice(0,3),count:dayTix.length,rev:dayTix.reduce((s,t)=>s+(Number(t.price)||0),0)};
+                        const label=n===7?d.toLocaleDateString("fr-CH",{weekday:"short"}).slice(0,3):d.toLocaleDateString("fr-CH",{day:"numeric",month:"short"}).replace(" ","");
+                        return{label,count:dayTix.length,rev:dayTix.reduce((s,t)=>s+(Number(t.price)||0),0),key};
                       });
                       const maxRev=Math.max(...dayData.map(d=>d.rev),1);
                       const totalPeriod=dayData.reduce((s,d)=>s+d.rev,0);
                       const totalCount=dayData.reduce((s,d)=>s+d.count,0);
+                      const W=280,H=80,barW=n===7?32:n===14?16:8,gap=n===7?40:n===14?20:9;
+                      const evtBreakdown=events.filter(e=>!e.ended).map(e=>({title:e.title,count:paidTix.filter(t=>t.eventId===e.id).length,rev:paidTix.filter(t=>t.eventId===e.id).reduce((s,t)=>s+(Number(t.price)||0),0)})).filter(e=>e.count>0).sort((a,b)=>b.rev-a.rev);
                       return(
                         <div style={{marginBottom:20}}>
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                            <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase"}}>VENTES 7 JOURS</div>
-                            <div style={{textAlign:"right"}}>
-                              <div style={{fontSize:16,fontWeight:900,color:PINK}}>CHF {totalPeriod}</div>
-                              <div style={{fontSize:9,color:GRAY}}>{totalCount} billet{totalCount!==1?"s":""}</div>
+                            <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase"}}>ÉVOLUTION DES VENTES</div>
+                            <div style={{display:"flex",gap:6}}>
+                              {[7,14,30].map(p=>(
+                                <div key={p} onClick={()=>setChartPeriod(p)} style={{padding:"4px 10px",borderRadius:20,fontSize:9,fontWeight:900,cursor:"pointer",background:chartPeriod===p?PINK:"rgba(255,255,255,.06)",color:chartPeriod===p?WHITE:GRAY,border:`1px solid ${chartPeriod===p?PINK:BORDER}`}}>{p}J</div>
+                              ))}
                             </div>
                           </div>
-                          <div style={{background:BG2,borderRadius:18,padding:"18px 14px 12px",border:`1px solid ${BORDER}`}}>
-                            {totalCount===0&&<div style={{textAlign:"center",color:GRAY,fontSize:11,paddingBottom:8}}>Aucune vente sur 7 jours</div>}
-                            <svg viewBox="0 0 280 90" style={{width:"100%",overflow:"visible",display:"block"}}>
-                              <defs>{dayData.map((_,i)=><linearGradient key={i} id={`cg${i}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={PINK} stopOpacity=".95"/><stop offset="100%" stopColor="#7B2FFF" stopOpacity=".75"/></linearGradient>)}</defs>
-                              {[0,25,50,75,100].map(pct=><line key={pct} x1={0} y1={70*(1-pct/100)} x2={280} y2={70*(1-pct/100)} stroke={BORDER} strokeWidth={.6} strokeDasharray="4,4"/>)}
-                              {dayData.map((d,i)=>{
-                                const barH=d.rev>0?Math.max(6,Math.round((d.rev/maxRev)*66)):3;
-                                const x=i*40+4;
-                                const y=70-barH;
+                          <div style={{background:BG2,borderRadius:18,padding:"16px 14px 10px",border:`1px solid ${BORDER}`,marginBottom:10}}>
+                            <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}>
+                              <div><div style={{fontSize:18,fontWeight:900,color:PINK}}>CHF {totalPeriod}</div><div style={{fontSize:9,color:GRAY,marginTop:2}}>{totalCount} billet{totalCount!==1?"s":""} sur {n} jours</div></div>
+                              <div style={{textAlign:"right"}}><div style={{fontSize:11,color:GRAY}}>Moy/jour</div><div style={{fontSize:14,fontWeight:800,color:WHITE}}>CHF {Math.round(totalPeriod/n)}</div></div>
+                            </div>
+                            {totalCount===0?(
+                              <div style={{textAlign:"center",color:GRAY,fontSize:11,padding:"20px 0"}}>Aucune vente sur {n} jours</div>
+                            ):(
+                              <svg viewBox={`0 0 ${W} ${H+14}`} style={{width:"100%",overflow:"visible",display:"block"}}>
+                                <defs>
+                                  <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={PINK} stopOpacity=".95"/><stop offset="100%" stopColor="#7B2FFF" stopOpacity=".7"/></linearGradient>
+                                  <linearGradient id="chartArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={PINK} stopOpacity=".15"/><stop offset="100%" stopColor={PINK} stopOpacity="0"/></linearGradient>
+                                </defs>
+                                {[0,25,50,75,100].map(pct=><line key={pct} x1={0} y1={H*(1-pct/100)} x2={W} y2={H*(1-pct/100)} stroke={BORDER} strokeWidth={.5} strokeDasharray="3,4"/>)}
+                                {dayData.map((d,i)=>{
+                                  const barH=d.rev>0?Math.max(4,Math.round((d.rev/maxRev)*(H-6))):2;
+                                  const x=i*gap+2;
+                                  return(
+                                    <g key={i}>
+                                      <rect x={x} y={d.rev>0?H-barH:H-2} width={barW} height={barH} rx={3} fill={d.rev>0?"url(#chartGrad)":"rgba(255,255,255,.04)"}/>
+                                      {d.count>0&&n===7&&<text x={x+barW/2} y={H-barH-4} textAnchor="middle" fill={WHITE} fontSize={7} fontWeight="900">{d.count}</text>}
+                                      {(n===7||(n===14&&i%2===0)||(n===30&&i%5===0))&&<text x={x+barW/2} y={H+12} textAnchor="middle" fill={GRAY} fontSize={7} fontWeight="700">{d.label}</text>}
+                                    </g>
+                                  );
+                                })}
+                              </svg>
+                            )}
+                          </div>
+                          {evtBreakdown.length>0&&(
+                            <div style={{background:BG2,borderRadius:14,padding:"12px 14px",border:`1px solid ${BORDER}`}}>
+                              <div style={{fontSize:9,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>PAR ÉVÉNEMENT</div>
+                              {evtBreakdown.map((e,i)=>{
+                                const pct=Math.round((e.rev/Math.max(...evtBreakdown.map(x=>x.rev),1))*100);
                                 return(
-                                  <g key={i}>
-                                    <rect x={x} y={d.rev>0?y:67} width={32} height={barH} rx={5} fill={d.rev>0?`url(#cg${i})`:"rgba(255,255,255,.05)"}/>
-                                    {d.count>0&&<text x={x+16} y={y-5} textAnchor="middle" fill={WHITE} fontSize={7.5} fontWeight="900">{d.count}</text>}
-                                    <text x={x+16} y={83} textAnchor="middle" fill={GRAY} fontSize={8} fontWeight="700">{d.label}</text>
-                                  </g>
+                                  <div key={i} style={{marginBottom:10}}>
+                                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                                      <div style={{fontSize:11,fontWeight:700,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"60%"}}>{e.title}</div>
+                                      <div style={{fontSize:11,fontWeight:900,color:PINK}}>CHF {e.rev} <span style={{color:GRAY,fontWeight:600}}>({e.count})</span></div>
+                                    </div>
+                                    <div style={{height:4,borderRadius:4,background:"rgba(255,255,255,.06)"}}>
+                                      <div style={{height:"100%",borderRadius:4,background:GRAD,width:`${pct}%`,transition:"width .6s ease"}}/>
+                                    </div>
+                                  </div>
                                 );
                               })}
-                            </svg>
-                          </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })()}
