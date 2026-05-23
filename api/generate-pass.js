@@ -93,6 +93,9 @@ module.exports = async (req, res) => {
       }
     };
 
+    // Build pass metadata (no eventTicket here – type set separately)
+    const { eventTicket, ...passMeta } = passJson;
+
     const pass = new PKPass(
       {
         'icon.png':    iconBuf,
@@ -105,8 +108,17 @@ module.exports = async (req, res) => {
         signerCert: certPem,
         signerKey:  passphrase ? { keyFile: keyPem, passphrase } : keyPem,
       },
-      passJson
+      passMeta
     );
+
+    // In passkit-generator v3, type must be set explicitly AFTER construction
+    pass.type = 'eventTicket';
+
+    // Set fields programmatically
+    if (eventTicket?.primaryFields)   pass.primaryFields.push(...eventTicket.primaryFields);
+    if (eventTicket?.secondaryFields) pass.secondaryFields.push(...eventTicket.secondaryFields);
+    if (eventTicket?.auxiliaryFields) pass.auxiliaryFields.push(...eventTicket.auxiliaryFields);
+    if (eventTicket?.backFields)      pass.backFields.push(...eventTicket.backFields);
 
     const buf = await pass.getAsBuffer();
 
