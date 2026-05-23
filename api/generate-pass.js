@@ -55,6 +55,18 @@ module.exports = async (req, res) => {
     if (!keyPem.includes('-----BEGIN')) return res.status(500).json({ error: 'PASS_KEY_B64 invalide' });
     if (!wwdrPem.includes('-----BEGIN CERTIFICATE-----')) return res.status(500).json({ error: 'WWDR_CERT_B64 invalide' });
 
+    // Debug mode: show cert structure without building the pass
+    if (req.query.debug === 'nle2026') {
+      const info = pem => ({
+        header: pem.split('\n')[0],
+        footer: pem.split('\n').filter(l => l.startsWith('-----END'))[0],
+        lines: pem.split('\n').length,
+        bodyLen: pem.split('\n').filter(l => !l.startsWith('-----')).join('').length,
+        first20body: pem.split('\n').filter(l => !l.startsWith('-----') && l.trim())[0]?.substring(0,20)
+      });
+      return res.status(200).json({ cert: info(certPem), key: info(keyPem), wwdr: info(wwdrPem), passphrase: passphrase ? 'SET' : 'EMPTY' });
+    }
+
     const iconBuf = await fetchBuffer('https://app.nolimitevents.ch/logo_transparent.png');
 
     const passJson = {
