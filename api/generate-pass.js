@@ -40,8 +40,15 @@ module.exports = async (req, res) => {
     if (!process.env.PASS_KEY_B64)  return res.status(500).json({ error: 'PASS_KEY_B64 manquant dans Vercel env vars' });
     if (!process.env.WWDR_CERT_B64) return res.status(500).json({ error: 'WWDR_CERT_B64 manquant dans Vercel env vars' });
 
-    // Decode base64 env var → PEM string (strips whitespace from b64 to handle Vercel line-break quirks)
-    const normalizePem = b64 => Buffer.from(b64.replace(/\s/g, ''), 'base64').toString('utf8').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+    // Decode base64 env var → PEM string
+    const normalizePem = (b64, type = 'CERTIFICATE') => {
+      let pem = Buffer.from(b64.replace(/\s/g, ''), 'base64').toString('utf8').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+      // Auto-fix: add missing END marker (happens when Vercel truncates the env var)
+      if (pem.includes('-----BEGIN') && !pem.includes('-----END')) {
+        pem += `\n-----END ${type}-----`;
+      }
+      return pem;
+    };
 
     const certPem = normalizePem(process.env.PASS_CERT_B64);
     const keyPem  = normalizePem(process.env.PASS_KEY_B64);
