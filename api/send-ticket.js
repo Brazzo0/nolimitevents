@@ -17,6 +17,22 @@ module.exports = async (req, res) => {
 
     await resend.emails.send({
       from: 'No Limit Events <info@nolimitevents.ch>',
+      to: ['info@nolimitevents.ch', 'alexandre.11ferreira@icloud.com'],
+      subject: `💰 Nouveau billet vendu – ${eventTitle}`,
+      html: `<div style="font-family:sans-serif;background:#0D1117;color:#fff;padding:32px;border-radius:16px;max-width:480px;margin:0 auto;">
+        <h2 style="color:#FF0080;margin:0 0 20px;">🎟️ Nouveau billet vendu !</h2>
+        <table style="width:100%;border-collapse:collapse;">
+          <tr><td style="color:rgba(255,255,255,.5);padding:8px 0;font-size:13px;">Événement</td><td style="color:#fff;font-weight:700;font-size:13px;">${eventTitle}</td></tr>
+          <tr><td style="color:rgba(255,255,255,.5);padding:8px 0;font-size:13px;">Date</td><td style="color:#fff;font-weight:700;font-size:13px;">${eventDate}</td></tr>
+          <tr><td style="color:rgba(255,255,255,.5);padding:8px 0;font-size:13px;">Acheteur</td><td style="color:#fff;font-weight:700;font-size:13px;">${name}</td></tr>
+          <tr><td style="color:rgba(255,255,255,.5);padding:8px 0;font-size:13px;">Email</td><td style="color:#FF0080;font-weight:700;font-size:13px;">${email}</td></tr>
+          <tr><td style="color:rgba(255,255,255,.5);padding:8px 0;font-size:13px;">ID Billet</td><td style="color:#fff;font-family:monospace;font-size:12px;">${ticketId}</td></tr>
+        </table>
+      </div>`
+    });
+
+    await resend.emails.send({
+      from: 'No Limit Events <info@nolimitevents.ch>',
       to: email,
       subject: `🎟️ Ton billet – ${eventTitle}`,
       html: `<!DOCTYPE html>
