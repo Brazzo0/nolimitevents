@@ -26,11 +26,19 @@ module.exports = async (req, res) => {
     if (!process.env.PASS_KEY_B64)  return res.status(500).json({ error: 'PASS_KEY_B64 manquant dans Vercel env vars' });
     if (!process.env.WWDR_CERT_B64) return res.status(500).json({ error: 'WWDR_CERT_B64 manquant dans Vercel env vars' });
 
-    const clean = b64 => Buffer.from(b64, 'base64').toString('utf8').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+    const clean = b64 => {
+      const decoded = Buffer.from(b64.replace(/\s/g, ''), 'base64').toString('utf8');
+      return decoded.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+    };
     const certPem = clean(process.env.PASS_CERT_B64);
     const keyPem  = clean(process.env.PASS_KEY_B64);
     const wwdrPem = clean(process.env.WWDR_CERT_B64);
     const passphrase = process.env.PASS_KEY_PASSPHRASE || '';
+
+    // Validate PEM format
+    if (!certPem.includes('-----BEGIN CERTIFICATE-----')) return res.status(500).json({ error: 'PASS_CERT_B64 invalide: pas de header PEM. Premiers chars: ' + certPem.substring(0,40) });
+    if (!keyPem.includes('-----BEGIN')) return res.status(500).json({ error: 'PASS_KEY_B64 invalide: pas de header PEM. Premiers chars: ' + keyPem.substring(0,40) });
+    if (!wwdrPem.includes('-----BEGIN CERTIFICATE-----')) return res.status(500).json({ error: 'WWDR_CERT_B64 invalide: pas de header PEM. Premiers chars: ' + wwdrPem.substring(0,40) });
 
     const iconBuf = await fetchBuffer('https://app.nolimitevents.ch/logo_transparent.png');
 
