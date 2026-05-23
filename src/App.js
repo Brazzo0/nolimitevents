@@ -20,8 +20,6 @@ const GRAD=`linear-gradient(135deg,${PINK},${PINK2})`;
 const SAFE_TOP="env(safe-area-inset-top, 20px)";
 const SAFE_BOT="env(safe-area-inset-bottom, 8px)";
 const normDate=(d)=>{if(!d)return"";const m=d.match(/^(\d{2})\.(\d{2})\.(\d{4})/);if(m)return`${m[3]}-${m[2]}-${m[1]}`;return d.slice(0,10);};
-const withFees=(price)=>Math.round((price+0.30)/(1-0.015)*100)/100;
-const feeAmount=(price)=>Math.round((withFees(price)-price)*100)/100;
 
 const initialEvents=[];
 
@@ -1425,8 +1423,7 @@ export default function App(){
     if(payStep!==1||!selEv)return;
     const hasD=(profil?.points||0)>=1000;
     const base=(selEv.price||0)*qty;
-    const discounted=hasD?Math.round(base*0.7*100)/100:base;
-    const amount=withFees(discounted);
+    const amount=hasD?Math.round(base*0.7*100)/100:base;
     setPayClientSecret(null);
     fetch(`${API_BASE}/api/create-payment-intent`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({amount})})
       .then(r=>r.json()).then(({clientSecret})=>{if(clientSecret)setPayClientSecret(clientSecret);}).catch(()=>{});
@@ -3729,9 +3726,8 @@ export default function App(){
                 <div>
                   <div style={{fontSize:15,fontWeight:900,color:WHITE,marginBottom:16}}>Paiement sécurisé 🔒</div>
                   <div style={{background:BG2,borderRadius:14,padding:16,marginBottom:20,border:`1px solid ${BORDER}`}}>
-                    {(()=>{const hasD=(profil?.points||0)>=1000;const base=(selEv?.price||0)*qty;const discounted=hasD?Math.round(base*0.7*100)/100:base;const total=withFees(discounted);const fees=feeAmount(discounted);return(<>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WHITE,fontWeight:700,marginBottom:6}}><span>{selEv?.title} × {qty}</span><span>CHF {discounted}</span></div>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:GRAY,marginBottom:8}}><span>Frais de service</span><span>CHF {fees}</span></div>
+                    {(()=>{const hasD=(profil?.points||0)>=1000;const base=(selEv?.price||0)*qty;const total=hasD?Math.round(base*0.7*100)/100:base;return(<>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WHITE,fontWeight:700,marginBottom:6}}><span>{selEv?.title} × {qty}</span><span>CHF {total}</span></div>
                       <div style={{borderTop:`1px solid ${BORDER}`,paddingTop:8,display:"flex",justifyContent:"space-between",fontSize:14,color:PINK,fontWeight:900}}><span>Total</span><span>CHF {total}</span></div>
                     </>);})()}
                   </div>
