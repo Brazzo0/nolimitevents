@@ -1520,6 +1520,7 @@ export default function App(){
   },[authUser]);
 
   useEffect(()=>{
+    const timeout=setTimeout(()=>{setAuthUser(null);setAuthLoading(false);},5000);
     supabase.auth.getSession().then(async({data:{session}})=>{
       try{
         if(session){
@@ -1530,12 +1531,12 @@ export default function App(){
           setAuthUser(null);
         }
       } catch{setAuthUser(null);}
-      finally{setAuthLoading(false);}
-    }).catch(()=>{setAuthUser(null);setAuthLoading(false);});
+      finally{clearTimeout(timeout);setAuthLoading(false);}
+    }).catch(()=>{clearTimeout(timeout);setAuthUser(null);setAuthLoading(false);});
     const{data:{subscription}}=supabase.auth.onAuthStateChange((_,session)=>{
       setAuthUser(session?.user||null);
     });
-    return()=>subscription.unsubscribe();
+    return()=>{clearTimeout(timeout);subscription.unsubscribe();};
   },[]);
   const doLogin=async()=>{
     setLoginErr("");
