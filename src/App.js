@@ -7,6 +7,8 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { Stripe as StripeNative } from '@capacitor-community/stripe';
 import { Capacitor } from '@capacitor/core';
+import OneSignal from '@onesignal/capacitor-plugin';
+const ONESIGNAL_APP_ID = "d556b423-11a9-4d71-b60f-62c935d7b4a6";
 const supabase=createClient("https://eypfrylitsaplkqpyxsh.supabase.co","eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5cGZyeWxpdHNhcGxrcXB5eHNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4Mzg3MTMsImV4cCI6MjA5MzQxNDcxM30.Mo5cYeMahhmNwwHQId4Jc26BVgCSGAGiWapRWIHOK8s");
 const stripePromise=loadStripe("pk_live_51TTVaDFUXKzLhWzmPzssbExHX18VMOToe84YxYDRBSJOte5YQVUAYyyPs4abetTYlnf3FUZCRyST5jC7ZfQGLdWp00MVOLOkKj");
 
@@ -1007,7 +1009,7 @@ function NavBar({current,onNav,onProfil,onEvents,onTickets,onGroups}){
   );
 }
 
-function AdminEventRow({ev,onEdit,onToggle,onDelete,onUpload,onEnd,onPublish,onPhase,index}){
+function AdminEventRow({ev,tickets,onEdit,onToggle,onDelete,onUpload,onEnd,onPublish,onPhase,index}){
   const pct=Math.round((ev.ticketsSold/ev.capacity)*100);
   return(
     <div style={{background:ev.ended?"rgba(255,255,255,.03)":BG2,borderRadius:18,marginBottom:12,overflow:"hidden",border:ev.ended?"1px solid rgba(255,255,255,.1)":`1px solid ${BORDER}`,opacity:ev.ended?.6:1}}>
@@ -1403,14 +1405,20 @@ export default function App(){
           }
           setTickets(prev=>[...prev,...newTs]);
           try{
-            const{data:evData}=await supabase.from("events").select("*").eq("id",pending.eventId).single();
-            if(evData){
+            const pQty=pending.qty||1;
+            for(let attempt=0;attempt<5;attempt++){
+              const{data:evData}=await supabase.from("events").select("*").eq("id",pending.eventId).single();
+              if(!evData)break;
               const ap=evData.active_phase||1;
-              const newSold=(evData.tickets_sold||0)+(pending.qty||1);
-              const newPhaseSold=(evData[`phase${ap}_sold`]||0)+(pending.qty||1);
+              const currentSold=evData.tickets_sold||0;
+              const currentPhaseSold=evData[`phase${ap}_sold`]||0;
               const phaseCap=evData[`phase${ap}_capacity`]||0;
-              await supabase.from("events").update({tickets_sold:newSold,[`phase${ap}_sold`]:newPhaseSold}).eq("id",pending.eventId);
-              if(phaseCap>0&&newPhaseSold>=phaseCap&&ap<3){const np=ap+1;const npr=evData[`phase${np}_price`]||0;if(npr)await supabase.from("events").update({active_phase:np,price:npr}).eq("id",pending.eventId);}
+              const{data:updated}=await supabase.from("events").update({tickets_sold:currentSold+pQty,[`phase${ap}_sold`]:currentPhaseSold+pQty}).eq("id",pending.eventId).eq("tickets_sold",currentSold).select();
+              if(updated&&updated.length>0){
+                if(phaseCap>0&&(currentPhaseSold+pQty)>=phaseCap&&ap<3){const np=ap+1;const npr=evData[`phase${np}_price`]||0;if(npr)await supabase.from("events").update({active_phase:np,price:npr}).eq("id",pending.eventId);}
+                break;
+              }
+              await new Promise(r=>setTimeout(r,100+Math.random()*150));
             }
           }catch{}
         })();
@@ -1425,8 +1433,9 @@ export default function App(){
     const base=(selEv.price||0)*qty;
     const amount=hasD?Math.round(base*0.7*100)/100:base;
     setPayClientSecret(null);
-    fetch(`${API_BASE}/api/create-payment-intent`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({amount})})
-      .then(r=>r.json()).then(({clientSecret})=>{if(clientSecret)setPayClientSecret(clientSecret);}).catch(()=>{});
+    supabase.functions.invoke('create-payment-intent',{body:{amount}})
+      .then(({data,error})=>{if(error||!data?.clientSecret)throw new Error(error?.message||"no secret");setPayClientSecret(data.clientSecret);})
+      .catch(e=>{console.error("PaymentIntent error:",e);setPayClientSecret("error");});
   },[payStep,selEv?.id,qty]);
 
   useEffect(()=>{
@@ -1434,9 +1443,14 @@ export default function App(){
   },[screen,twintSuccess]);
 
   useEffect(()=>{
-    const sub=supabase.channel("nle").on("postgres_changes",{event:"*",schema:"public",table:"events"},()=>{
-      dbLoadEvents().then(evs=>{if(evs&&evs.length>0)setEvents(evs);});
-    }).subscribe();
+    const sub=supabase.channel("nle")
+      .on("postgres_changes",{event:"*",schema:"public",table:"events"},()=>{
+        dbLoadEvents().then(evs=>{if(evs&&evs.length>0)setEvents(evs);});
+      })
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"tickets"},()=>{
+        dbLoadTickets().then(tix=>{if(tix)setTickets(tix);});
+      })
+      .subscribe();
     return()=>supabase.removeChannel(sub);
   },[]);
 
@@ -1474,6 +1488,9 @@ export default function App(){
     if(adminTab==="free"||adminTab==="tickets"){
       dbLoadTickets().then(tix=>{if(tix&&tix.length>=0)setTickets(tix);});
     }
+    if(adminTab==="events"){
+      dbLoadEvents().then(evs=>{if(evs&&evs.length>0)setEvents(evs);});
+    }
   },[adminTab,adminAuth]);
 
   useEffect(()=>{
@@ -1504,19 +1521,17 @@ export default function App(){
 
   useEffect(()=>{
     supabase.auth.getSession().then(async({data:{session}})=>{
-      if(session){
-        const{data:{user},error}=await supabase.auth.getUser();
-        if(error||!user){
-          await supabase.auth.signOut();
-          setAuthUser(null);
+      try{
+        if(session){
+          const{data:{user},error}=await supabase.auth.getUser();
+          if(error||!user){await supabase.auth.signOut();setAuthUser(null);}
+          else{setAuthUser(user);}
         } else {
-          setAuthUser(user);
+          setAuthUser(null);
         }
-      } else {
-        setAuthUser(null);
-      }
-      setAuthLoading(false);
-    });
+      } catch{setAuthUser(null);}
+      finally{setAuthLoading(false);}
+    }).catch(()=>{setAuthUser(null);setAuthLoading(false);});
     const{data:{subscription}}=supabase.auth.onAuthStateChange((_,session)=>{
       setAuthUser(session?.user||null);
     });
@@ -1598,6 +1613,7 @@ export default function App(){
   useEffect(()=>{if(screen==="setup-pseudo"&&profil&&profil.pseudo){setScreen("main");}  },[screen,profil]);
   useEffect(()=>{if(authUser)loadProfil(authUser.id,authUser.email);},[authUser]);
   useEffect(()=>{if(Capacitor.isNativePlatform()){StripeNative.initialize({publishableKey:"pk_live_51TTVaDFUXKzLhWzmPzssbExHX18VMOToe84YxYDRBSJOte5YQVUAYyyPs4abetTYlnf3FUZCRyST5jC7ZfQGLdWp00MVOLOkKj"}).catch(()=>{});}},[]);
+  useEffect(()=>{if(Capacitor.isNativePlatform()&&ONESIGNAL_APP_ID!=="ONESIGNAL_APP_ID"){try{OneSignal.initialize(ONESIGNAL_APP_ID);OneSignal.Notifications.requestPermission(true);}catch(e){}}},[]);
   const openEv=(ev)=>{setSelEv(events.find(e=>e.id===ev.id));setQty(1);setScreen("event");};
   const changeQty=(d)=>{setQty(q=>Math.min(10,Math.max(1,q+d)));setQtyAnim(true);setTimeout(()=>setQtyAnim(false),300);};
   const showToast=(msg,dur=4000)=>{setToast(msg);setTimeout(()=>setToast(null),dur)};
@@ -1706,19 +1722,25 @@ export default function App(){
       try{await fetch(`${API_BASE}/api/send-ticket`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:buyerEmail,name:buyerName,eventTitle:selEv.title,eventDate:selEv.date,eventLocation:selEv.location,ticketId:id})});}catch{}
     }
     setTickets(p=>[...p,...newTickets]);
-    const newSold=selEv.ticketsSold+qty;
-    const activePhase=selEv.activePhase||1;
-    const phaseSoldKey=`phase${activePhase}Sold`;
-    const phaseCapKey=`phase${activePhase}Capacity`;
-    const newPhaseSold=(selEv[phaseSoldKey]||0)+qty;
-    const phaseCap=selEv[phaseCapKey]||0;
-    const phaseUpdate={tickets_sold:newSold,[`phase${activePhase}_sold`]:newPhaseSold};
-    await supabase.from("events").update(phaseUpdate).eq("id",selEv.id);
-    setEvents(p=>p.map(e=>e.id===selEv.id?{...e,ticketsSold:newSold,[phaseSoldKey]:newPhaseSold}:e));
-    if(phaseCap>0&&newPhaseSold>=phaseCap&&activePhase<3){
-      const nextPhase=activePhase+1;
-      const nextPrice=nextPhase===2?selEv.phase2Price:selEv.phase3Price;
-      if(nextPrice){await supabase.from("events").update({active_phase:nextPhase,price:nextPrice}).eq("id",selEv.id);setEvents(p=>p.map(e=>e.id===selEv.id?{...e,activePhase:nextPhase,price:nextPrice}:e));showToast(`🎟️ Phase ${nextPhase} activée automatiquement – CHF ${nextPrice}`);}
+    for(let attempt=0;attempt<5;attempt++){
+      const{data:evData}=await supabase.from("events").select("*").eq("id",selEv.id).single();
+      if(!evData)break;
+      const activePhase=evData.active_phase||1;
+      const phaseSoldKey=`phase${activePhase}Sold`;
+      const currentSold=evData.tickets_sold||0;
+      const currentPhaseSold=evData[`phase${activePhase}_sold`]||0;
+      const phaseCap=evData[`phase${activePhase}_capacity`]||0;
+      const{data:updated}=await supabase.from("events").update({tickets_sold:currentSold+qty,[`phase${activePhase}_sold`]:currentPhaseSold+qty}).eq("id",selEv.id).eq("tickets_sold",currentSold).select();
+      if(updated&&updated.length>0){
+        const newSold=currentSold+qty;const newPhaseSold=currentPhaseSold+qty;
+        setEvents(p=>p.map(e=>e.id===selEv.id?{...e,ticketsSold:newSold,[phaseSoldKey]:newPhaseSold}:e));
+        if(phaseCap>0&&newPhaseSold>=phaseCap&&activePhase<3){
+          const nextPhase=activePhase+1;const nextPrice=nextPhase===2?evData.phase2_price:evData.phase3_price;
+          if(nextPrice){await supabase.from("events").update({active_phase:nextPhase,price:nextPrice}).eq("id",selEv.id);setEvents(p=>p.map(e=>e.id===selEv.id?{...e,activePhase:nextPhase,price:nextPrice}:e));showToast(`🎟️ Phase ${nextPhase} activée automatiquement – CHF ${nextPrice}`);}
+        }
+        break;
+      }
+      await new Promise(r=>setTimeout(r,100+Math.random()*150));
     }
     if(hasDisc&&authUser){
       const nd=Math.max(0,(profil.points||0)-1000);
@@ -1727,8 +1749,11 @@ export default function App(){
     }
   };
 
-  const totalRev=events.reduce((s,e)=>s+e.ticketsSold*e.price,0);
   const totalSold=events.reduce((s,e)=>s+e.ticketsSold,0);
+  const paidTixAll=tickets.filter(t=>t.type!=="free");
+  const grossRev=Math.round(paidTixAll.reduce((s,t)=>s+(Number(t.price)||0),0)*100)/100;
+  const netRev=Math.round((grossRev*0.985-paidTixAll.length*0.30)*100)/100;
+  const totalRev=grossRev;
   const totalCap=events.reduce((s,e)=>s+e.capacity,0);
   const freeCount=tickets.filter(t=>t.type==="free").length;
   const myTickets=authUser?tickets.filter(t=>t.email&&authUser.email&&t.email.toLowerCase()===authUser.email.toLowerCase()):[];
@@ -3136,7 +3161,8 @@ export default function App(){
                     {/* KPI */}
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
                       {[
-                        {icon:<Icon n="dollar" s={20} c={PINK}/>,label:"Revenus",val:`CHF ${totalRev}`,sub:"Total encaissé",color:PINK,bg:"rgba(255,0,128,.06)"},
+                        {icon:<Icon n="dollar" s={20} c={PINK}/>,label:"Brut",val:`CHF ${grossRev.toFixed(2)}`,sub:"Total encaissé",color:PINK,bg:"rgba(255,0,128,.06)"},
+                        {icon:<Icon n="dollar" s={20} c={"#22C55E"}/>,label:"Net Stripe",val:`CHF ${netRev>0?netRev.toFixed(2):"0.00"}`,sub:"Après frais (~1.5%+0.30)",color:"#22C55E",bg:"rgba(34,197,94,.06)"},
                         {icon:<Icon n="ticket" s={20} c={"#7B6CF6"}/>,label:"Billets",val:totalSold,sub:`sur ${totalCap} places`,color:"#7B6CF6",bg:"rgba(123,108,246,.06)"},
                         {icon:<Icon n="gift" s={20} c={GREEN}/>,label:"Gratuits",val:freeCount,sub:"Invités / Staff",color:GREEN,bg:"rgba(78,205,196,.06)"},
                         {icon:<Icon n="users" s={20} c={"#60A5FA"}/>,label:"Membres",val:adminUsersLoading?"…":adminUsers.length,sub:"Inscrits",color:"#60A5FA",bg:"rgba(96,165,250,.06)"},
@@ -3179,8 +3205,8 @@ export default function App(){
                           </div>
                           <div style={{background:BG2,borderRadius:18,padding:"16px 14px 10px",border:`1px solid ${BORDER}`,marginBottom:10}}>
                             <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}>
-                              <div><div style={{fontSize:18,fontWeight:900,color:PINK}}>CHF {totalPeriod}</div><div style={{fontSize:9,color:GRAY,marginTop:2}}>{totalCount} billet{totalCount!==1?"s":""} sur {n} jours</div></div>
-                              <div style={{textAlign:"right"}}><div style={{fontSize:11,color:GRAY}}>Moy/jour</div><div style={{fontSize:14,fontWeight:800,color:WHITE}}>CHF {Math.round(totalPeriod/n)}</div></div>
+                              <div><div style={{fontSize:18,fontWeight:900,color:PINK}}>CHF {totalPeriod.toFixed(2)}</div><div style={{fontSize:9,color:GRAY,marginTop:2}}>{totalCount} billet{totalCount!==1?"s":""} sur {n} jours</div></div>
+                              <div style={{textAlign:"right"}}><div style={{fontSize:11,color:GRAY}}>Net Stripe</div><div style={{fontSize:14,fontWeight:800,color:"#4ADE80"}}>CHF {(Math.round((totalPeriod*0.985-totalCount*0.30)*100)/100).toFixed(2)}</div></div>
                             </div>
                             {totalCount===0?(
                               <div style={{textAlign:"center",color:GRAY,fontSize:11,padding:"20px 0"}}>Aucune vente sur {n} jours</div>
@@ -3214,7 +3240,7 @@ export default function App(){
                                   <div key={i} style={{marginBottom:10}}>
                                     <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
                                       <div style={{fontSize:11,fontWeight:700,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"60%"}}>{e.title}</div>
-                                      <div style={{fontSize:11,fontWeight:900,color:PINK}}>CHF {e.rev} <span style={{color:GRAY,fontWeight:600}}>({e.count})</span></div>
+                                      <div style={{fontSize:11,fontWeight:900,color:PINK}}>CHF {e.rev.toFixed(2)} <span style={{color:GRAY,fontWeight:600}}>({e.count})</span></div>
                                     </div>
                                     <div style={{height:4,borderRadius:4,background:"rgba(255,255,255,.06)"}}>
                                       <div style={{height:"100%",borderRadius:4,background:GRAD,width:`${pct}%`,transition:"width .6s ease"}}/>
@@ -3266,7 +3292,7 @@ export default function App(){
                     {events.length===0?(
                       <div style={{textAlign:"center",padding:"40px 0"}}><div style={{fontSize:40,marginBottom:12}}>🎉</div><div style={{color:GRAY,fontSize:13}}>Aucune soirée</div></div>
                     ):(
-                      events.map((ev,i)=><AdminEventRow key={ev.id} ev={ev} index={i} onEdit={(ev)=>{setEditEv(ev);setShowEvForm(true);}} onToggle={toggleSoldOut} onEnd={toggleEnd} onDelete={(id)=>setDelConfirm(id)} onUpload={handleUpload} onPublish={togglePublished} onPhase={switchPhase}/>)
+                      events.map((ev,i)=><AdminEventRow key={ev.id} ev={ev} tickets={tickets} index={i} onEdit={(ev)=>{setEditEv(ev);setShowEvForm(true);}} onToggle={toggleSoldOut} onEnd={toggleEnd} onDelete={(id)=>setDelConfirm(id)} onUpload={handleUpload} onPublish={togglePublished} onPhase={switchPhase}/>)
                     )}
                   </div>
                 )}
@@ -3276,7 +3302,7 @@ export default function App(){
                   <div>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
                       <div style={{fontSize:10,fontWeight:900,color:GRAY,letterSpacing:2,textTransform:"uppercase"}}>TOUS ({tickets.length})</div>
-                      {tickets.filter(t=>t.type!=="free").length>0&&<div style={{background:"rgba(123,108,246,.1)",border:"1px solid rgba(123,108,246,.25)",color:"#7B6CF6",padding:"5px 12px",borderRadius:12,fontSize:10,fontWeight:900}}>CHF {tickets.filter(t=>t.type!=="free").reduce((s,t)=>s+(Number(t.price)||0),0)}</div>}
+                      {tickets.filter(t=>t.type!=="free").length>0&&<div style={{background:"rgba(123,108,246,.1)",border:"1px solid rgba(123,108,246,.25)",color:"#7B6CF6",padding:"5px 12px",borderRadius:12,fontSize:10,fontWeight:900}}>CHF {tickets.filter(t=>t.type!=="free").reduce((s,t)=>s+(Number(t.price)||0),0).toFixed(2)}</div>}
                     </div>
                     {tickets.length===0?(
                       <div style={{textAlign:"center",padding:"40px 0"}}><div style={{fontSize:40,marginBottom:12}}>🎟️</div><div style={{color:GRAY,fontSize:13}}>Aucun billet vendu</div></div>
@@ -3295,7 +3321,7 @@ export default function App(){
                           <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
                             <div style={{background:"rgba(255,255,255,.05)",borderRadius:8,padding:"3px 8px",fontSize:9,fontWeight:700,color:GRAY}}>{t.date}</div>
                             <div style={{background:t.type==="free"?"rgba(78,205,196,.12)":t.status==="valid"?"rgba(255,0,128,.12)":"rgba(136,146,160,.1)",borderRadius:8,padding:"3px 8px",fontSize:9,fontWeight:700,color:t.type==="free"?GREEN:t.status==="valid"?PINK:GRAY}}>{t.type==="free"?"GRATUIT":t.status==="valid"?"VALIDE":"UTILISÉ"}</div>
-                            {t.type!=="free"&&<div style={{background:"rgba(255,179,71,.1)",borderRadius:8,padding:"3px 8px",fontSize:9,fontWeight:700,color:"#FFB347"}}>CHF {t.price}</div>}
+                            {t.type!=="free"&&<div style={{background:"rgba(255,179,71,.1)",borderRadius:8,padding:"3px 8px",fontSize:9,fontWeight:700,color:"#FFB347"}}>CHF {Number(t.price).toFixed(2)}</div>}
                             <div style={{background:t.source==="web"?"rgba(96,165,250,.12)":"rgba(136,146,160,.08)",borderRadius:8,padding:"3px 8px",fontSize:9,fontWeight:700,color:t.source==="web"?"#60A5FA":GRAY}}>{t.source==="web"?"🌐 WEB":"📱 APP"}</div>
                           </div>
                         </div>
@@ -3731,15 +3757,12 @@ export default function App(){
                       <div style={{borderTop:`1px solid ${BORDER}`,paddingTop:8,display:"flex",justifyContent:"space-between",fontSize:14,color:PINK,fontWeight:900}}><span>Total</span><span>CHF {total}</span></div>
                     </>);})()}
                   </div>
-                  {payClientSecret?(
-                  Capacitor.isNativePlatform()?(
-                    <NativePayButton
-                      amount={(()=>{const hasD=(profil?.points||0)>=1000;const base=(selEv?.price||0)*qty;return hasD?Math.round(base*0.7*100)/100:base;})()}
-                      clientSecret={payClientSecret}
-                      onSuccess={()=>{const name=(buyerInfo.prenom+" "+buyerInfo.nom).trim()||"Client";const email=buyerInfo.email||"";addPaidTicket(email,name);setPayStep(2);}}
-                      pendingData={{eventId:selEv?.id,event:selEv?.title,date:selEv?.date,time:selEv?.time,location:selEv?.location,buyerName:(buyerInfo.prenom+" "+buyerInfo.nom).trim()||"Client",buyerEmail:buyerInfo.email,qty,unitPrice:(()=>{const hasD=(profil?.points||0)>=1000;const base=(selEv?.price||0);return hasD?Math.round(base*0.7*100)/100:base;})()}}
-                    />
-                  ):(
+                  {payClientSecret==="error"?(
+                    <div style={{textAlign:"center",padding:20}}>
+                      <div style={{color:"#FF4444",fontSize:14,marginBottom:12}}>❌ Erreur de connexion au serveur de paiement.</div>
+                      <button onClick={()=>{const hasD=(profil?.points||0)>=1000;const base=(selEv?.price||0)*qty;const amount=hasD?Math.round(base*0.7*100)/100:base;setPayClientSecret(null);supabase.functions.invoke('create-payment-intent',{body:{amount}}).then(({data,error})=>{if(error||!data?.clientSecret){setPayClientSecret("error");return;}setPayClientSecret(data.clientSecret);}).catch(()=>setPayClientSecret("error"));}} style={{background:PINK,color:WHITE,border:"none",borderRadius:12,padding:"10px 24px",fontWeight:900,fontSize:14,cursor:"pointer"}}>Réessayer</button>
+                    </div>
+                  ):payClientSecret?(
                   <Elements stripe={stripePromise} options={{clientSecret:payClientSecret,appearance:{theme:"night",variables:{colorPrimary:"#FF0080",colorBackground:"#1C2430",colorText:"#FFFFFF",colorDanger:"#FF4444",fontFamily:"DM Sans,sans-serif",borderRadius:"12px"}}}}>
                     <StripePayForm
                       amount={(()=>{const hasD=(profil?.points||0)>=1000;const base=(selEv?.price||0)*qty;return hasD?Math.round(base*0.7*100)/100:base;})()}
@@ -3747,7 +3770,7 @@ export default function App(){
                       pendingData={{eventId:selEv?.id,event:selEv?.title,date:selEv?.date,time:selEv?.time,location:selEv?.location,buyerName:(buyerInfo.prenom+" "+buyerInfo.nom).trim()||"Client",buyerEmail:buyerInfo.email,qty,unitPrice:(()=>{const hasD=(profil?.points||0)>=1000;const base=(selEv?.price||0);return hasD?Math.round(base*0.7*100)/100:base;})()}}
                     />
                   </Elements>
-                  )):(
+                  ):(
                     <div style={{textAlign:"center",padding:30,color:GRAY,fontSize:14}}>⏳ Initialisation…</div>
                   )}
                 </div>
