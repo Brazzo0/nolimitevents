@@ -1541,7 +1541,7 @@ export default function App(){
   const doLogin=async()=>{
     setLoginErr("");
     const{error}=await supabase.auth.signInWithPassword({email:loginEmail,password:loginPass});
-    if(error){setLoginErr("Email ou mot de passe incorrect ❌");}
+    if(error){setLoginErr(error.message||"Email ou mot de passe incorrect ❌");}
     else{localStorage.setItem("nle_saved_email",loginEmail);setLoginPass("");setScreen("setup-pseudo");}
   };
   const doRegister=async()=>{
