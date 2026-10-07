@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NO LIMIT EVENTS — La Soirée Sans Limites</title>
+    <meta name="description" content="No Limit Events organise des soirées uniques. Billets, VIP, line-up et plus encore.">
+    <link rel="icon" type="image/png" href="img/logono-limit.png">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Loader -->
+    <div id="loader" class="loader">
+        <div class="loader-content">
+            <div class="loader-logo"><img src="img/logono-limit.png" alt="No Limit Events" class="loader-logo-img"></div>
+            <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <header id="navbar" class="navbar">
+        <div class="nav-container">
+            <a href="#" class="nav-logo">
+                <img src="img/logono-limit.png" alt="No Limit Events" class="logo-img">
+            </a>
+            <nav class="nav-menu" id="navMenu">
+                <a href="#events" class="nav-link">Événements</a>
+                <a href="#vip" class="nav-link">VIP</a>
+                <a href="#gallery" class="nav-link">Galerie</a>
+                <a href="#photographe" class="nav-link">Photographe</a>
+                <a href="#partenaires" class="nav-link">Partenaires</a>
+                <a href="#faq" class="nav-link">FAQ</a>
+                <a href="#contact" class="nav-link">Contact</a>
+            </nav>
+            <div class="nav-actions">
+                <a href="https://app.nolimitevents.ch/billetterie.html" target="_blank" rel="noopener" class="btn btn-primary btn-sm">Acheter des Billets</a>
+                <button class="hamburger" id="hamburger" aria-label="Menu">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Mobile Menu -->
+    <div class="mobile-menu" id="mobileMenu">
+        <div class="mobile-menu-content">
+            <a href="#events" class="mobile-link">Événements</a>
+            <a href="#vip" class="mobile-link">VIP</a>
+            <a href="#gallery" class="mobile-link">Galerie</a>
+            <a href="#photographe" class="mobile-link">Photographe</a>
+            <a href="#partenaires" class="mobile-link">Partenaires</a>
+            <a href="#faq" class="mobile-link">FAQ</a>
+            <a href="#contact" class="mobile-link">Contact</a>
+            <a href="https://app.nolimitevents.ch/billetterie.html" target="_blank" rel="noopener" class="btn btn-primary btn-lg mobile-cta">Acheter des Billets</a>
+        </div>
+    </div>
+
+    <!-- Hero Section -->
+    <section class="hero" id="hero">
+        <div class="hero-bg">
+            <div class="hero-gradient"></div>
+            <div class="hero-particles" id="heroParticles"></div>
+        </div>
+        <div class="hero-content">
+            <p class="hero-subtitle reveal-up">BIENVENUE CHEZ</p>
+            <div class="hero-logo-wrap reveal-up">
+                <img src="img/logono-limit.png" alt="No Limit Events" class="hero-logo-img">
+            </div>
+            <p class="hero-tagline reveal-up">La Soirée Sans Limites</p>
+            <p class="hero-desc reveal-up">Nous organisons des soirées uniques.</p>
+            <div class="hero-cta reveal-up">
+                <a href="#events" class="btn btn-primary btn-lg">Prochain Event</a>
+                <a href="#vip" class="btn btn-outline btn-lg">Réserver VIP</a>
+            </div>
+        </div>
+        <div class="hero-scroll">
+            <div class="scroll-indicator">
+                <span>Scroll</span>
+                <div class="scroll-line"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Prochains Événements -->
+    <section class="section events" id="events">
+        <div class="container">
+            <div class="section-header center">
+                <p class="section-label reveal-up">Prochains Événements</p>
+                <h2 class="section-title reveal-up">NE MANQUEZ PAS ÇA</h2>
+            </div>
+
+            <!-- Events Slider -->
+            <div class="events-slider reveal-up">
+                <div class="events-slider-track" id="eventsTrack">
+                    <!-- Slide 1 — 24 Avril -->
+                    <div class="events-slide">
+                        <div class="event-featured">
+                            <div class="event-featured-image" style="position:relative;">
+                                <img src="img/NO-LIMIT-affiche.png" alt="No Limit Party - 24 Avril" class="event-featured-img" style="opacity:0.6;">
+                                <div style="position:absolute;top:12px;left:12px;display:flex;gap:8px;">
+                                    <span style="background:#FF0080;color:#fff;font-weight:900;font-size:11px;padding:5px 12px;border-radius:20px;letter-spacing:1px;text-transform:uppercase;">Sold Out</span>
+                                    <span style="background:rgba(255,255,255,0.15);color:#fff;font-weight:800;font-size:11px;padding:5px 12px;border-radius:20px;letter-spacing:1px;text-transform:uppercase;backdrop-filter:blur(4px);">Terminé</span>
+                                </div>
+                            </div>
+                            <div class="event-featured-info">
+                                <h3 class="event-featured-name">NO LIMIT PARTY #1</h3>
+                                <div class="event-genres">
+                                    <span class="event-genre">Shatta</span>
+                                    <span class="event-genre">Latino</span>
+                                    <span class="event-genre">Hip-Hop</span>
+                                </div>
+                                <div class="event-meta">
+                                    <span class="event-meta-item">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                                        Eden Night Club
+                                    </span>
+                                    <span class="event-meta-item">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                        Vendredi 24 Avril 2026
+                                    </span>
+                                    <span class="event-meta-item">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></svg>
+                                        Âge : 16+
+                                    </span>
+                                </div>
+                                <div class="event-lineup">
+                                    <p class="event-lineup-label">LINE-UP</p>
+                                    <div class="event-lineup-names">
+                                        <span>DJ FAB</span>
+                                        <span>DJ NOXX</span>
+                                        <span>TONZER</span>
+                                        <span>HUMTO</span>
+                                    </div>
+                                </div>
+                                <div class="event-actions">
+                                    <div style="width:100%;padding:12px 0;border-radius:10px;background:rgba(255,255,255,0.07);text-align:center;font-weight:900;font-size:14px;color:#888;letter-spacing:2px;text-transform:uppercase;border:1px solid rgba(255,255,255,0.1);">Événement terminé</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="events-slider-controls" id="eventsControls" style="display:none;">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- VIP -->
+    <section class="section vip-section" id="vip">
+        <div class="container">
+            <div class="section-header center">
+                <p class="section-label reveal-up">Tables &amp; Expériences VIP</p>
+                <h2 class="section-title reveal-up">RÉSERVATION VIP</h2>
+                <p class="section-desc reveal-up">Élève ta soirée avec nos formules VIP exclusives.</p>
+            </div>
+            <div class="vip-grid">
+                <!-- Silver -->
+                <div class="vip-card reveal-up">
+                    <div class="vip-card-emoji">🥈</div>
+                    <h3>Silver</h3>
+                    <p class="vip-subtitle">Duo VIP</p>
+                    <p class="vip-capacity">80 places disponibles</p>
+                    <p class="vip-table-info">Pas de table</p>
+                    <ul class="vip-features">
+                        <li><span class="vip-feat-icon">👥</span> Pour 2 personnes</li>
+                        <li><span class="vip-feat-icon">🚪</span> Entrée VIP prioritaire</li>
+                        <li><span class="vip-feat-icon">🍹</span> 1 verre offert / personne</li>
+                        <li><span class="vip-feat-icon">⭐</span> Accès expérience VIP</li>
+                    </ul>
+                    <p class="vip-price">90 CHF</p>
+                    <a href="#contact" class="btn btn-outline btn-sm">Réserver</a>
+                </div>
+                <!-- Gold -->
+                <div class="vip-card featured reveal-up">
+                    <div class="vip-badge">Le + demandé ⭐</div>
+                    <div class="vip-card-emoji">🥇</div>
+                    <h3>Gold</h3>
+                    <p class="vip-subtitle">Le classique</p>
+                    <p class="vip-capacity">12 tables disponibles</p>
+                    <p class="vip-table-info">Table réservée</p>
+                    <ul class="vip-features">
+                        <li><span class="vip-feat-icon">👥</span> Pour 5 personnes</li>
+                        <li><span class="vip-feat-icon">🍾</span> 1 bouteille incluse</li>
+                        <li><span class="vip-feat-icon">🥤</span> Softs inclus</li>
+                        <li><span class="vip-feat-icon">🚪</span> Entrée prioritaire</li>
+                    </ul>
+                    <p class="vip-price">280 CHF</p>
+                    <a href="#contact" class="btn btn-primary btn-sm">Réserver</a>
+                </div>
+                <!-- Premium -->
+                <div class="vip-card reveal-up">
+                    <div class="vip-card-emoji">💎</div>
+                    <h3>Premium</h3>
+                    <p class="vip-subtitle">Ultimate VIP</p>
+                    <p class="vip-capacity">1 table exclusive</p>
+                    <p class="vip-table-info">Table réservée</p>
+                    <ul class="vip-features">
+                        <li><span class="vip-feat-icon">👥</span> Pour 10 personnes</li>
+                        <li><span class="vip-feat-icon">🍾</span> 2 bouteilles incluses</li>
+                        <li><span class="vip-feat-icon">🥤</span> Softs &amp; snacks</li>
+                        <li><span class="vip-feat-icon">🚪</span> Entrée VIP</li>
+                        <li><span class="vip-feat-icon">💎</span> Expérience premium</li>
+                    </ul>
+                    <p class="vip-price">500 CHF</p>
+                    <a href="#contact" class="btn btn-outline btn-sm">Réserver</a>
+                </div>
+            </div>
+            <p class="vip-cta-note reveal-up">Pour réserver, contacte-nous sur <a href="https://instagram.com/nolimit_eventss" target="_blank" rel="noopener">@nolimit_eventss</a> ou par email.</p>
+        </div>
+    </section>
+
+    <!-- Galerie -->
+    <section class="section gallery-section" id="gallery">
+        <div class="container">
+            <div class="section-header center">
+                <p class="section-label reveal-up">Souvenirs</p>
+                <h2 class="section-title reveal-up">GALERIE</h2>
+            </div>
+            <div class="gallery-slider-outer reveal-up">
+                <div class="gallery-slider" id="gallerySlider">
+                    <div class="gallery-slider-track" id="galleryTrack">
+                        <div class="gallery-slide">
+                            <div class="gallery-item large">
+                                <video src="video/Soirée-1.MOV" type="video/quicktime" muted loop playsinline webkit-playsinline preload="metadata"></video>
+                            </div>
+                        </div>
+                        <div class="gallery-slide">
+                            <div class="gallery-item">
+                                <video src="video/Mc-da-vinte .MOV" type="video/quicktime" muted loop playsinline webkit-playsinline preload="metadata"></video>
+                            </div>
+                        </div>
+                        <div class="gallery-slide">
+                            <div class="gallery-item tall">
+                                <video src="video/Soirée-2.MOV" type="video/quicktime" muted loop playsinline webkit-playsinline preload="metadata"></video>
+                            </div>
+                        </div>
+                        <div class="gallery-slide">
+                            <div class="gallery-item">
+                                <video src="video/Mc-da-vinte-2.MOV" type="video/quicktime" muted loop playsinline webkit-playsinline preload="metadata"></video>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="gallery-slider-controls" id="galleryControls">
+                    <button class="carousel-btn" id="galleryPrev" aria-label="Précédent">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+                    </button>
+                    <div class="carousel-dots" id="galleryDots"></div>
+                    <button class="carousel-btn" id="galleryNext" aria-label="Suivant">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Photographe Résident -->
+    <section class="section photographer-section" id="photographe">
+        <div class="container">
+            <div class="section-header center">
+                <p class="section-label reveal-up">Notre artiste</p>
+                <h2 class="section-title reveal-up">PHOTOGRAPHE RÉSIDENT</h2>
+            </div>
+            <div class="photographer-card reveal-up">
+                <div class="photographer-avatar">
+                    <img src="uploads/photographer-avatar.jpg" alt="Photographe Résident" class="photographer-avatar-img">
+                </div>
+                <div class="photographer-info">
+                    <h3 class="photographer-name">@sebjqt</h3>
+                    <p class="photographer-role">Photographe Officiel</p>
+                    <p class="photographer-desc">Capture les moments les plus mémorables de nos soirées.</p>
+                    <a href="https://www.instagram.com/sebjqt" target="_blank" rel="noopener" class="btn btn-outline btn-sm photographer-link">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                            <path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/>
+                            <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+                        </svg>
+                        Suivre sur Instagram
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Partenaires -->
+    <section class="section partners-section" id="partenaires">
+        <div class="container">
+            <div class="section-header center">
+                <p class="section-label reveal-up">Collaborations</p>
+                <h2 class="section-title reveal-up">NOS PARTENAIRES</h2>
+            </div>
+            <div class="partners-grid">
+                <div class="partner-card reveal-up">
+                    <div class="partner-logo">EDEN<span>CLUB</span></div>
+                    <p>Night Club</p>
+                </div>
+                <div class="partner-card reveal-up">
+                    <div class="partner-logo">SOLUNA<span>EVENTS</span></div>
+                    <p>Événementiel</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="section faq-section" id="faq">
+        <div class="container">
+            <div class="section-header center">
+                <p class="section-label reveal-up">Questions ?</p>
+                <h2 class="section-title reveal-up">FAQ</h2>
+            </div>
+
+            <!-- Billetterie -->
+            <div class="faq-category reveal-up">
+                <h3 class="faq-category-title">Billetterie</h3>
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>Comment acheter un billet ?</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Les billets sont disponibles en ligne via notre site ou nos liens de billetterie. Suis-nous sur <a href="https://instagram.com/nolimit_eventss" target="_blank" rel="noopener">@nolimit_eventss</a> pour ne rien rater.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>Puis-je acheter mon billet sur place ?</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Oui, sous réserve de disponibilité. Nous recommandons fortement d'acheter en avance car nos soirées affichent souvent complet.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>Puis-je me faire rembourser mon billet ?</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Les billets ne sont ni repris ni remboursés, sauf annulation de l'événement par l'organisateur.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>Que faire si je n'ai pas reçu mon billet par e-mail ?</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Vérifie tes spams. Si tu ne le trouves toujours pas, contacte-nous à info@nolimitevents.ch avec ta confirmation de paiement.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>Mon billet est-il nominatif ?</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Oui, chaque billet est lié au nom de l'acheteur. Une pièce d'identité pourra être demandée à l'entrée.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>J'ai plusieurs billets à mon nom, est-ce un problème ?</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Non, tu peux acheter plusieurs billets. Il suffira de présenter tous les billets à l'entrée avec ta pièce d'identité.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Général -->
+            <div class="faq-category reveal-up">
+                <h3 class="faq-category-title">Général</h3>
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>Quel type d'événements organisez-vous ?</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>No Limit Events organise des soirées dans différents lieux. Chaque événement a son propre line-up, son ambiance et son lieu.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>Y a-t-il un âge minimum ?</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Oui, l'âge minimum est indiqué sur chaque événement (généralement 16+). Une pièce d'identité sera demandée.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>Puis-je sortir et revenir pendant l'événement ?</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Oui, tu es libre de monter et descendre pendant toute la soirée.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Entrée & règles -->
+            <div class="faq-category reveal-up">
+                <h3 class="faq-category-title">Entrée &amp; règles</h3>
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>Quels documents dois-je présenter à l'entrée ?</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Une pièce d'identité valide (carte d'identité ou passeport) ainsi que ton billet (numérique ou imprimé).</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>Les photos et vidéos sont-elles autorisées ?</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Oui, les photos et vidéos personnelles sont autorisées. N'hésite pas à nous taguer !</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>Peut-on consommer de l'alcool pendant les événements ?</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Oui, un bar est disponible sur place. La vente d'alcool est soumise à la législation en vigueur.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>Comment se passe la sécurité pendant les soirées ?</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>La sécurité est assurée par une équipe professionnelle présente toute la soirée pour garantir une ambiance safe.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>Y a-t-il un vestiaire ?</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Cela dépend du lieu. Les informations sont communiquées pour chaque événement.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>Y a-t-il un espace fumeur ?</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Oui, un espace fumeur est généralement prévu à l'extérieur ou dans une zone dédiée.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Booking & collaborations -->
+            <div class="faq-category reveal-up">
+                <h3 class="faq-category-title">Booking &amp; collaborations</h3>
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>Comment me faire booker ?</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Envoie ta candidature avec tes mixes / liens à info@nolimitevents.ch ou par DM sur <a href="https://instagram.com/nolimit_eventss" target="_blank" rel="noopener">@nolimit_eventss</a>.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>Comment proposer une collaboration ?</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Contacte-nous par email à info@nolimitevents.ch ou par Instagram. On est toujours ouverts aux projets créatifs.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact -->
+    <section class="section contact-section" id="contact">
+        <div class="container">
+            <div class="contact-grid">
+                <div class="contact-info reveal-up">
+                    <p class="section-label">Nous contacter</p>
+                    <h2 class="section-title">CONTACT</h2>
+                    <div class="contact-details">
+                        <div class="contact-item">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                            <div>
+                                <strong>Adresse</strong>
+                                <p>Rue de la Serre 83<br>2300 La Chaux-de-Fonds</p>
+                            </div>
+                        </div>
+                        <div class="contact-item">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="M22 6l-10 7L2 6"/></svg>
+                            <div>
+                                <strong>Email</strong>
+                                <p><a href="mailto:info@nolimitevents.ch">info@nolimitevents.ch</a></p>
+                            </div>
+                        </div>
+                        <div class="contact-item">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                            <div>
+                                <strong>Instagram</strong>
+                                <p><a href="https://instagram.com/nolimit_eventss" target="_blank" rel="noopener">@nolimit_eventss</a></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="contact-map reveal-up">
+                    <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2698.5!2d6.8247!3d47.0997!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x4790a3d4e0f0e8c7%3A0x0!2sRue+de+la+Serre+83%2C+2300+La+Chaux-de-Fonds!5e0!3m2!1sfr!2sch!4v1700000000000!5m2!1sfr!2sch" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="No Limit Events - La Chaux-de-Fonds"></iframe>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-top">
+                <div class="footer-brand">
+                    <div class="footer-logo"><img src="img/logono-limit.png" alt="No Limit Events" class="footer-logo-img"></div>
+                    <p class="footer-tagline">La Soirée Sans Limites</p>
+                </div>
+                <div class="footer-socials">
+                    <a href="https://instagram.com/nolimit_eventss" target="_blank" rel="noopener" class="social-link" aria-label="Instagram">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                    </a>
+                    <a href="#" class="social-link" aria-label="TikTok">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V9.05a8.27 8.27 0 004.76 1.5V7.12a4.83 4.83 0 01-1-.43z"/></svg>
+                    </a>
+                </div>
+            </div>
+            <div class="footer-links">
+                <div class="footer-col">
+                    <h4>Navigation</h4>
+                    <a href="#events">Événements</a>
+                    <a href="#vip">Réservation VIP</a>
+                    <a href="#gallery">Galerie</a>
+                    <a href="#photographe">Photographe</a>
+                    <a href="#partenaires">Partenaires</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Infos</h4>
+                    <a href="#faq">FAQ</a>
+                    <a href="#contact">Contact</a>
+                    <a href="https://instagram.com/nolimit_eventss" target="_blank" rel="noopener">Instagram</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Légal</h4>
+                    <a href="#">Politique de confidentialité</a>
+                    <a href="#">Politique de cookies</a>
+                    <a href="#">CGV</a>
+                </div>
+            </div>
+            <div class="footer-newsletter">
+                <div class="footer-nl-text">
+                    <h4>Reste dans la boucle</h4>
+                    <p>Abonne-toi pour recevoir les prochains events en avant-première.</p>
+                </div>
+                <form class="footer-nl-form" id="footerNewsletterForm">
+                    <input type="email" placeholder="Ton adresse email" required>
+                    <button type="submit" class="btn btn-primary btn-sm">S'abonner</button>
+                </form>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 No Limit Events. Tous droits réservés.</p>
+                <p>Fait avec passion pour la nuit.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Cookie Banner -->
+    <div class="cookie-banner" id="cookieBanner">
+        <div class="cookie-content">
+            <div class="cookie-text">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                <p>On utilise des cookies pour améliorer ton expérience. En continuant, tu acceptes notre <a href="#">Politique de cookies</a>.</p>
+            </div>
+            <div class="cookie-actions">
+                <button class="btn btn-sm btn-outline" id="cookieDecline">Refuser</button>
+                <button class="btn btn-sm btn-primary" id="cookieAccept">Accepter</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Newsletter Modal -->
+    <div class="newsletter-modal" id="newsletterModal">
+        <div class="newsletter-overlay" id="newsletterOverlay"></div>
+        <div class="newsletter-box">
+            <button class="newsletter-close" id="newsletterClose">&times;</button>
+            <div class="newsletter-content">
+                <h3>REJOINS LA FAMILIA</h3>
+                <p>Accès exclusif aux events, préventes et offres spéciales.</p>
+                <form class="newsletter-form" id="newsletterForm">
+                    <input type="email" placeholder="Ton adresse email" required>
+                    <button type="submit" class="btn btn-primary">S'abonner</button>
+                </form>
+                <p class="newsletter-small">Pas de spam. Désabonnement à tout moment.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Back to Top -->
+    <button class="back-to-top" id="backToTop" aria-label="Retour en haut">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15l-6-6-6 6"/></svg>
+    </button>
+
+    <script src="js/content.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
