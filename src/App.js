@@ -7,7 +7,6 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { Stripe as StripeNative } from '@capacitor-community/stripe';
 import { Capacitor } from '@capacitor/core';
-import OneSignal from '@onesignal/capacitor-plugin';
 const ONESIGNAL_APP_ID = "d556b423-11a9-4d71-b60f-62c935d7b4a6";
 const supabase=createClient("https://eypfrylitsaplkqpyxsh.supabase.co","eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5cGZyeWxpdHNhcGxrcXB5eHNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4Mzg3MTMsImV4cCI6MjA5MzQxNDcxM30.Mo5cYeMahhmNwwHQId4Jc26BVgCSGAGiWapRWIHOK8s");
 const stripePromise=loadStripe("pk_live_51TTVaDFUXKzLhWzmPzssbExHX18VMOToe84YxYDRBSJOte5YQVUAYyyPs4abetTYlnf3FUZCRyST5jC7ZfQGLdWp00MVOLOkKj");
@@ -1614,7 +1613,7 @@ export default function App(){
   useEffect(()=>{if(screen==="setup-pseudo"&&profil&&profil.pseudo){setScreen("main");}  },[screen,profil]);
   useEffect(()=>{if(authUser)loadProfil(authUser.id,authUser.email);},[authUser]);
   useEffect(()=>{if(Capacitor.isNativePlatform()){StripeNative.initialize({publishableKey:"pk_live_51TTVaDFUXKzLhWzmPzssbExHX18VMOToe84YxYDRBSJOte5YQVUAYyyPs4abetTYlnf3FUZCRyST5jC7ZfQGLdWp00MVOLOkKj"}).catch(()=>{});}},[]);
-  useEffect(()=>{if(Capacitor.isNativePlatform()&&ONESIGNAL_APP_ID!=="ONESIGNAL_APP_ID"){try{OneSignal.initialize(ONESIGNAL_APP_ID);OneSignal.Notifications.requestPermission(true);}catch(e){}}},[]);
+  useEffect(()=>{if(Capacitor.isNativePlatform()&&ONESIGNAL_APP_ID!=="ONESIGNAL_APP_ID"){import('@onesignal/capacitor-plugin').then(({default:OneSignal})=>{try{OneSignal.initialize(ONESIGNAL_APP_ID);OneSignal.Notifications.requestPermission(true);}catch(e){}}).catch(()=>{});}},[]);
   const openEv=(ev)=>{setSelEv(events.find(e=>e.id===ev.id));setQty(1);setScreen("event");};
   const changeQty=(d)=>{setQty(q=>Math.min(10,Math.max(1,q+d)));setQtyAnim(true);setTimeout(()=>setQtyAnim(false),300);};
   const showToast=(msg,dur=4000)=>{setToast(msg);setTimeout(()=>setToast(null),dur)};
